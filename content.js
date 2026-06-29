@@ -94,6 +94,8 @@
   function syncFullscreen() {
     if (!wrap) return;
     const fs = isFullscreen();
+    // Tuck the docked panel to the edge in fullscreen (reveals on hover).
+    wrap.classList.toggle("wt-fs", fs && !wrap.classList.contains("wt-float"));
     topLayer(wrap, fs);
     topLayer(overlay, fs);
   }
