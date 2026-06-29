@@ -13,9 +13,9 @@
   let wrap = null;
   let frame = null;
   let overlay = null;
-  let fsTab = null;
-  let fsOpen = false;
   let dragging = false;
+  // Fullscreen chat overlay (rendered inside the fullscreen element).
+  let fsRoot = null, fsMsgs = null, fsInput = null, fsHearts = null;
 
   // ---- UI injection -------------------------------------------------------
   function ensureUI() {
@@ -33,54 +33,75 @@
     overlay = document.createElement("div");
     overlay.id = "wt-overlay";
 
-    // Clickable tab to open the panel in fullscreen (the toolbar icon is hidden
-    // there). It is its OWN top-layer popover so nothing sits over it — putting
-    // it inside the pointer-events:none overlay swallowed its clicks.
-    fsTab = document.createElement("div");
-    fsTab.id = "wt-fs-tab";
-    fsTab.textContent = "💬";
-    fsTab.title = "Open WatchTogether";
-    fsTab.addEventListener("click", toggleFsOpen);
-
     const root = document.documentElement;
     root.appendChild(wrap);
     root.appendChild(overlay);
-    root.appendChild(fsTab);
   }
 
-  // Open/close the tucked panel in fullscreen, and slide the tab clear of it.
-  function toggleFsOpen(e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    fsOpen = !fsOpen;
-    if (wrap) {
-      wrap.classList.add("wt-fs"); // ensure fullscreen positioning rules apply
-      wrap.classList.remove("wt-hidden"); // base-hidden must not block interaction
-      wrap.classList.toggle("wt-fs-open", fsOpen);
-      if (fsOpen) { raise(overlay); raise(wrap); raise(fsTab); } // jump above the fullscreen element
+  // ---- Fullscreen chat overlay -------------------------------------------
+  // Popovers render BEHIND legacy/webkit fullscreen (Netflix), so for fullscreen
+  // we render a lightweight chat+reactions bar as a child of the fullscreen
+  // element itself. It relays to the real panel (iframe) over postMessage, so
+  // the WebRTC connection is never touched.
+  function isFullscreen() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function buildFsRoot() {
+    if (fsRoot) return;
+    fsRoot = document.createElement("div");
+    fsRoot.id = "wt-fs-root";
+    fsRoot.innerHTML =
+      '<div id="wt-fs-hearts"></div>' +
+      '<div id="wt-fs-tab2" title="Chat">💬</div>' +
+      '<div id="wt-fs-chat">' +
+        '<div id="wt-fs-bar"><span>💗 WatchTogether</span><button id="wt-fs-x" title="Hide">✕</button></div>' +
+        '<div id="wt-fs-msgs"></div>' +
+        '<div id="wt-fs-react">' +
+          '<button data-r="heart">❤️</button><button data-r="kiss">😘</button>' +
+          '<button data-r="fire">🔥</button><button data-r="laugh">😂</button>' +
+        '</div>' +
+        '<div id="wt-fs-compose"><input id="wt-fs-input" type="text" placeholder="Message…" /><button id="wt-fs-send">➤</button></div>' +
+      '</div>';
+    fsMsgs = fsRoot.querySelector("#wt-fs-msgs");
+    fsInput = fsRoot.querySelector("#wt-fs-input");
+    fsHearts = fsRoot.querySelector("#wt-fs-hearts");
+
+    fsRoot.querySelector("#wt-fs-tab2").addEventListener("click", () => toggleFsChat());
+    fsRoot.querySelector("#wt-fs-x").addEventListener("click", () => toggleFsChat(false));
+    fsRoot.querySelector("#wt-fs-send").addEventListener("click", fsSend);
+    fsInput.addEventListener("keydown", (e) => { if (e.key === "Enter") fsSend(); });
+    fsRoot.querySelectorAll("#wt-fs-react button").forEach((b) =>
+      b.addEventListener("click", () => frame?.contentWindow?.postMessage({ __wt: true, kind: "fs-react", reaction: b.dataset.r }, "*"))
+    );
+  }
+
+  function fsSend() {
+    const text = (fsInput.value || "").trim();
+    if (!text) return;
+    frame?.contentWindow?.postMessage({ __wt: true, kind: "fs-chat-send", text }, "*");
+    fsInput.value = "";
+  }
+
+  function toggleFsChat(force) {
+    if (!fsRoot) return;
+    const open = force != null ? force : !fsRoot.classList.contains("open");
+    fsRoot.classList.toggle("open", open);
+    if (open) setTimeout(() => fsInput && fsInput.focus(), 50);
+  }
+
+  function fsAddMsg(d) {
+    if (!fsMsgs) return;
+    const el = document.createElement("div");
+    el.className = "wt-fsm " + (d.mine ? "me" : "them");
+    if (!d.mine && d.who) {
+      const w = document.createElement("div");
+      w.className = "who"; w.textContent = d.who; el.appendChild(w);
     }
-    if (fsTab) fsTab.style.setProperty("right", fsOpen ? "372px" : "0px", "important");
-    console.log("[WatchTogether] tab clicked → fsOpen=", fsOpen,
-      "wrap.classes=", wrap && wrap.className,
-      "wrap.popoverOpen=", wrap && wrap.matches && safeMatches(wrap, ":popover-open"));
-    if (fsOpen) setTimeout(probePanel, 350);
-  }
-
-  // Logs where the panel actually is and what's painted on top of its center.
-  function probePanel() {
-    if (!wrap) return;
-    const r = wrap.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const stack = (document.elementsFromPoint(cx, cy) || [])
-      .slice(0, 5)
-      .map((el) => "#" + (el.id || el.tagName.toLowerCase()))
-      .join(" > ");
-    console.log("[WT-PANELRECT]", JSON.stringify({ left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }),
-      "centerStack:", stack);
-  }
-
-  function safeMatches(el, sel) {
-    try { return el.matches(sel); } catch (_) { return "n/a"; }
+    if (d.text) { const t = document.createElement("div"); t.textContent = d.text; el.appendChild(t); }
+    if (d.gif) { const i = document.createElement("img"); i.src = d.gif; el.appendChild(i); }
+    fsMsgs.appendChild(el);
+    fsMsgs.scrollTop = fsMsgs.scrollHeight;
   }
 
   // Players like YouTube/Netflix size the video with JS off window dimensions
@@ -111,101 +132,34 @@
 
   function togglePanel(forceShow) {
     ensureUI();
-    // In fullscreen the panel is controlled by the fs-open state, so route the
-    // toolbar click / keyboard shortcut to that (otherwise the tuck rule keeps
-    // it hidden).
-    if (isFullscreen() && !wrap.classList.contains("wt-float")) {
-      toggleFsOpen();
-      if (fsOpen) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
+    // In fullscreen, route the toolbar click / shortcut to the fullscreen chat.
+    if (isFullscreen()) {
+      buildFsRoot();
+      toggleFsChat();
       return;
     }
     const hidden = wrap.classList.contains("wt-hidden");
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
     syncPageShift();
-    syncFullscreen();
     if (show) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
   }
 
-  // Keep the panel + effects visible over native fullscreen video by promoting
-  // them to the top layer (popover). This does NOT reparent the iframe, so the
-  // WebRTC connection survives. The class/attribute toggles only when needed —
-  // a [popover] element is display:none until shown, so we remove it otherwise.
-  function topLayer(el, on) {
-    if (!el) return;
-    try {
-      if (on) {
-        if (!el.hasAttribute("popover")) el.setAttribute("popover", "manual");
-        if (el.showPopover && !safeMatches(el, ":popover-open")) el.showPopover();
-      } else {
-        if (el.hidePopover && safeMatches(el, ":popover-open")) el.hidePopover();
-        el.removeAttribute("popover");
-      }
-    } catch (err) {
-      console.log("[WatchTogether] topLayer(", el.id, on, ") failed:", err && err.message);
-    }
-  }
-
-  // Re-show an open popover so it jumps to the TOP of the top layer — needed to
-  // get above the fullscreen element, which can be inserted after we first show.
-  function raise(el) {
-    if (!el) return;
-    try {
-      if (!el.hasAttribute("popover")) el.setAttribute("popover", "manual");
-      if (safeMatches(el, ":popover-open")) el.hidePopover();
-      el.showPopover();
-    } catch (_) {}
-  }
-  function isFullscreen() {
-    return !!(document.fullscreenElement || document.webkitFullscreenElement);
-  }
+  // Mount/unmount the fullscreen chat inside the fullscreen element.
   function syncFullscreen() {
-    if (!wrap) return;
-    const fs = isFullscreen();
-    const dockFs = fs && !wrap.classList.contains("wt-float");
-    wrap.classList.toggle("wt-fs", dockFs);
-    if (!dockFs) {
-      fsOpen = false;
-      wrap.classList.remove("wt-fs-open");
-      if (fsTab) fsTab.style.right = "0px";
+    let fsEl = isFullscreen();
+    // A bare <video> can't hold children; mount in its parent instead.
+    if (fsEl && fsEl.tagName === "VIDEO") fsEl = fsEl.parentElement || fsEl;
+    if (fsEl) {
+      buildFsRoot();
+      if (fsRoot.parentElement !== fsEl) fsEl.appendChild(fsRoot); // ride into the fullscreen subtree
+    } else if (fsRoot && fsRoot.parentElement) {
+      fsRoot.classList.remove("open");
+      fsRoot.parentElement.removeChild(fsRoot);
     }
-    // Promote overlay, then the panel, then the tab LAST so the tab is the
-    // topmost top-layer element and reliably receives clicks.
-    if (fs) {
-      topLayer(overlay, true);
-      topLayer(wrap, true);
-      topLayer(fsTab, dockFs);
-      // The fullscreen element can be inserted into the top layer after we show
-      // our popovers, ending up above them. Re-raise next frame to get on top.
-      requestAnimationFrame(() => {
-        raise(overlay);
-        raise(wrap);
-        if (dockFs) raise(fsTab);
-      });
-    } else {
-      topLayer(fsTab, false);
-      topLayer(wrap, false);
-      topLayer(overlay, false);
-    }
-    console.log("[WatchTogether] fullscreen=", fs, "dockFs=", dockFs,
-      "tab.popoverOpen=", fsTab && safeMatches(fsTab, ":popover-open"),
-      "tab.display=", fsTab && getComputedStyle(fsTab).display,
-      "overlay.popoverOpen=", overlay && safeMatches(overlay, ":popover-open"),
-      "wrap.popoverOpen=", wrap && safeMatches(wrap, ":popover-open"));
   }
   document.addEventListener("fullscreenchange", syncFullscreen, true);
   document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
-
-  // DIAGNOSTIC: in fullscreen, log the element stack under each click so we can
-  // see whether something in the page is covering the panel iframe.
-  document.addEventListener("pointerdown", (e) => {
-    if (!isFullscreen()) return;
-    const stack = (document.elementsFromPoint(e.clientX, e.clientY) || [])
-      .slice(0, 5)
-      .map((el) => "#" + (el.id || el.tagName.toLowerCase()))
-      .join(" > ");
-    console.log("[WT-HIT]", e.clientX + "," + e.clientY, "stack:", stack);
-  }, true);
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.wt === "toggle") togglePanel();
@@ -348,8 +302,14 @@
   // ---- Page effects -------------------------------------------------------
   const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲" };
 
+  // Effects must live inside the fullscreen element to be visible in fullscreen.
+  function fxContainer() {
+    return isFullscreen() && fsRoot ? fsRoot : overlay;
+  }
+
   function spawnHearts(kind, count = 14) {
-    if (!overlay) return;
+    const cont = isFullscreen() && fsHearts ? fsHearts : overlay;
+    if (!cont) return;
     const emoji = HEARTS[kind] || "❤️";
     for (let i = 0; i < count; i++) {
       const el = document.createElement("div");
@@ -361,7 +321,7 @@
       el.style.setProperty("--wt-dur", 2.4 + Math.random() * 1.6 + "s");
       el.style.fontSize = 22 + Math.random() * 26 + "px";
       el.style.animationDelay = Math.random() * 0.5 + "s";
-      overlay.appendChild(el);
+      cont.appendChild(el);
       setTimeout(() => el.remove(), 4500);
     }
   }
@@ -371,8 +331,8 @@
     if (!countdownEl) {
       countdownEl = document.createElement("div");
       countdownEl.id = "wt-countdown";
-      (overlay || document.documentElement).appendChild(countdownEl);
     }
+    if (countdownEl.parentElement !== fxContainer()) fxContainer().appendChild(countdownEl);
     countdownEl.innerHTML = "";
     const span = document.createElement("div");
     span.className = "wt-num";
@@ -385,7 +345,7 @@
     const t = document.createElement("div");
     t.id = "wt-toast";
     t.textContent = text;
-    (overlay || document.documentElement).appendChild(t);
+    fxContainer().appendChild(t);
     setTimeout(() => t.remove(), 2700);
   }
 
@@ -414,6 +374,9 @@
       }
       case "reaction":
         spawnHearts(d.reaction);
+        break;
+      case "fs-chat-msg":
+        fsAddMsg(d);
         break;
       case "countdown":
         showCountdown(d.n);

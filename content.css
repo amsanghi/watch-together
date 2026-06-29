@@ -57,69 +57,64 @@ html.wt-shifted {
 /* When the video is fullscreen, the panel + effects are promoted to the top
    layer (popover) so they stay visible above it. These reset the UA popover
    chrome and re-pin our elements. */
-#wt-root[popover] {
-  top: 0 !important; right: 0 !important; bottom: auto !important; left: auto !important;
-  width: 372px !important; height: 100vh !important;
-  max-width: none !important; max-height: none !important;
-  margin: 0 !important; padding: 0 !important; border: none !important;
-  background: transparent !important; overflow: visible !important;
-}
-#wt-root.wt-float[popover] {
-  top: auto !important; right: auto !important;
-  width: 280px !important; height: 360px !important;
-}
-#wt-overlay[popover] {
-  inset: 0 !important; width: 100vw !important; height: 100vh !important;
-  max-width: none !important; max-height: none !important;
-  margin: 0 !important; padding: 0 !important; border: none !important;
-  background: transparent !important; overflow: hidden !important; pointer-events: none !important;
-}
-
-/* In fullscreen the browser forces the video to fill the screen, so we can't
-   shrink it. Instead the panel tucks fully off-screen and a 💬 tab (always
-   on-screen, clickable) slides it in/out — leaving the movie unobstructed. */
-#wt-root.wt-fs {
-  transform: translateX(110%) !important;
+/* Fullscreen chat overlay — rendered as a child of the fullscreen element
+   (popovers render behind legacy/webkit fullscreen). All !important to survive
+   the host player's styles. */
+#wt-fs-root {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
   pointer-events: none !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
 }
-#wt-root.wt-fs.wt-fs-open {
-  transform: translateX(0) !important;
-  pointer-events: auto !important;
+#wt-fs-root * { box-sizing: border-box !important; }
+#wt-fs-hearts {
+  position: absolute !important; inset: 0 !important;
+  pointer-events: none !important; overflow: hidden !important;
 }
-
-#wt-fs-tab {
-  display: flex;
-  position: fixed !important;
-  top: 50% !important;
-  right: 0 !important;
-  left: auto !important;
-  bottom: auto !important;
-  margin: 0 !important;
-  padding: 0 !important;
+#wt-fs-tab2 {
+  position: absolute !important; top: 50% !important; right: 0 !important;
   transform: translateY(-50%) !important;
-  width: 42px !important;
-  height: 76px !important;
-  max-width: none !important;
-  max-height: none !important;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px !important;
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  color: #fff !important;
+  width: 44px !important; height: 80px !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  font-size: 24px !important; cursor: pointer !important; pointer-events: auto !important;
   background: rgba(20, 20, 28, 0.96) !important;
-  border: 1px solid rgba(255, 92, 138, 0.6) !important;
-  border-right: none !important;
+  border: 1px solid rgba(255, 92, 138, 0.6) !important; border-right: none !important;
   border-radius: 16px 0 0 16px !important;
   box-shadow: -6px 0 20px rgba(0, 0, 0, 0.5) !important;
   transition: right 0.25s ease !important;
-  overflow: visible !important;
-  z-index: 2147483647 !important;
 }
-/* Hidden unless it's an open popover (i.e. only in fullscreen). */
-#wt-fs-tab:not(:popover-open) {
-  display: none !important;
+#wt-fs-root.open #wt-fs-tab2 { right: 340px !important; }
+#wt-fs-chat {
+  position: absolute !important; top: 0 !important; right: 0 !important;
+  height: 100% !important; width: 340px !important;
+  display: flex !important; flex-direction: column !important;
+  background: rgba(13, 13, 18, 0.94) !important;
+  border-left: 1px solid rgba(255, 92, 138, 0.4) !important;
+  transform: translateX(100%) !important; transition: transform 0.25s ease !important;
+  pointer-events: auto !important; color: #ececf2 !important;
 }
+#wt-fs-root.open #wt-fs-chat { transform: translateX(0) !important; }
+#wt-fs-bar {
+  display: flex !important; justify-content: space-between !important; align-items: center !important;
+  padding: 12px 14px !important; border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  font-weight: 600 !important; font-size: 14px !important;
+}
+#wt-fs-bar button { background: none !important; border: none !important; color: #fff !important; cursor: pointer !important; font-size: 18px !important; }
+#wt-fs-msgs {
+  flex: 1 !important; overflow-y: auto !important; padding: 12px !important;
+  display: flex !important; flex-direction: column !important; gap: 7px !important;
+}
+.wt-fsm { max-width: 85% !important; padding: 8px 11px !important; border-radius: 13px !important; font-size: 13px !important; line-height: 1.35 !important; word-wrap: break-word !important; }
+.wt-fsm.me { align-self: flex-end !important; background: #ff5c8a !important; color: #fff !important; }
+.wt-fsm.them { align-self: flex-start !important; background: #1d1d28 !important; }
+.wt-fsm img { max-width: 100% !important; border-radius: 9px !important; display: block !important; }
+.wt-fsm .who { font-size: 10px !important; opacity: 0.7 !important; margin-bottom: 2px !important; }
+#wt-fs-react { display: flex !important; gap: 7px !important; padding: 8px 12px !important; border-top: 1px solid rgba(255, 255, 255, 0.1) !important; }
+#wt-fs-react button { background: #1d1d28 !important; border: none !important; border-radius: 999px !important; padding: 7px 11px !important; font-size: 17px !important; cursor: pointer !important; }
+#wt-fs-compose { display: flex !important; gap: 7px !important; padding: 12px !important; border-top: 1px solid rgba(255, 255, 255, 0.1) !important; align-items: center !important; }
+#wt-fs-input { flex: 1 !important; background: #1d1d28 !important; border: 1px solid #2a2a38 !important; border-radius: 999px !important; color: #fff !important; padding: 10px 14px !important; font: inherit !important; outline: none !important; }
+#wt-fs-send { background: #ff5c8a !important; border: none !important; color: #fff !important; width: 40px !important; height: 40px !important; border-radius: 50% !important; cursor: pointer !important; font-size: 16px !important; flex: 0 0 auto !important; }
 
 /* Full-page overlay for floating hearts / countdown / pokes. */
 #wt-overlay {
