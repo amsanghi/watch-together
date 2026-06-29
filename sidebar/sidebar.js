@@ -414,8 +414,6 @@
     const chat = $("chat");
     chat.appendChild(el);
     chat.scrollTop = chat.scrollHeight;
-    // Mirror to the fullscreen chat overlay (rendered by the content script).
-    parentPost({ kind: "fs-chat-msg", mine: !!mine, who: who || settings.me, text, gif });
   }
   function addSys(text) {
     const el = document.createElement("div");
@@ -608,14 +606,6 @@
         break;
       case "state-reply":
         if (stateWaiters[d.reqId]) { stateWaiters[d.reqId](d.state); delete stateWaiters[d.reqId]; }
-        break;
-      case "fs-chat-send": {
-        const text = (d.text || "").trim();
-        if (text) { addMsg({ mine: true, text }); netSend({ t: "chat", text }); }
-        break;
-      }
-      case "fs-react":
-        sendReaction(d.reaction);
         break;
     }
   });

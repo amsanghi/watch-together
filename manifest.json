@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WatchTogether",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Watch any video together in perfect sync \u2014 with chat, voice, video, emojis, GIFs and cute couple extras. Peer-to-peer, no backend.",
   "permissions": [
     "storage",
@@ -58,6 +58,17 @@
       ],
       "world": "MAIN",
       "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "fs-inject.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
       "all_frames": false
     }
   ],

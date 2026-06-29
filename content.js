@@ -14,8 +14,6 @@
   let frame = null;
   let overlay = null;
   let dragging = false;
-  // Fullscreen chat overlay (rendered inside the fullscreen element).
-  let fsRoot = null, fsMsgs = null, fsInput = null, fsHearts = null;
 
   // ---- UI injection -------------------------------------------------------
   function ensureUI() {
@@ -36,72 +34,10 @@
     const root = document.documentElement;
     root.appendChild(wrap);
     root.appendChild(overlay);
-  }
-
-  // ---- Fullscreen chat overlay -------------------------------------------
-  // Popovers render BEHIND legacy/webkit fullscreen (Netflix), so for fullscreen
-  // we render a lightweight chat+reactions bar as a child of the fullscreen
-  // element itself. It relays to the real panel (iframe) over postMessage, so
-  // the WebRTC connection is never touched.
-  function isFullscreen() {
-    return document.fullscreenElement || document.webkitFullscreenElement || null;
-  }
-
-  function buildFsRoot() {
-    if (fsRoot) return;
-    fsRoot = document.createElement("div");
-    fsRoot.id = "wt-fs-root";
-    fsRoot.innerHTML =
-      '<div id="wt-fs-hearts"></div>' +
-      '<div id="wt-fs-tab2" title="Chat">💬</div>' +
-      '<div id="wt-fs-chat">' +
-        '<div id="wt-fs-bar"><span>💗 WatchTogether</span><button id="wt-fs-x" title="Hide">✕</button></div>' +
-        '<div id="wt-fs-msgs"></div>' +
-        '<div id="wt-fs-react">' +
-          '<button data-r="heart">❤️</button><button data-r="kiss">😘</button>' +
-          '<button data-r="fire">🔥</button><button data-r="laugh">😂</button>' +
-        '</div>' +
-        '<div id="wt-fs-compose"><input id="wt-fs-input" type="text" placeholder="Message…" /><button id="wt-fs-send">➤</button></div>' +
-      '</div>';
-    fsMsgs = fsRoot.querySelector("#wt-fs-msgs");
-    fsInput = fsRoot.querySelector("#wt-fs-input");
-    fsHearts = fsRoot.querySelector("#wt-fs-hearts");
-
-    fsRoot.querySelector("#wt-fs-tab2").addEventListener("click", () => toggleFsChat());
-    fsRoot.querySelector("#wt-fs-x").addEventListener("click", () => toggleFsChat(false));
-    fsRoot.querySelector("#wt-fs-send").addEventListener("click", fsSend);
-    fsInput.addEventListener("keydown", (e) => { if (e.key === "Enter") fsSend(); });
-    fsRoot.querySelectorAll("#wt-fs-react button").forEach((b) =>
-      b.addEventListener("click", () => frame?.contentWindow?.postMessage({ __wt: true, kind: "fs-react", reaction: b.dataset.r }, "*"))
-    );
-  }
-
-  function fsSend() {
-    const text = (fsInput.value || "").trim();
-    if (!text) return;
-    frame?.contentWindow?.postMessage({ __wt: true, kind: "fs-chat-send", text }, "*");
-    fsInput.value = "";
-  }
-
-  function toggleFsChat(force) {
-    if (!fsRoot) return;
-    const open = force != null ? force : !fsRoot.classList.contains("open");
-    fsRoot.classList.toggle("open", open);
-    if (open) setTimeout(() => fsInput && fsInput.focus(), 50);
-  }
-
-  function fsAddMsg(d) {
-    if (!fsMsgs) return;
-    const el = document.createElement("div");
-    el.className = "wt-fsm " + (d.mine ? "me" : "them");
-    if (!d.mine && d.who) {
-      const w = document.createElement("div");
-      w.className = "who"; w.textContent = d.who; el.appendChild(w);
-    }
-    if (d.text) { const t = document.createElement("div"); t.textContent = d.text; el.appendChild(t); }
-    if (d.gif) { const i = document.createElement("img"); i.src = d.gif; el.appendChild(i); }
-    fsMsgs.appendChild(el);
-    fsMsgs.scrollTop = fsMsgs.scrollHeight;
+    // Tell the page-world fullscreen redirector (fs-inject.js) that WatchTogether
+    // is active here, so fullscreen fullscreens the whole page (keeping the panel
+    // visible) instead of just the video.
+    root.setAttribute("data-wt-active", "1");
   }
 
   // Players like YouTube/Netflix size the video with JS off window dimensions
@@ -118,7 +54,8 @@
   // Shrink the page so the docked panel sits beside the video instead of over it.
   // The actual margin/max-width live in content.css (html.wt-shifted) so a
   // single-page app can't strip them off the inline style. We only toggle the
-  // class here, then fire resize so JS-sized players recompute.
+  // class here, then fire resize so JS-sized players recompute. Works in
+  // fullscreen too because fullscreen is redirected to the whole page.
   function setPageShift(on) {
     document.documentElement.classList.toggle("wt-shifted", on);
     fireResize();
@@ -132,12 +69,6 @@
 
   function togglePanel(forceShow) {
     ensureUI();
-    // In fullscreen, route the toolbar click / shortcut to the fullscreen chat.
-    if (isFullscreen()) {
-      buildFsRoot();
-      toggleFsChat();
-      return;
-    }
     const hidden = wrap.classList.contains("wt-hidden");
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
@@ -145,21 +76,10 @@
     if (show) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
   }
 
-  // Mount/unmount the fullscreen chat inside the fullscreen element.
-  function syncFullscreen() {
-    let fsEl = isFullscreen();
-    // A bare <video> can't hold children; mount in its parent instead.
-    if (fsEl && fsEl.tagName === "VIDEO") fsEl = fsEl.parentElement || fsEl;
-    if (fsEl) {
-      buildFsRoot();
-      if (fsRoot.parentElement !== fsEl) fsEl.appendChild(fsRoot); // ride into the fullscreen subtree
-    } else if (fsRoot && fsRoot.parentElement) {
-      fsRoot.classList.remove("open");
-      fsRoot.parentElement.removeChild(fsRoot);
-    }
-  }
-  document.addEventListener("fullscreenchange", syncFullscreen, true);
-  document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
+  // Re-apply the page shift when entering/leaving fullscreen (the whole page is
+  // fullscreened, so the same docked layout applies).
+  document.addEventListener("fullscreenchange", () => syncPageShift(), true);
+  document.addEventListener("webkitfullscreenchange", () => syncPageShift(), true);
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.wt === "toggle") togglePanel();
@@ -302,13 +222,8 @@
   // ---- Page effects -------------------------------------------------------
   const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲" };
 
-  // Effects must live inside the fullscreen element to be visible in fullscreen.
-  function fxContainer() {
-    return isFullscreen() && fsRoot ? fsRoot : overlay;
-  }
-
   function spawnHearts(kind, count = 14) {
-    const cont = isFullscreen() && fsHearts ? fsHearts : overlay;
+    const cont = overlay;
     if (!cont) return;
     const emoji = HEARTS[kind] || "❤️";
     for (let i = 0; i < count; i++) {
@@ -331,8 +246,8 @@
     if (!countdownEl) {
       countdownEl = document.createElement("div");
       countdownEl.id = "wt-countdown";
+      (overlay || document.documentElement).appendChild(countdownEl);
     }
-    if (countdownEl.parentElement !== fxContainer()) fxContainer().appendChild(countdownEl);
     countdownEl.innerHTML = "";
     const span = document.createElement("div");
     span.className = "wt-num";
@@ -345,7 +260,7 @@
     const t = document.createElement("div");
     t.id = "wt-toast";
     t.textContent = text;
-    fxContainer().appendChild(t);
+    (overlay || document.documentElement).appendChild(t);
     setTimeout(() => t.remove(), 2700);
   }
 
@@ -374,9 +289,6 @@
       }
       case "reaction":
         spawnHearts(d.reaction);
-        break;
-      case "fs-chat-msg":
-        fsAddMsg(d);
         break;
       case "countdown":
         showCountdown(d.n);
