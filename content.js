@@ -96,8 +96,16 @@
     const fs = isFullscreen();
     // Tuck the docked panel to the edge in fullscreen (reveals on hover).
     wrap.classList.toggle("wt-fs", fs && !wrap.classList.contains("wt-float"));
-    topLayer(wrap, fs);
-    topLayer(overlay, fs);
+    // Promote the overlay FIRST and the panel LAST so the panel is the topmost
+    // top-layer element and stays clickable (the overlay would otherwise sit on
+    // top of it and eat clicks). On exit, drop the panel first.
+    if (fs) {
+      topLayer(overlay, true);
+      topLayer(wrap, true);
+    } else {
+      topLayer(wrap, false);
+      topLayer(overlay, false);
+    }
   }
   document.addEventListener("fullscreenchange", syncFullscreen, true);
   document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
