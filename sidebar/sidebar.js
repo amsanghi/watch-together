@@ -29,7 +29,6 @@
   let micOn = false, camOn = false;
   let connectedOnce = false;
   let amInitiator = false;
-  let floatMode = false;
   let sessionRecorded = false;
   const remoteState = { mic: false, cam: false };
 
@@ -572,19 +571,6 @@
     });
   }
 
-  // ---- Layout / float / drag ---------------------------------------------
-  function togglePopout() {
-    floatMode = !floatMode;
-    document.body.classList.toggle("float", floatMode);
-    parentPost({ kind: "set-layout", mode: floatMode ? "float" : "dock" });
-  }
-  function setupDrag() {
-    const h = $("drag-handle");
-    let down = false;
-    h.addEventListener("pointerdown", (e) => { down = true; h.setPointerCapture(e.pointerId); parentPost({ kind: "drag-start" }); });
-    h.addEventListener("pointermove", (e) => { if (down) parentPost({ kind: "drag-move", dx: e.movementX, dy: e.movementY }); });
-    h.addEventListener("pointerup", (e) => { down = false; h.releasePointerCapture(e.pointerId); parentPost({ kind: "drag-end" }); });
-  }
 
   function showError(msg) {
     const el = $("connect-error");
@@ -614,7 +600,6 @@
   function init() {
     loadSettings();
     buildEmoji();
-    setupDrag();
 
     // Connection mode segmented control
     document.querySelectorAll(".seg-btn").forEach((b) =>
@@ -677,7 +662,6 @@
     });
 
     // Header buttons
-    $("btn-popout").addEventListener("click", togglePopout);
     $("btn-close").addEventListener("click", () => parentPost({ kind: "close-panel" }));
     $("btn-settings").addEventListener("click", () => showPanel("settings"));
     $("btn-save-settings").addEventListener("click", saveSettings);

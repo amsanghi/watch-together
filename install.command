@@ -14,6 +14,8 @@ REPO="amsanghi/watch-together"
 DEST="$HOME/WatchTogether"
 URL="https://github.com/$REPO/archive/refs/heads/main.zip"
 TMP="$(mktemp -d)"
+FIRST_INSTALL=0
+[ -d "$DEST" ] || FIRST_INSTALL=1
 
 echo ""
 echo "💗  Installing WatchTogether…"
@@ -33,26 +35,30 @@ rm -rf "$TMP"
 
 echo "    Installed to: $DEST"
 
-# Open Chrome on the extensions page (best effort).
-osascript -e 'tell application "Google Chrome" to activate' \
-          -e 'tell application "Google Chrome" to open location "chrome://extensions"' >/dev/null 2>&1 || true
-
-# Reveal the folder in Finder so you can drag it in.
-open "$DEST" >/dev/null 2>&1 || true
-
-cat <<'EOF'
+if [ "$FIRST_INSTALL" = "1" ]; then
+  # First install: open Chrome's extensions page so you can load it.
+  osascript -e 'tell application "Google Chrome" to activate' \
+            -e 'tell application "Google Chrome" to open location "chrome://extensions"' >/dev/null 2>&1 || true
+  cat <<EOF
 
 ────────────────────────────────────────────────────────────
-✅  Almost done — one-time setup in the Chrome tab that opened:
+✅  First-time setup (in the Chrome tab that just opened):
 
    1. Turn ON  "Developer mode"  (toggle, top-right).
    2. Click  "Load unpacked".
-   3. Select the  WatchTogether  folder that just opened in Finder.
+   3. Choose this folder:  $DEST
    4. Pin the 💗 icon to your toolbar.
 
-   That's it — click the 💗 icon on any video page to start.
-
-🔄  To UPDATE later: run this installer again, then click the
-    ↻ reload icon on the WatchTogether card in chrome://extensions.
+   Then click the 💗 icon on any video page to start.
 ────────────────────────────────────────────────────────────
 EOF
+else
+  cat <<EOF
+
+────────────────────────────────────────────────────────────
+✅  Updated.  Now reload it:  open chrome://extensions and click
+    the ↻ reload icon on the WatchTogether card (no need to
+    Load unpacked again).
+────────────────────────────────────────────────────────────
+EOF
+fi
