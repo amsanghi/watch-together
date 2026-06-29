@@ -1181,9 +1181,7 @@
     $("invite-join").addEventListener("click", acceptInvite);
     $("invite-no").addEventListener("click", hideInviteBanner);
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
-    $("btn-heartbeat").addEventListener("click", sendHeartbeat);
     $("btn-snap").addEventListener("click", sendSnap);
-    $("btn-kiss-pause").addEventListener("click", sendKissPause);
 
     // Composer
     $("btn-send").addEventListener("click", sendChat);
