@@ -52,13 +52,13 @@
   transform: translateX(-50%);
   z-index: 2147483647;
   pointer-events: none;
-  background: rgba(20, 20, 28, 0.92);
+  background: linear-gradient(135deg, #ff9dc6, #ff7eb3);
   color: #fff;
-  border: 1px solid rgba(255, 92, 138, 0.5);
-  padding: 12px 20px;
+  border: 2px solid #fff;
+  padding: 12px 22px;
   border-radius: 999px;
-  font: 600 16px/1.3 system-ui, -apple-system, sans-serif;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  font: 700 16px/1.3 "ui-rounded", system-ui, -apple-system, sans-serif;
+  box-shadow: 0 10px 34px rgba(255, 126, 179, 0.5);
   animation: wt-toast 2.6s ease-out forwards;
 }
 @keyframes wt-toast {
@@ -77,24 +77,24 @@
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  background: rgba(20, 20, 28, 0.96) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 92, 138, 0.6) !important;
+  background: #fff !important;
+  color: #6b4a59 !important;
+  border: 2px solid #ffd3e6 !important;
   padding: 12px 14px 12px 18px !important;
-  border-radius: 14px !important;
-  font: 600 14px/1.3 system-ui, -apple-system, sans-serif !important;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55) !important;
+  border-radius: 18px !important;
+  font: 700 14px/1.3 "ui-rounded", system-ui, -apple-system, sans-serif !important;
+  box-shadow: 0 12px 36px rgba(255, 126, 179, 0.4) !important;
   max-width: 80vw !important;
   animation: wt-toast 0.3s ease-out !important;
 }
 #wt-join .wt-join-text { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
 #wt-join .wt-join-go {
-  background: #ff5c8a !important; color: #fff !important; border: none !important;
-  padding: 8px 14px !important; border-radius: 999px !important; cursor: pointer !important;
-  font: 700 13px system-ui, sans-serif !important; flex: 0 0 auto !important;
+  background: linear-gradient(135deg, #ff9dc6, #ff7eb3) !important; color: #fff !important; border: none !important;
+  padding: 9px 16px !important; border-radius: 999px !important; cursor: pointer !important;
+  font: 700 13px "ui-rounded", system-ui, sans-serif !important; flex: 0 0 auto !important;
 }
 #wt-join .wt-join-x {
-  background: transparent !important; color: #aaa !important; border: none !important;
+  background: transparent !important; color: #c39bb0 !important; border: none !important;
   cursor: pointer !important; font-size: 15px !important; flex: 0 0 auto !important; padding: 4px !important;
 }
 
