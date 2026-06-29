@@ -371,7 +371,18 @@
     } catch (e) {
       mediaDenied = true;
       updateMediaButtons();
-      addSys(`Couldn't turn on the ${kind === "video" ? "camera" : "microphone"} — allow it (🎥 icon near the address bar, or chrome://settings) then tap again.`);
+      const dev = kind === "video" ? "camera" : "microphone";
+      const name = (e && e.name) || "error";
+      console.log("[WT] getUserMedia(" + kind + ") failed:", name, e && e.message);
+      let why;
+      if (name === "NotAllowedError" || name === "SecurityError")
+        why = `access is blocked. Open chrome://settings/content/${kind === "video" ? "camera" : "microphone"}, remove/allow this extension, then reopen the panel`;
+      else if (name === "NotReadableError" || name === "AbortError")
+        why = `the ${dev} is in use by another app or tab — close it and tap again`;
+      else if (name === "NotFoundError" || name === "OverconstrainedError")
+        why = `no ${dev} was found on this computer`;
+      else why = `couldn't access it (${name})`;
+      addSys(`Couldn't turn on the ${dev} — ${why}.`);
       return false;
     }
   }
