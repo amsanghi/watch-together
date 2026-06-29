@@ -50,14 +50,14 @@ Do this on **both** computers.
 
 > Tip: hit the **3·2·1 ▶** button to start the movie at the exact same second.
 
-## GIFs (optional)
+## GIFs
 
-GIF search needs a free Giphy API key:
+GIF search works out of the box — a Giphy API key is built in, so there's nothing to set up.
 
-1. Sign up at [developers.giphy.com](https://developers.giphy.com) → **Create an App** → choose **API** → copy the **API key**.
-2. Open the extension → ⚙ **Settings** → paste it into **Giphy API key** → **Save**.
-
-The key is stored only in your browser's local storage. Emojis work without any key.
+Optionally, use your own key (for your own quota): sign up at
+[developers.giphy.com](https://developers.giphy.com) → **Create an App** → choose **API** → copy
+the key → extension → ⚙ **Settings** → **Giphy API key** → **Save**. It's stored only in your
+browser's local storage and overrides the built-in key.
 
 ---
 

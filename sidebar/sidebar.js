@@ -10,8 +10,13 @@
   const $ = (id) => document.getElementById(id);
   const parentPost = (msg) => window.parent.postMessage({ __wt: true, ...msg }, "*");
 
+  // Built-in Giphy key so GIFs work out of the box with no setup.
+  // (Public repo: this key is intentionally shipped. Regenerate at
+  // developers.giphy.com if it ever gets abused.)
+  const DEFAULT_GIPHY_KEY = "4AV58X7gVu01rrXsHmbiuxsJ9kIBeZIw";
+
   // ---- State --------------------------------------------------------------
-  let settings = { me: "You", partner: "Partner", giphyKey: "", autocam: true };
+  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true };
   let peer = null;          // PeerJS instance (broker mode)
   let conn = null;          // PeerJS DataConnection
   let currentCall = null;   // PeerJS MediaConnection
@@ -32,6 +37,7 @@
   function loadSettings() {
     chrome.storage.local.get(["wt_settings"], (r) => {
       if (r.wt_settings) settings = { ...settings, ...r.wt_settings };
+      if (!settings.giphyKey) settings.giphyKey = DEFAULT_GIPHY_KEY; // fall back to built-in key
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
       $("set-partner").value = settings.partner;
