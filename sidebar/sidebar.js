@@ -437,7 +437,24 @@
         remoteState.mic = d.mic; remoteState.cam = d.cam;
         updateRemoteTile();
         break;
+      case "invite":
+        // Partner invited us to a video → show the Join banner on our page.
+        parentPost({ kind: "invite", url: d.url, title: d.title, fromName: settings.partner });
+        addSys(`${settings.partner} invited you to watch — check the page for the Join button 💌`);
+        break;
+      case "invite-ack":
+        addSys(`${settings.partner} is joining 💞`);
+        break;
     }
+  }
+
+  // Invite the partner to the video in the active tab.
+  async function sendInvite() {
+    if (!connectedOnce) { addSys("Not connected yet — pair first."); return; }
+    const s = await getPageState();
+    if (!s || !s.url || /^chrome|^about:|^edge/.test(s.url)) { addSys("Open a video page first, then invite."); return; }
+    netSend({ t: "invite", url: s.url, title: s.title });
+    addSys(`Invite sent to ${settings.partner} 💌`);
   }
 
   // ---- Page state request (ask the active tab's content script) ----------
@@ -658,6 +675,9 @@
         // A tab (re)loaded — if it followed a Join, re-sync it to the partner.
         if (d.following && connectedOnce) netSend({ t: "sync-req" });
         break;
+      case "invite-accepted":
+        if (connectedOnce) netSend({ t: "invite-ack" });
+        break;
     }
   });
 
@@ -688,6 +708,7 @@
     document.querySelectorAll(".cute-btn[data-react]").forEach((b) =>
       b.addEventListener("click", () => sendReaction(b.dataset.react))
     );
+    $("btn-invite").addEventListener("click", sendInvite);
     $("btn-countdown").addEventListener("click", () => runCountdown(true));
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
 

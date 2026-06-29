@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "WatchTogether",
-  "version": "2.0.0",
-  "description": "Watch any video together in perfect sync — with chat, voice, video, emojis, GIFs and cute couple extras. Peer-to-peer, no backend.",
+  "version": "2.1.0",
+  "description": "Watch any video together in perfect sync \u2014 with chat, voice, video, emojis, GIFs and cute couple extras. Peer-to-peer, no backend.",
   "permissions": [
     "storage",
     "sidePanel",
@@ -24,7 +24,7 @@
     }
   },
   "action": {
-    "default_title": "WatchTogether — open panel",
+    "default_title": "WatchTogether \u2014 open panel",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

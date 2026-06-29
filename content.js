@@ -105,11 +105,9 @@
   function sameVideo(a, b) { return videoKey(a) === videoKey(b); }
 
   function applyVideo(d) {
-    // Follow: partner is on a different video → offer to jump there.
-    if (d.url && !sameVideo(d.url, location.href)) {
-      showJoinBanner(d.url, d.title, d.fromName);
-      return;
-    }
+    // Different video → do nothing automatically. Following only happens via an
+    // explicit invite (the "invite" message → Join banner).
+    if (d.url && !sameVideo(d.url, location.href)) return;
     if (!video) attach(pickVideo());
     if (!video) return;
     guard();
@@ -198,10 +196,10 @@
 
   // ---- Follow: "Join what my partner is watching" banner ------------------
   let joinBanner = null, joinBannerKey = null, joinDismissedKey = null;
-  function showJoinBanner(url, title, fromName) {
+  function showJoinBanner(url, title, fromName, force) {
     if (!url) return;
     const key = videoKey(url);
-    if (key === joinDismissedKey) return;
+    if (!force && key === joinDismissedKey) return;
     if (joinBannerKey === key && joinBanner) return;
     if (joinBanner) joinBanner.remove();
     joinBannerKey = key;
@@ -213,6 +211,7 @@
     joinBanner.querySelector(".wt-join-text").textContent = `💗 ${who} is watching ${what}`;
     joinBanner.querySelector(".wt-join-go").addEventListener("click", () => {
       try { sessionStorage.setItem("wt_follow", "1"); } catch (_) {}
+      toPanel({ kind: "invite-accepted" });
       location.href = url;
     });
     joinBanner.querySelector(".wt-join-x").addEventListener("click", () => { joinBanner.remove(); joinBanner = null; joinBannerKey = null; joinDismissedKey = key; });
@@ -224,6 +223,7 @@
     if (!msg || msg.__wt !== true) return;
     switch (msg.kind) {
       case "apply-video": applyVideo(msg); break;
+      case "invite": showJoinBanner(msg.url, msg.title, msg.fromName, true); break;
       case "reaction": spawnHearts(msg.reaction); break;
       case "countdown": showCountdown(msg.n); break;
       case "poke": shake(); toast(msg.text || "💗 misses you!"); break;
