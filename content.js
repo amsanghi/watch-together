@@ -13,6 +13,8 @@
   let wrap = null;
   let frame = null;
   let overlay = null;
+  let fsTab = null;
+  let fsOpen = false;
   let dragging = false;
 
   // ---- UI injection -------------------------------------------------------
@@ -31,9 +33,25 @@
     overlay = document.createElement("div");
     overlay.id = "wt-overlay";
 
+    // Clickable tab used to open the panel in fullscreen (the toolbar icon is
+    // hidden there). Lives in the overlay so it rides into the top layer.
+    fsTab = document.createElement("div");
+    fsTab.id = "wt-fs-tab";
+    fsTab.textContent = "💬";
+    fsTab.title = "Open WatchTogether";
+    fsTab.addEventListener("click", toggleFsOpen);
+    overlay.appendChild(fsTab);
+
     const root = document.documentElement;
     root.appendChild(wrap);
     root.appendChild(overlay);
+  }
+
+  // Open/close the tucked panel in fullscreen, and slide the tab clear of it.
+  function toggleFsOpen() {
+    fsOpen = !fsOpen;
+    if (wrap) wrap.classList.toggle("wt-fs-open", fsOpen);
+    if (fsTab) fsTab.style.right = fsOpen ? "372px" : "0px";
   }
 
   // Players like YouTube/Netflix size the video with JS off window dimensions
@@ -94,8 +112,15 @@
   function syncFullscreen() {
     if (!wrap) return;
     const fs = isFullscreen();
-    // Tuck the docked panel to the edge in fullscreen (reveals on hover).
-    wrap.classList.toggle("wt-fs", fs && !wrap.classList.contains("wt-float"));
+    const dockFs = fs && !wrap.classList.contains("wt-float");
+    wrap.classList.toggle("wt-fs", dockFs);
+    // Show the open-tab only in fullscreen; reset open state on exit.
+    if (fsTab) fsTab.style.display = dockFs ? "flex" : "none";
+    if (!dockFs) {
+      fsOpen = false;
+      wrap.classList.remove("wt-fs-open");
+      if (fsTab) fsTab.style.right = "0px";
+    }
     // Promote the overlay FIRST and the panel LAST so the panel is the topmost
     // top-layer element and stays clickable (the overlay would otherwise sit on
     // top of it and eat clicks). On exit, drop the panel first.
