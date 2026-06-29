@@ -68,8 +68,37 @@
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
     syncPageShift();
+    syncFullscreen();
     if (show) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
   }
+
+  // Keep the panel + effects visible over native fullscreen video by promoting
+  // them to the top layer (popover). This does NOT reparent the iframe, so the
+  // WebRTC connection survives. The class/attribute toggles only when needed —
+  // a [popover] element is display:none until shown, so we remove it otherwise.
+  function topLayer(el, on) {
+    if (!el) return;
+    try {
+      if (on) {
+        if (!el.hasAttribute("popover")) el.setAttribute("popover", "manual");
+        if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
+      } else {
+        if (el.hidePopover && el.matches(":popover-open")) el.hidePopover();
+        el.removeAttribute("popover");
+      }
+    } catch (_) {}
+  }
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function syncFullscreen() {
+    if (!wrap) return;
+    const fs = isFullscreen();
+    topLayer(wrap, fs);
+    topLayer(overlay, fs);
+  }
+  document.addEventListener("fullscreenchange", syncFullscreen, true);
+  document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.wt === "toggle") togglePanel();
@@ -235,7 +264,7 @@
     if (!countdownEl) {
       countdownEl = document.createElement("div");
       countdownEl.id = "wt-countdown";
-      document.documentElement.appendChild(countdownEl);
+      (overlay || document.documentElement).appendChild(countdownEl);
     }
     countdownEl.innerHTML = "";
     const span = document.createElement("div");
@@ -249,7 +278,7 @@
     const t = document.createElement("div");
     t.id = "wt-toast";
     t.textContent = text;
-    document.documentElement.appendChild(t);
+    (overlay || document.documentElement).appendChild(t);
     setTimeout(() => t.remove(), 2700);
   }
 
@@ -295,6 +324,7 @@
         wrap.classList.toggle("wt-dock", d.mode !== "float");
         if (d.mode === "dock") { wrap.style.left = ""; wrap.style.top = ""; wrap.style.right = ""; wrap.style.bottom = ""; }
         syncPageShift();
+        syncFullscreen();
         break;
       case "close-panel":
         togglePanel(false);

@@ -54,6 +54,27 @@ html.wt-shifted {
   overflow-x: hidden !important;
 }
 
+/* When the video is fullscreen, the panel + effects are promoted to the top
+   layer (popover) so they stay visible above it. These reset the UA popover
+   chrome and re-pin our elements. */
+#wt-root[popover] {
+  top: 0 !important; right: 0 !important; bottom: auto !important; left: auto !important;
+  width: 372px !important; height: 100vh !important;
+  max-width: none !important; max-height: none !important;
+  margin: 0 !important; padding: 0 !important; border: none !important;
+  background: transparent !important; overflow: visible !important;
+}
+#wt-root.wt-float[popover] {
+  top: auto !important; right: auto !important;
+  width: 280px !important; height: 360px !important;
+}
+#wt-overlay[popover] {
+  inset: 0 !important; width: 100vw !important; height: 100vh !important;
+  max-width: none !important; max-height: none !important;
+  margin: 0 !important; padding: 0 !important; border: none !important;
+  background: transparent !important; overflow: hidden !important; pointer-events: none !important;
+}
+
 /* Full-page overlay for floating hearts / countdown / pokes. */
 #wt-overlay {
   position: fixed !important;

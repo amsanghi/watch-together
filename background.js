@@ -22,3 +22,13 @@ async function toggle(tabId) {
 chrome.action.onClicked.addListener((tab) => {
   if (tab && tab.id != null) toggle(tab.id);
 });
+
+// Keyboard shortcut (Cmd/Ctrl+Shift+Y) — works even when the toolbar icon is
+// hidden, e.g. while a video is fullscreen.
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== "toggle-panel") return;
+  if (tab && tab.id != null) toggle(tab.id);
+  else chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0] && tabs[0].id != null) toggle(tabs[0].id);
+  });
+});

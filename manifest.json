@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WatchTogether",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Watch any video together in perfect sync \u2014 with chat, voice, video, emojis, GIFs and cute couple extras. Peer-to-peer, no backend.",
   "permissions": [
     "storage",
@@ -12,6 +12,15 @@
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Show/hide the WatchTogether panel (works in fullscreen)"
+    }
   },
   "action": {
     "default_title": "WatchTogether \u2014 open panel",
