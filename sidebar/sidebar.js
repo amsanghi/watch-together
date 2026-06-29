@@ -350,7 +350,7 @@
         parentPost({ kind: "reaction", reaction: d.reaction });
         break;
       case "video":
-        parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate });
+        parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused });
         break;
       case "sync-req": {
         const s = await getPageState();
@@ -359,7 +359,7 @@
       }
       case "sync-state":
         if (d.state) {
-          parentPost({ kind: "apply-video", action: d.state.paused ? "pause" : "play", time: d.state.time, rate: d.state.rate });
+          parentPost({ kind: "apply-video", action: d.state.paused ? "pause" : "play", time: d.state.time, rate: d.state.rate, paused: d.state.paused });
           addSys(`Synced to ${settings.partner}'s spot ⏱️`);
         }
         break;
@@ -598,7 +598,7 @@
     if (!d || d.__wt !== true || e.source !== window.parent) return;
     switch (d.kind) {
       case "video-event":
-        netSend({ t: "video", action: d.action, time: d.time, rate: d.rate });
+        netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused });
         break;
       case "video-found":
         $("video-warn").classList.add("found");

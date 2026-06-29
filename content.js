@@ -95,16 +95,33 @@
     return pool[0];
   }
 
+  // Every event carries the actual play/paused state so the partner always
+  // reconciles to our real state — not just whichever discrete event fired.
   function send(action, extra) {
     frame?.contentWindow?.postMessage(
-      { __wt: true, kind: "video-event", action, time: video ? video.currentTime : 0, rate: video ? video.playbackRate : 1, ...extra },
+      {
+        __wt: true,
+        kind: "video-event",
+        action,
+        time: video ? video.currentTime : 0,
+        rate: video ? video.playbackRate : 1,
+        paused: video ? video.paused : true,
+        ...extra,
+      },
       "*"
     );
   }
 
+  // Players (Prime Video, etc.) fire a transient pause while seeking and resume
+  // afterward. Suppress that pause so we don't pause the partner; the seeked
+  // event that follows carries the true paused state.
+  let seeking = false;
+  let seekingTimer = null;
+
   const onPlay = () => { if (!suppress) send("play"); };
-  const onPause = () => { if (!suppress) send("pause"); };
-  const onSeeked = () => { if (!suppress) send("seek"); };
+  const onPause = () => { if (!suppress && !seeking) send("pause"); };
+  const onSeeking = () => { seeking = true; clearTimeout(seekingTimer); seekingTimer = setTimeout(() => { seeking = false; }, 2000); };
+  const onSeeked = () => { clearTimeout(seekingTimer); seeking = false; if (!suppress) send("seek"); };
   const onRate = () => { if (!suppress) send("rate"); };
 
   function attach(v) {
@@ -114,6 +131,7 @@
     if (!video) return;
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
+    video.addEventListener("seeking", onSeeking);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("ratechange", onRate);
     frame?.contentWindow?.postMessage({ __wt: true, kind: "video-found", found: true }, "*");
@@ -123,6 +141,7 @@
     if (!video) return;
     video.removeEventListener("play", onPlay);
     video.removeEventListener("pause", onPause);
+    video.removeEventListener("seeking", onSeeking);
     video.removeEventListener("seeked", onSeeked);
     video.removeEventListener("ratechange", onRate);
     video = null;
@@ -139,22 +158,20 @@
     if (!video) return;
     guard();
     try {
-      if (typeof d.rate === "number" && d.action !== "rate") video.playbackRate = d.rate;
-      switch (d.action) {
-        case "play":
-          if (typeof d.time === "number" && Math.abs(video.currentTime - d.time) > 0.6) video.currentTime = d.time;
-          video.play().catch(() => {});
-          break;
-        case "pause":
-          video.pause();
-          if (typeof d.time === "number") video.currentTime = d.time;
-          break;
-        case "seek":
-          if (typeof d.time === "number") video.currentTime = d.time;
-          break;
-        case "rate":
-          if (typeof d.rate === "number") video.playbackRate = d.rate;
-          break;
+      if (typeof d.rate === "number") video.playbackRate = d.rate;
+      // Match the partner's playhead (skip tiny drift to avoid stutter).
+      if (typeof d.time === "number" && Math.abs(video.currentTime - d.time) > 0.4) {
+        video.currentTime = d.time;
+      }
+      // Reconcile play/paused to the sender's actual state when known,
+      // so a seek-while-playing keeps both sides playing.
+      if (typeof d.paused === "boolean") {
+        if (d.paused && !video.paused) video.pause();
+        else if (!d.paused && video.paused) video.play().catch(() => {});
+      } else if (d.action === "play") {
+        video.play().catch(() => {});
+      } else if (d.action === "pause") {
+        video.pause();
       }
     } catch (_) {}
   }
