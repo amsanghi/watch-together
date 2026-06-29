@@ -12,14 +12,15 @@
     <!-- Header -->
     <header id="header">
       <div class="brand">
-        <span id="mascot" title="Connection status">🐻</span>
-        <span id="presence-heart" class="heart-idle">💗</span>
+        <span id="presence-heart" class="heart-idle" title="Connection status">💗</span>
         <span class="title" id="header-status">Not connected</span>
       </div>
       <div class="header-actions">
         <span id="status-dot" class="dot off" title="Disconnected"></span>
+        <button id="btn-fun" class="icon-btn" title="Cute stuff ✨">✨</button>
         <button id="btn-reconnect" class="icon-btn" title="Reconnect now">🔄</button>
-        <button id="btn-close" class="icon-btn" title="Minimize (reopen with the icon or Cmd/Ctrl+Shift+Y)">✕</button>
+        <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
+        <button id="btn-close" class="icon-btn" title="Minimize (reopen with the icon or Cmd/Ctrl+Shift+Y)">–</button>
       </div>
     </header>
 
@@ -109,10 +110,8 @@
 
       <!-- Media controls -->
       <div id="media-controls">
-        <button id="btn-mic" class="media-btn off" title="Toggle microphone">
-          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg><span>Mic</span></button>
-        <button id="btn-cam" class="media-btn off" title="Toggle camera">
-          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="13" height="12" rx="3.5"/><path d="M15 10l6-3v10l-6-3"/></svg><span>Cam</span></button>
+        <button id="btn-mic" class="media-btn off" title="Toggle microphone">🎙️<span>Mic</span></button>
+        <button id="btn-cam" class="media-btn off" title="Toggle camera">📷<span>Cam</span></button>
         <span id="video-warn" class="video-warn" title="No video detected on this page">🎬</span>
         <button id="btn-leave" class="leave-btn" title="Leave session">Leave</button>
       </div>
@@ -157,8 +156,7 @@
         <button id="btn-emoji" class="icon-btn" title="Emoji">😊</button>
         <button id="btn-gif" class="icon-btn" title="GIF">GIF</button>
         <input id="msg-input" type="text" placeholder="Message…" autocomplete="off" />
-        <button id="btn-send" class="send-btn" title="Send">
-          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3 11 14"/><path d="M22 3 15 21l-4-7-7-4z"/></svg></button>
+        <button id="btn-send" class="send-btn" title="Send">➤</button>
       </div>
 
       <!-- Stats footer -->
@@ -290,22 +288,6 @@
         </div>
       </div>
     </section>
-
-    <!-- Cute bottom navigation -->
-    <nav id="tabbar" class="hidden">
-      <button class="tab active" data-tab="home">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
-        <span>Home</span></button>
-      <button class="tab" data-tab="fun">
-        <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.5 6.9L21.5 9l-5.5 4.4L18 21 12 16.8 6 21l2-7.6L2.5 9l7-.1z"/></svg>
-        <span>Fun</span></button>
-      <button class="tab" data-tab="us">
-        <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.7-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.3-7 10-7 10z"/></svg>
-        <span>Us</span></button>
-      <button class="tab" data-tab="you">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-        <span>You</span></button>
-    </nav>
   </div>
 
   <script src="../lib/trystero.js"></script>
