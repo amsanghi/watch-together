@@ -438,11 +438,10 @@
         updateRemoteTile();
         break;
       case "invite":
-        // Show the invite in the panel (works on any page, incl. new-tab/chrome://)
-        // and also on the page itself when possible.
+        // Show the invite in the panel only (always available, works on any page
+        // including new-tab/chrome://, and it does the redirect itself).
         pendingInvite = { url: d.url, title: d.title };
         showInviteBanner(d.title);
-        parentPost({ kind: "invite", url: d.url, title: d.title, fromName: settings.partner });
         break;
       case "invite-ack":
         addSys(`${settings.partner} is joining 💞`);

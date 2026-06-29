@@ -195,35 +195,11 @@
   }
 
   // ---- Follow: "Join what my partner is watching" banner ------------------
-  let joinBanner = null, joinBannerKey = null, joinDismissedKey = null;
-  function showJoinBanner(url, title, fromName, force) {
-    if (!url) return;
-    const key = videoKey(url);
-    if (!force && key === joinDismissedKey) return;
-    if (joinBannerKey === key && joinBanner) return;
-    if (joinBanner) joinBanner.remove();
-    joinBannerKey = key;
-    joinBanner = document.createElement("div");
-    joinBanner.id = "wt-join";
-    joinBanner.innerHTML = '<span class="wt-join-text"></span><button class="wt-join-go">Join ▶</button><button class="wt-join-x" title="Dismiss">✕</button>';
-    const who = fromName || "Your partner";
-    const what = title ? `"${title.length > 60 ? title.slice(0, 57) + "…" : title}"` : "something";
-    joinBanner.querySelector(".wt-join-text").textContent = `💗 ${who} is watching ${what}`;
-    joinBanner.querySelector(".wt-join-go").addEventListener("click", () => {
-      try { sessionStorage.setItem("wt_follow", "1"); } catch (_) {}
-      toPanel({ kind: "invite-accepted" });
-      location.href = url;
-    });
-    joinBanner.querySelector(".wt-join-x").addEventListener("click", () => { joinBanner.remove(); joinBanner = null; joinBannerKey = null; joinDismissedKey = key; });
-    document.documentElement.appendChild(joinBanner);
-  }
-
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg || msg.__wt !== true) return;
     switch (msg.kind) {
       case "apply-video": applyVideo(msg); break;
-      case "invite": showJoinBanner(msg.url, msg.title, msg.fromName, true); break;
       case "reaction": spawnHearts(msg.reaction); break;
       case "countdown": showCountdown(msg.n); break;
       case "poke": shake(); toast(msg.text || "💗 misses you!"); break;
@@ -233,9 +209,6 @@
     // No async sendResponse used, so no need to return true.
   });
 
-  // Let the panel know this tab is here. If we just followed a "Join", flag it
-  // so the panel re-syncs this page to the partner's timestamp.
-  let following = false;
-  try { following = sessionStorage.getItem("wt_follow") === "1"; if (following) sessionStorage.removeItem("wt_follow"); } catch (_) {}
-  toPanel({ kind: "hello", url: location.href, title: document.title, following });
+  // Let the panel know this tab is here, so it can re-sync after a Join redirect.
+  toPanel({ kind: "hello", url: location.href, title: document.title });
 })();
