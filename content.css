@@ -80,9 +80,11 @@ html.wt-shifted {
    on-screen, clickable) slides it in/out — leaving the movie unobstructed. */
 #wt-root.wt-fs {
   transform: translateX(110%) !important;
+  pointer-events: none !important;
 }
 #wt-root.wt-fs.wt-fs-open {
   transform: translateX(0) !important;
+  pointer-events: auto !important;
 }
 
 #wt-fs-tab {

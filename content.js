@@ -48,10 +48,22 @@
   }
 
   // Open/close the tucked panel in fullscreen, and slide the tab clear of it.
-  function toggleFsOpen() {
+  function toggleFsOpen(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     fsOpen = !fsOpen;
-    if (wrap) wrap.classList.toggle("wt-fs-open", fsOpen);
+    if (wrap) {
+      wrap.classList.remove("wt-hidden"); // base-hidden must not block interaction
+      wrap.classList.toggle("wt-fs-open", fsOpen);
+      topLayer(wrap, true); // ensure it's actually in the top layer
+    }
     if (fsTab) fsTab.style.right = fsOpen ? "372px" : "0px";
+    console.log("[WatchTogether] tab clicked → fsOpen=", fsOpen,
+      "wrap.classes=", wrap && wrap.className,
+      "wrap.popoverOpen=", wrap && wrap.matches && safeMatches(wrap, ":popover-open"));
+  }
+
+  function safeMatches(el, sel) {
+    try { return el.matches(sel); } catch (_) { return "n/a"; }
   }
 
   // Players like YouTube/Netflix size the video with JS off window dimensions
@@ -99,12 +111,14 @@
     try {
       if (on) {
         if (!el.hasAttribute("popover")) el.setAttribute("popover", "manual");
-        if (el.showPopover && !el.matches(":popover-open")) el.showPopover();
+        if (el.showPopover && !safeMatches(el, ":popover-open")) el.showPopover();
       } else {
-        if (el.hidePopover && el.matches(":popover-open")) el.hidePopover();
+        if (el.hidePopover && safeMatches(el, ":popover-open")) el.hidePopover();
         el.removeAttribute("popover");
       }
-    } catch (_) {}
+    } catch (err) {
+      console.log("[WatchTogether] topLayer(", el.id, on, ") failed:", err && err.message);
+    }
   }
   function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -131,6 +145,10 @@
       topLayer(wrap, false);
       topLayer(overlay, false);
     }
+    console.log("[WatchTogether] fullscreen=", fs, "dockFs=", dockFs,
+      "tab.display=", fsTab && fsTab.style.display,
+      "overlay.popoverOpen=", overlay && safeMatches(overlay, ":popover-open"),
+      "wrap.popoverOpen=", wrap && safeMatches(wrap, ":popover-open"));
   }
   document.addEventListener("fullscreenchange", syncFullscreen, true);
   document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
