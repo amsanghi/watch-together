@@ -36,8 +36,24 @@ rm -rf "$TMP"
 echo "    Installed to: $DEST"
 
 # Always open Chrome's extensions page so the next step is one click away.
-osascript -e 'tell application "Google Chrome" to activate' \
-          -e 'tell application "Google Chrome" to open location "chrome://extensions"' >/dev/null 2>&1 || true
+# Launching Chrome's binary with the URL is the most reliable way to reach a
+# chrome:// page (AppleScript "open location" is blocked for internal pages and
+# needs Automation permission).
+open_extensions() {
+  local urls="chrome://extensions/"
+  for app in "Google Chrome" "Google Chrome Beta" "Google Chrome Canary" "Chromium" "Brave Browser" "Microsoft Edge"; do
+    local bin="/Applications/$app.app/Contents/MacOS/$app"
+    if [ -x "$bin" ]; then
+      "$bin" "$urls" >/dev/null 2>&1 &
+      return 0
+    fi
+  done
+  # Fallbacks if Chrome isn't in /Applications under a known name.
+  open -a "Google Chrome" "$urls" >/dev/null 2>&1 && return 0
+  osascript -e 'tell application "Google Chrome" to activate' \
+            -e "tell application \"Google Chrome\" to open location \"$urls\"" >/dev/null 2>&1 || true
+}
+open_extensions
 
 if [ "$FIRST_INSTALL" = "1" ]; then
   cat <<EOF
