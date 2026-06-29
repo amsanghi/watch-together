@@ -33,18 +33,19 @@
     overlay = document.createElement("div");
     overlay.id = "wt-overlay";
 
-    // Clickable tab used to open the panel in fullscreen (the toolbar icon is
-    // hidden there). Lives in the overlay so it rides into the top layer.
+    // Clickable tab to open the panel in fullscreen (the toolbar icon is hidden
+    // there). It is its OWN top-layer popover so nothing sits over it — putting
+    // it inside the pointer-events:none overlay swallowed its clicks.
     fsTab = document.createElement("div");
     fsTab.id = "wt-fs-tab";
     fsTab.textContent = "💬";
     fsTab.title = "Open WatchTogether";
     fsTab.addEventListener("click", toggleFsOpen);
-    overlay.appendChild(fsTab);
 
     const root = document.documentElement;
     root.appendChild(wrap);
     root.appendChild(overlay);
+    root.appendChild(fsTab);
   }
 
   // Open/close the tucked panel in fullscreen, and slide the tab clear of it.
@@ -128,16 +129,13 @@
     const fs = isFullscreen();
     const dockFs = fs && !wrap.classList.contains("wt-float");
     wrap.classList.toggle("wt-fs", dockFs);
-    // Show the open-tab only in fullscreen; reset open state on exit.
-    if (fsTab) fsTab.style.display = dockFs ? "flex" : "none";
     if (!dockFs) {
       fsOpen = false;
       wrap.classList.remove("wt-fs-open");
       if (fsTab) fsTab.style.right = "0px";
     }
-    // Promote the overlay FIRST and the panel LAST so the panel is the topmost
-    // top-layer element and stays clickable (the overlay would otherwise sit on
-    // top of it and eat clicks). On exit, drop the panel first.
+    // Promote overlay, then the panel, then the tab LAST so the tab is the
+    // topmost top-layer element and reliably receives clicks.
     if (fs) {
       topLayer(overlay, true);
       topLayer(wrap, true);
@@ -145,6 +143,7 @@
       topLayer(wrap, false);
       topLayer(overlay, false);
     }
+    topLayer(fsTab, dockFs); // tab visibility is driven by its popover state
     console.log("[WatchTogether] fullscreen=", fs, "dockFs=", dockFs,
       "tab.display=", fsTab && fsTab.style.display,
       "overlay.popoverOpen=", overlay && safeMatches(overlay, ":popover-open"),
