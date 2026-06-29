@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <div class="brand">
+        <span id="presence-heart" class="heart-idle" title="Connection status">💗</span>
+        <span class="title">WatchTogether</span>
+      </div>
+      <div class="header-actions">
+        <span id="status-dot" class="dot off" title="Disconnected"></span>
+        <button id="btn-popout" class="icon-btn" title="Pop out / dock camera">⤢</button>
+        <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
+        <button id="btn-close" class="icon-btn" title="Hide panel">✕</button>
+      </div>
+    </header>
+
+    <!-- Drag handle (only shown in float mode) -->
+    <div id="drag-handle" title="Drag me">⠿ camera</div>
+
+    <!-- Connection panel -->
+    <section id="connect-panel" class="panel">
+      <div class="hello">Hi <b id="me-name">you</b> 💕</div>
+
+      <div class="seg">
+        <button class="seg-btn active" data-mode="broker">Quick (room code)</button>
+        <button class="seg-btn" data-mode="manual">Manual (no broker)</button>
+      </div>
+
+      <!-- Broker mode -->
+      <div id="broker-ui" class="mode-ui">
+        <button id="btn-create" class="primary">Create a room</button>
+        <div class="or">or</div>
+        <div class="row">
+          <input id="join-code" type="text" placeholder="Enter room code" autocomplete="off" />
+          <button id="btn-join" class="primary">Join</button>
+        </div>
+        <div id="room-share" class="room-share hidden">
+          <div class="muted">Share this code with your partner:</div>
+          <div class="code-box"><code id="room-code">…</code><button id="btn-copy-code" class="icon-btn" title="Copy">⧉</button></div>
+        </div>
+      </div>
+
+      <!-- Manual mode -->
+      <div id="manual-ui" class="mode-ui hidden">
+        <p class="muted small">No broker at all. One of you is the host: create an invite, paste it to your partner (over text/Signal/etc.), and paste their reply back.</p>
+        <div class="manual-roles">
+          <button id="btn-manual-host" class="ghost">I'm hosting → create invite</button>
+          <button id="btn-manual-guest" class="ghost">I'm joining → I have an invite</button>
+        </div>
+        <div id="manual-host-ui" class="hidden">
+          <label class="muted small">1. Send this invite to your partner:</label>
+          <textarea id="host-offer" readonly placeholder="Generating…"></textarea>
+          <button id="btn-copy-offer" class="mini">Copy invite</button>
+          <label class="muted small">2. Paste their reply here:</label>
+          <textarea id="host-answer" placeholder="Paste partner's reply code"></textarea>
+          <button id="btn-host-finish" class="primary">Connect</button>
+        </div>
+        <div id="manual-guest-ui" class="hidden">
+          <label class="muted small">1. Paste the invite you received:</label>
+          <textarea id="guest-offer" placeholder="Paste invite code"></textarea>
+          <button id="btn-guest-gen" class="primary">Generate my reply</button>
+          <label class="muted small">2. Send this reply back to them:</label>
+          <textarea id="guest-answer" readonly placeholder="Your reply appears here"></textarea>
+          <button id="btn-copy-answer" class="mini">Copy reply</button>
+        </div>
+      </div>
+
+      <div id="connect-error" class="error hidden"></div>
+    </section>
+
+    <!-- Live session -->
+    <section id="live-panel" class="panel hidden">
+      <!-- Camera tiles -->
+      <div id="cam-area">
+        <div class="cam-tile">
+          <video id="local-video" autoplay muted playsinline></video>
+          <span class="cam-label" id="local-label">You</span>
+          <div class="cam-off-badge" id="local-off">cam off</div>
+        </div>
+        <div class="cam-tile">
+          <video id="remote-video" autoplay playsinline></video>
+          <span class="cam-label" id="remote-label">Partner</span>
+          <div class="cam-off-badge" id="remote-off">waiting…</div>
+        </div>
+      </div>
+
+      <!-- Media controls -->
+      <div id="media-controls">
+        <button id="btn-mic" class="media-btn off" title="Toggle microphone">🎙️<span>Mic</span></button>
+        <button id="btn-cam" class="media-btn off" title="Toggle camera">📷<span>Cam</span></button>
+        <span id="video-warn" class="video-warn" title="No video detected on this page">🎬</span>
+        <button id="btn-leave" class="leave-btn" title="Leave session">Leave</button>
+      </div>
+
+      <!-- Couple bar -->
+      <div id="couple-bar">
+        <button class="cute-btn" data-react="heart" title="Send hearts">❤️</button>
+        <button class="cute-btn" data-react="kiss" title="Blow a kiss">😘</button>
+        <button class="cute-btn" data-react="fire" title="🔥">🔥</button>
+        <button class="cute-btn" data-react="laugh" title="😂">😂</button>
+        <button id="btn-countdown" class="cute-btn wide" title="Synced 3-2-1 play">3·2·1 ▶</button>
+        <button id="btn-poke" class="cute-btn" title="Nudge / I miss you">👉💗</button>
+      </div>
+
+      <!-- Chat -->
+      <div id="chat" aria-live="polite"></div>
+      <div id="typing-ind" class="typing hidden"></div>
+
+      <!-- GIF panel -->
+      <div id="gif-panel" class="hidden">
+        <div class="gif-search-row">
+          <input id="gif-q" type="text" placeholder="Search GIFs…" />
+          <button id="gif-close" class="icon-btn">✕</button>
+        </div>
+        <div id="gif-results"></div>
+        <div id="gif-needkey" class="muted small hidden">
+          Add a free Tenor API key in ⚙ settings to search GIFs.
+        </div>
+      </div>
+
+      <!-- Emoji panel -->
+      <div id="emoji-panel" class="hidden"></div>
+
+      <!-- Composer -->
+      <div id="composer">
+        <button id="btn-emoji" class="icon-btn" title="Emoji">😊</button>
+        <button id="btn-gif" class="icon-btn" title="GIF">GIF</button>
+        <input id="msg-input" type="text" placeholder="Message…" autocomplete="off" />
+        <button id="btn-send" class="send-btn" title="Send">➤</button>
+      </div>
+
+      <!-- Stats footer -->
+      <footer id="stats">
+        <span id="streak" title="Date-night streak">🔥 0 day streak</span>
+        <span id="watch-count" title="Things watched together">🎬 0 together</span>
+        <button id="btn-history" class="link-btn">history</button>
+      </footer>
+    </section>
+
+    <!-- Settings panel -->
+    <section id="settings-panel" class="panel hidden">
+      <h3>Settings</h3>
+      <label>Your name<input id="set-me" type="text" placeholder="You" /></label>
+      <label>Partner's name<input id="set-partner" type="text" placeholder="Partner" /></label>
+      <label>Tenor GIF API key
+        <input id="set-tenor" type="text" placeholder="Paste your free Tenor key" />
+      </label>
+      <p class="muted small">Get a free key at <span class="link" id="tenor-link">tenor.com / Google Cloud → "Tenor API"</span>. Stored locally on your device only.</p>
+      <label class="check"><input id="set-autocam" type="checkbox" /> Ask for mic/cam automatically when a session starts</label>
+      <div class="settings-actions">
+        <button id="btn-save-settings" class="primary">Save</button>
+        <button id="btn-clear-history" class="ghost danger">Clear watch history</button>
+      </div>
+    </section>
+
+    <!-- History panel -->
+    <section id="history-panel" class="panel hidden">
+      <h3>Watch history 🍿</h3>
+      <div id="history-list"></div>
+      <button id="btn-history-back" class="ghost">Back</button>
+    </section>
+  </div>
+
+  <script src="../lib/peerjs.min.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>
