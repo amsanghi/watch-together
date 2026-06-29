@@ -597,6 +597,19 @@
         addMsg({ mine: false, who: settings.partner, clip: d.clip });
         addToGallery("clip", d.clip);
         break;
+      case "pb-open":
+        if ($("pb-overlay").classList.contains("hidden")) { addSys(`📸 ${settings.partner} opened the photobooth`); openPhotobooth(true); }
+        break;
+      case "pb-set":
+        applyPbSettings(d);
+        break;
+      case "pb-go":
+        (async () => {
+          if ($("pb-overlay").classList.contains("hidden")) await openPhotobooth(true);
+          applyPbSettings(d);
+          pbRun();
+        })();
+        break;
       case "kiss-pause":
         parentPost({ kind: "apply-video", action: "pause" });
         burst("kiss");
@@ -1914,21 +1927,47 @@
     neon: "saturate(2.2) contrast(1.35) hue-rotate(18deg)",
     invert: "invert(1)",
   };
-  let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false;
+  let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false, pbTimer = 3;
   let pbResult = null, pbClip = null, pbResultType = "img", pbDrawCtx = null;
   let gallery = [];
   const pbWait = (ms) => new Promise((r) => setTimeout(r, ms));
   const blobToDataURL = (blob) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
 
-  async function openPhotobooth() {
+  async function openPhotobooth(remote) {
     $("pb-overlay").classList.remove("hidden");
     $("pb-result").classList.add("hidden");
     $("pb-live").classList.remove("hidden");
+    if (!remote) netSend({ t: "pb-open" });
+    pbSyncStatus();
     if (!camOn) { try { await toggleCam(); } catch (_) {} }
     $("pb-local").srcObject = localStream;
     pbUpdatePreview();
   }
   function closePhotobooth() { $("pb-overlay").classList.add("hidden"); }
+  function pbSyncStatus() {
+    $("pb-sync").textContent = connectedOnce
+      ? `💞 Synced with ${settings.partner} — you'll snap together`
+      : "Solo mode — connect to snap together";
+  }
+  // Apply settings pushed by the partner (no rebroadcast).
+  function applyPbSettings(d) {
+    if (d.filter != null) { pbFilter = d.filter; pbSelect("pb-filters", "filter", pbFilter); }
+    if (d.mode != null) { pbMode = d.mode; pbSelect("pb-mode", "mode", pbMode); }
+    if (d.layout != null) { pbLayout = d.layout; pbSelect("pb-layout", "layout", pbLayout); }
+    if (d.sticker != null) { pbSticker = d.sticker; pbSelect("pb-stickers", "sticker", pbSticker); }
+    if (d.timer != null) { pbTimer = d.timer; pbSelect("pb-timer", "timer", String(pbTimer)); }
+    pbUpdatePreview();
+  }
+  function broadcastPbSet() {
+    netSend({ t: "pb-set", filter: pbFilter, mode: pbMode, layout: pbLayout, sticker: pbSticker, timer: pbTimer });
+  }
+  // Start a synced capture: both panels run the same timer and snap together.
+  function pbStart() {
+    if (pbBusy) return;
+    netSend({ t: "pb-go", mode: pbMode, layout: pbLayout, filter: pbFilter, sticker: pbSticker, timer: pbTimer });
+    pbRun();
+  }
+  function pbRun() { if (pbBusy) return; return pbMode === "boom" ? pbRunClip() : pbRunPhoto(); }
   function pbUpdatePreview() {
     const rv = $("pb-remote");
     const useUs = pbLayout === "us" && $("remote-video").srcObject;
@@ -1942,16 +1981,16 @@
   function pbSelect(container, attr, val) {
     document.querySelectorAll(`#${container} [data-${attr}]`).forEach((b) => b.classList.toggle("sel", b.dataset[attr] === val));
   }
-  function pbCountdown() {
+  function pbCountdown(seconds) {
     return new Promise((res) => {
-      let n = 3;
+      let n = seconds || pbTimer || 3;
       const el = $("pb-count");
       el.textContent = n; el.classList.remove("hidden");
       const iv = setInterval(() => {
         n--;
-        if (n <= 0) { clearInterval(iv); el.textContent = "📸"; setTimeout(() => { el.classList.add("hidden"); res(); }, 220); }
+        if (n <= 0) { clearInterval(iv); el.textContent = "📸"; setTimeout(() => { el.classList.add("hidden"); res(); }, 240); }
         else el.textContent = n;
-      }, 650);
+      }, 1000);
     });
   }
   function pbFlash() { const f = $("pb-flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go"); }
@@ -1977,9 +2016,8 @@
     ctx.drawImage(video, dx, dy, dw, dh);
     ctx.restore();
   }
-  async function pbCapture() {
+  async function pbRunPhoto() {
     if (pbBusy) return;
-    if (pbMode === "boom") return pbCaptureClip();
     pbBusy = true;
     $("pb-capture").disabled = true;
     const lv = $("local-video"), rv = $("remote-video");
@@ -1994,7 +2032,7 @@
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
     const filter = PB_FILTERS[pbFilter] || "none";
     for (let s = 0; s < shots; s++) {
-      await pbCountdown();
+      await pbCountdown(s === 0 ? pbTimer : Math.min(3, pbTimer));
       const y = pad + s * (cellH + gap);
       ctx.save();
       roundRect(ctx, pad, y, cellW, cellH, 14); ctx.fillStyle = "#1d1424"; ctx.fill();
@@ -2050,7 +2088,7 @@
   }
 
   // Boomerang / short looping clip via MediaRecorder on a filtered canvas.
-  async function pbCaptureClip() {
+  async function pbRunClip() {
     if (!window.MediaRecorder) { addSys("Looping clips aren't supported on this browser — try a strip 🎞️"); return; }
     pbBusy = true; $("pb-capture").disabled = true;
     const lv = $("local-video"), rv = $("remote-video");
@@ -2059,7 +2097,7 @@
     const W = 320, H = 240;
     const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const cx = cv.getContext("2d");
-    await pbCountdown();
+    await pbCountdown(pbTimer);
     const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) || "video/webm";
     const stream = cv.captureStream(15);
     const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1200000 });
@@ -2270,19 +2308,21 @@
 
     // Photobooth
     $("pb-close").addEventListener("click", closePhotobooth);
-    $("pb-capture").addEventListener("click", pbCapture);
+    $("pb-capture").addEventListener("click", pbStart);
     $("pb-send").addEventListener("click", pbSend);
     $("pb-save").addEventListener("click", pbSave);
     $("pb-download").addEventListener("click", pbDownload);
     $("pb-retake").addEventListener("click", pbRetake);
     document.querySelectorAll("#pb-filters .pb-chip").forEach((b) =>
-      b.addEventListener("click", () => { pbFilter = b.dataset.filter; pbSelect("pb-filters", "filter", pbFilter); pbUpdatePreview(); }));
+      b.addEventListener("click", () => { pbFilter = b.dataset.filter; pbSelect("pb-filters", "filter", pbFilter); pbUpdatePreview(); broadcastPbSet(); }));
     document.querySelectorAll("#pb-stickers .pb-chip").forEach((b) =>
-      b.addEventListener("click", () => { pbSticker = b.dataset.sticker; pbSelect("pb-stickers", "sticker", pbSticker); pbUpdatePreview(); }));
+      b.addEventListener("click", () => { pbSticker = b.dataset.sticker; pbSelect("pb-stickers", "sticker", pbSticker); pbUpdatePreview(); broadcastPbSet(); }));
     document.querySelectorAll("#pb-mode button").forEach((b) =>
-      b.addEventListener("click", () => { pbMode = b.dataset.mode; pbSelect("pb-mode", "mode", pbMode); }));
+      b.addEventListener("click", () => { pbMode = b.dataset.mode; pbSelect("pb-mode", "mode", pbMode); broadcastPbSet(); }));
     document.querySelectorAll("#pb-layout button").forEach((b) =>
-      b.addEventListener("click", () => { pbLayout = b.dataset.layout; pbSelect("pb-layout", "layout", pbLayout); pbUpdatePreview(); }));
+      b.addEventListener("click", () => { pbLayout = b.dataset.layout; pbSelect("pb-layout", "layout", pbLayout); pbUpdatePreview(); broadcastPbSet(); }));
+    document.querySelectorAll("#pb-timer button").forEach((b) =>
+      b.addEventListener("click", () => { pbTimer = Number(b.dataset.timer); pbSelect("pb-timer", "timer", String(pbTimer)); broadcastPbSet(); }));
     pbDrawInit();
     $("pb-draw-clear").addEventListener("click", pbClearDraw);
     $("gallery-clear").addEventListener("click", clearGallery);
