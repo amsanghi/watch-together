@@ -278,3 +278,82 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--card-h); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---- New couple features ---- */
+
+/* Hold hands */
+.hold-btn {
+  width: 100%; background: var(--card-2); border: 2px solid var(--line); color: var(--text);
+  border-radius: 16px; padding: 16px; font: inherit; font-weight: 800; font-size: 15px; cursor: pointer;
+  transition: transform 0.1s, background 0.2s, box-shadow 0.2s; touch-action: none; user-select: none;
+}
+.hold-btn:active { transform: scale(0.97); }
+.hold-btn.holding { background: var(--grad); border-color: transparent; color: #fff; }
+.hold-btn.both { box-shadow: 0 0 22px var(--accent); animation: hold-pulse 0.9s ease-in-out infinite; }
+@keyframes hold-pulse { 50% { box-shadow: 0 0 34px var(--accent2); } }
+
+/* Kiss & hug counters */
+.count-row { display: flex; gap: 10px; }
+.count-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--card-2); border: 1.5px solid var(--line); border-radius: 16px; padding: 12px;
+  cursor: pointer; font-size: 26px; font-family: inherit; transition: transform 0.1s, box-shadow 0.15s;
+}
+.count-btn span { font-size: 16px; font-weight: 800; color: var(--accent2); }
+.count-btn:hover { box-shadow: var(--glow); }
+.count-btn:active { transform: scale(0.9); }
+.count-btn.pop { animation: count-pop 0.4s ease; }
+@keyframes count-pop { 40% { transform: scale(1.18); } }
+
+/* Cuddle / goodnight overlay */
+#cuddle-overlay {
+  position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px; text-align: center; padding: 24px;
+  background: radial-gradient(120% 80% at 50% 18%, #2a2150 0%, #150f22 70%, #0c0814 100%);
+  animation: cuddle-in 0.6s ease;
+}
+@keyframes cuddle-in { from { opacity: 0; } to { opacity: 1; } }
+.cuddle-stars {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.7;
+  background-image:
+    radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 70% 20%, #fff, transparent),
+    radial-gradient(2px 2px at 40% 60%, #ffe9f4, transparent),
+    radial-gradient(1.5px 1.5px at 85% 50%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 55% 80%, #fff, transparent),
+    radial-gradient(2px 2px at 15% 75%, #ffe9f4, transparent),
+    radial-gradient(1.5px 1.5px at 90% 85%, #fff, transparent);
+  animation: twinkle 3s ease-in-out infinite;
+}
+@keyframes twinkle { 50% { opacity: 0.35; } }
+.cuddle-moon { font-size: 76px; filter: drop-shadow(0 0 26px rgba(255,231,160,0.6)); animation: moon-bob 4s ease-in-out infinite; }
+@keyframes moon-bob { 50% { transform: translateY(-10px); } }
+.cuddle-text { font-size: 20px; font-weight: 800; color: #ffe9f4; text-shadow: 0 0 14px rgba(255,126,192,0.5); }
+.cuddle-sub { color: var(--accent2); font-size: 14px; }
+.cuddle-timer-row { display: flex; gap: 8px; }
+.cuddle-tmr { background: rgba(255,255,255,0.08); border: 1.5px solid var(--line); color: var(--accent2); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-family: inherit; font-weight: 700; }
+.cuddle-tmr.on { background: var(--grad); color: #fff; border-color: transparent; }
+.cuddle-countdown { color: var(--muted); font-size: 13px; min-height: 16px; }
+#cuddle-exit { margin-top: 4px; }
+
+/* Love-letter overlay */
+#letter-overlay {
+  position: fixed; inset: 0; z-index: 210; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(20, 12, 28, 0.92); backdrop-filter: blur(3px); animation: cuddle-in 0.4s ease;
+}
+.letter-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 320px; width: 100%; }
+.envelope { font-size: 92px; cursor: pointer; filter: drop-shadow(0 0 24px rgba(255,126,192,0.55)); animation: env-bob 2s ease-in-out infinite; }
+@keyframes env-bob { 50% { transform: translateY(-8px) rotate(-3deg); } }
+.envelope:active { transform: scale(0.92); }
+.letter-paper {
+  background: linear-gradient(160deg, #fff7fb, #ffe9f4); color: #6a2a4e; border-radius: 18px;
+  padding: 22px; width: 100%; box-shadow: var(--shadow); border: 2px solid var(--accent2);
+  animation: letter-open 0.5s ease; text-align: center;
+}
+@keyframes letter-open { from { transform: scale(0.6) translateY(20px); opacity: 0; } }
+.letter-from { font-weight: 800; color: var(--accent-d); margin-bottom: 10px; }
+.letter-body { font-size: 15px; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px; font-style: italic; }
+#letter-hint { animation: twinkle 1.6s ease-in-out infinite; }
+
+/* Theme color input */
+input[type="color"].theme-color { width: 56px; height: 36px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card-2); cursor: pointer; padding: 3px; }

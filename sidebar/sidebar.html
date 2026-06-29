@@ -124,6 +124,7 @@
         <button class="cute-btn" data-react="laugh" title="😂">😂</button>
         <button id="btn-snap" class="cute-btn" title="Send a webcam selfie">📸</button>
         <button id="btn-poke" class="cute-btn" title="Nudge / I miss you">👉💗</button>
+        <button id="btn-cuddle" class="cute-btn" title="Cuddle / goodnight mode 🌙">🌙</button>
         <button id="btn-invite" class="cute-btn" title="Invite your partner to watch this video together">📺</button>
       </div>
 
@@ -164,6 +165,12 @@
       </label>
       <p class="muted small">A key is already built in, so GIFs work out of the box. Optional: paste your own from <span class="link" id="giphy-link">developers.giphy.com</span> to use your own quota.</p>
       <label class="check"><input id="set-autocam" type="checkbox" /> Ask for mic/cam automatically when a session starts</label>
+      <h3 style="margin-top:18px">Make it yours 🎀</h3>
+      <label>Pet name for your partner<input id="set-petname" type="text" placeholder="e.g. Babe, Cutie 🥰" maxlength="24" /></label>
+      <label>Shared theme color
+        <input id="set-theme" type="color" value="#ff7ec0" class="theme-color" />
+      </label>
+      <p class="muted small">Your pet name shows instead of their real name, and the theme color tints both of your panels 💞</p>
       <h3 style="margin-top:18px">Your dates 💕</h3>
       <label>The day you became a couple<input id="set-anniversary" type="date" /></label>
       <label>Your birthday<input id="set-bday-me" type="date" /></label>
@@ -198,6 +205,62 @@
           <span id="watch-count" title="Things watched together">🎬 0 together</span>
           <button id="btn-history" class="link-btn">history</button>
         </div>
+      </div>
+
+      <!-- Hold hands -->
+      <div class="fun-card">
+        <div class="fun-title">Hold hands 🤲</div>
+        <button id="hold-btn" class="hold-btn">Press &amp; hold 🫶</button>
+        <div id="hold-status" class="muted small" style="text-align:center;margin-top:7px;">Hold together to feel each other 💞</div>
+      </div>
+
+      <!-- Kiss & hug counters -->
+      <div class="fun-card">
+        <div class="fun-title">Kisses &amp; hugs 💞</div>
+        <div class="count-row">
+          <button class="count-btn" data-count="kiss">😘<span id="kiss-count">0</span></button>
+          <button class="count-btn" data-count="hug">🤗<span id="hug-count">0</span></button>
+        </div>
+      </div>
+
+      <!-- Love letter -->
+      <div class="fun-card">
+        <div class="fun-title">Love letter 💌</div>
+        <textarea id="letter-input" placeholder="Write something sweet…" style="min-height:60px;font-family:inherit;font-size:13px;"></textarea>
+        <button id="letter-send" class="mini" style="margin-top:7px;">Seal &amp; send 💌</button>
+      </div>
+
+      <!-- Surprise scheduled note -->
+      <div class="fun-card">
+        <div class="fun-title">Surprise note ⏰</div>
+        <input id="sched-text" type="text" placeholder="Note to deliver later…" />
+        <div class="row" style="margin-top:7px;">
+          <input id="sched-when" type="datetime-local" />
+          <button id="sched-add" class="mini">Schedule</button>
+        </div>
+        <div id="sched-list" class="muted small" style="margin-top:7px;"></div>
+      </div>
+
+      <!-- How well do you know me -->
+      <div class="fun-card">
+        <div class="fun-title">How well do you know me? 💘</div>
+        <div id="quiz-q" class="muted small"></div>
+        <div class="row" style="margin-top:7px;">
+          <input id="quiz-input" type="text" placeholder="Your answer…" />
+          <button id="quiz-send" class="mini">Send</button>
+        </div>
+        <button id="quiz-new" class="mini" style="margin-top:7px;">New question 🎲</button>
+        <div id="quiz-answers" class="qotd-answers"></div>
+      </div>
+
+      <!-- Memory scrapbook -->
+      <div class="fun-card">
+        <div class="fun-title">Memory scrapbook 📖</div>
+        <div class="row">
+          <input id="mem-input" type="text" placeholder="Add a memory…" />
+          <button id="mem-add" class="mini">Add</button>
+        </div>
+        <div id="mem-list" class="wl-list"></div>
       </div>
 
       <!-- Mood -->
@@ -281,6 +344,34 @@
         </div>
       </div>
     </section>
+
+    <!-- Cuddle / goodnight overlay (shared) -->
+    <div id="cuddle-overlay" class="hidden">
+      <div class="cuddle-stars"></div>
+      <div class="cuddle-moon">🌙</div>
+      <div class="cuddle-text">Under the same moon 💕</div>
+      <div id="cuddle-sub" class="cuddle-sub"></div>
+      <div class="cuddle-timer-row">
+        <button class="cuddle-tmr" data-min="15">15m</button>
+        <button class="cuddle-tmr" data-min="30">30m</button>
+        <button class="cuddle-tmr" data-min="60">60m</button>
+      </div>
+      <div id="cuddle-countdown" class="cuddle-countdown"></div>
+      <button id="cuddle-exit" class="ghost">Wake up ☀️</button>
+    </div>
+
+    <!-- Love-letter envelope overlay (shown when one arrives) -->
+    <div id="letter-overlay" class="hidden">
+      <div class="letter-stage">
+        <div id="letter-envelope" class="envelope">💌</div>
+        <div id="letter-paper" class="letter-paper hidden">
+          <div class="letter-from" id="letter-from"></div>
+          <div class="letter-body" id="letter-body"></div>
+          <button id="letter-close" class="primary">With love 💕</button>
+        </div>
+        <div id="letter-hint" class="muted small">tap to open</div>
+      </div>
+    </div>
   </div>
 
   <script src="../lib/trystero.js"></script>

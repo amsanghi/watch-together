@@ -25,7 +25,12 @@
 
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
-                   anniversary: "", bdayMe: "", bdayPartner: "" };
+                   anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "" };
+  let partnerReal = "Partner";   // partner's actual name; settings.partner = petName || partnerReal
+  let counts = { kiss: 0, hug: 0 };
+  let scrapbook = [];            // [{text, date}]
+  let scheduled = [];            // [{text, when, id}] surprise notes still pending
+  let handSeconds = 0;           // lifetime hand-holding seconds
   let sendData = null;      // sends app data over the active transport
   let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
   let rawDC = null;         // RTCDataChannel (manual mode)
@@ -43,15 +48,19 @@
       if (r.wt_settings) settings = { ...settings, ...r.wt_settings };
       if (r.wt_media) { wantMic = !!r.wt_media.mic; wantCam = !!r.wt_media.cam; }
       if (!settings.giphyKey) settings.giphyKey = DEFAULT_GIPHY_KEY; // fall back to built-in key
+      if (settings.petName) settings.partner = settings.petName;
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
       $("set-giphy").value = settings.giphyKey;
       $("set-autocam").checked = settings.autocam;
+      $("set-petname").value = settings.petName || "";
+      $("set-theme").value = settings.themeColor || "#ff7ec0";
       $("set-anniversary").value = settings.anniversary || "";
       $("set-bday-me").value = settings.bdayMe || "";
       $("set-bday-partner").value = settings.bdayPartner || "";
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
+      if (settings.themeColor) applyTheme(settings.themeColor);
       refreshStats();
       refreshDates();
       if ($("pair-code")) $("pair-code").value = settings.pairCode || "";
@@ -89,13 +98,21 @@
     settings.named = true;
     settings.giphyKey = $("set-giphy").value.trim();
     settings.autocam = $("set-autocam").checked;
+    settings.petName = $("set-petname").value.trim();
+    const newColor = $("set-theme").value;
+    const colorChanged = newColor !== settings.themeColor;
+    settings.themeColor = newColor;
     settings.anniversary = $("set-anniversary").value || "";
     settings.bdayMe = $("set-bday-me").value || "";
     settings.bdayPartner = $("set-bday-partner").value || "";
+    settings.partner = settings.petName || partnerReal || "Partner";
     chrome.storage.local.set({ wt_settings: settings });
+    applyTheme(settings.themeColor);
+    if (colorChanged) netSend({ t: "theme", color: settings.themeColor });
     $("me-name").textContent = settings.me;
     $("local-label").textContent = settings.me;
     $("remote-label").textContent = settings.partner;
+    if (connectedOnce && $("header-status")) $("header-status").textContent = settings.partner;
     refreshDates();
     showPanel(connectedOnce ? "live" : "connect");
   }
@@ -142,6 +159,7 @@
     netSend({ t: "name", name: settings.me });
     netSend({ t: "media-state", mic: micOn, cam: camOn });
     netSend({ t: "profile", tz: -new Date().getTimezoneOffset() }); // minutes east of UTC
+    if (settings.themeColor) netSend({ t: "theme", color: settings.themeColor });
     if (watchlist.length) netSend({ t: "watchlist", items: watchlist });
     if (amInitiator) netSend({ t: "sync-req" });
     recordSession();
@@ -482,7 +500,8 @@
     if (!d || !d.t) return;
     switch (d.t) {
       case "name":
-        settings.partner = d.name || settings.partner;
+        partnerReal = d.name || partnerReal;
+        settings.partner = settings.petName || partnerReal;
         $("remote-label").textContent = settings.partner;
         if (connectedOnce && $("header-status")) $("header-status").textContent = settings.partner;
         break;
@@ -575,6 +594,30 @@
       case "doodle":
         if (d.clear) doodleClear(false);
         else doodleRemote(d);
+        break;
+      case "theme":
+        if (d.color) { settings.themeColor = d.color; applyTheme(d.color); chrome.storage.local.set({ wt_settings: settings }); if ($("set-theme")) $("set-theme").value = d.color; }
+        break;
+      case "hand":
+        setRemoteHold(!!d.on);
+        break;
+      case "letter":
+        showLetter(partnerReal && settings.partner, d.text);
+        break;
+      case "count":
+        bumpCount(d.kind, true);
+        break;
+      case "quiz-q":
+        setQuizQuestion(d.q, false);
+        break;
+      case "quiz-a":
+        renderQuizAnswer(settings.partner, d.text);
+        break;
+      case "cuddle":
+        setCuddle(!!d.on, false);
+        break;
+      case "memory":
+        if (d.item) { scrapbook.unshift(d.item); scrapbook = scrapbook.slice(0, 100); chrome.storage.local.set({ wt_scrapbook: scrapbook }); renderScrapbook(); }
         break;
     }
   }
@@ -1115,10 +1158,256 @@
     if (broadcast) netSend({ t: "doodle", clear: true });
   }
 
+  // --- Theme color (shared accent) ---
+  function shade(hex, pct) {
+    hex = (hex || "#ff7ec0").replace("#", "");
+    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+    const num = parseInt(hex, 16);
+    let r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    const t = pct < 0 ? 0 : 255, p = Math.abs(pct);
+    r = Math.round((t - r) * p) + r; g = Math.round((t - g) * p) + g; b = Math.round((t - b) * p) + b;
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  function applyTheme(color) {
+    if (!color) return;
+    const light = shade(color, 0.32), deep = shade(color, -0.18);
+    const r = document.documentElement.style;
+    r.setProperty("--accent", color);
+    r.setProperty("--accent-d", deep);
+    r.setProperty("--accent2", light);
+    r.setProperty("--grad", `linear-gradient(135deg, ${light} 0%, ${color} 100%)`);
+    r.setProperty("--grad-purple", `linear-gradient(135deg, ${shade(color, 0.1)} 0%, ${color} 100%)`);
+    r.setProperty("--glow", `0 0 16px ${color}80`);
+  }
+
+  // --- Hold hands ---
+  let localHold = false, remoteHold = false, holdTimer = null;
+  function fmtDur(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? `${h}h ${m}m` : m ? `${m}m ${sec}s` : `${sec}s`;
+  }
+  function renderHands() {
+    $("hold-status").textContent = handSeconds ? `🤝 ${fmtDur(handSeconds)} held together` : "Hold together to feel each other 💞";
+  }
+  function setLocalHold(on) {
+    if (localHold === on) return;
+    localHold = on;
+    $("hold-btn").classList.toggle("holding", on);
+    netSend({ t: "hand", on });
+    checkBothHold();
+  }
+  function setRemoteHold(on) { remoteHold = on; checkBothHold(); }
+  function checkBothHold() {
+    const both = localHold && remoteHold;
+    $("hold-btn").classList.toggle("both", both);
+    if (both && !holdTimer) {
+      try { navigator.vibrate && navigator.vibrate([40, 30, 40]); } catch (_) {}
+      spawnPanelHearts("heart", 6);
+      $("hold-status").textContent = "💞 holding hands…";
+      holdTimer = setInterval(() => {
+        handSeconds++;
+        if (handSeconds % 4 === 0) spawnPanelHearts("heart", 3);
+        $("hold-status").textContent = `💞 ${fmtDur(handSeconds)} holding hands…`;
+        if (handSeconds % 5 === 0) chrome.storage.local.set({ wt_hands: handSeconds });
+      }, 1000);
+    } else if (!both && holdTimer) {
+      clearInterval(holdTimer); holdTimer = null;
+      chrome.storage.local.set({ wt_hands: handSeconds });
+      renderHands();
+    }
+  }
+
+  // --- Kiss & hug counters ---
+  function renderCounts() {
+    $("kiss-count").textContent = counts.kiss || 0;
+    $("hug-count").textContent = counts.hug || 0;
+  }
+  function bumpCount(kind, fromRemote) {
+    if (kind !== "kiss" && kind !== "hug") return;
+    counts[kind] = (counts[kind] || 0) + 1;
+    chrome.storage.local.set({ wt_counts: counts });
+    renderCounts();
+    const btn = document.querySelector(`.count-btn[data-count="${kind}"]`);
+    if (btn) { btn.classList.remove("pop"); void btn.offsetWidth; btn.classList.add("pop"); }
+    burst(kind === "kiss" ? "kiss" : "heart");
+    if (!fromRemote) netSend({ t: "count", kind });
+    if (counts[kind] % 100 === 0) {
+      spawnPanelHearts(kind === "kiss" ? "kiss" : "heart", 26);
+      parentPost({ kind: "toast", text: `${kind === "kiss" ? "💋" : "🤗"} ${counts[kind]} ${kind === "kiss" ? "kisses" : "hugs"} together!` });
+    }
+  }
+
+  // --- Love letters ---
+  function sendLetter() {
+    const t = $("letter-input").value.trim();
+    if (!t) { $("letter-input").focus(); return; }
+    netSend({ t: "letter", text: t });
+    $("letter-input").value = "";
+    addSys("💌 Love letter sent");
+  }
+  function showLetter(from, text) {
+    if (!text) return;
+    $("letter-from").textContent = (from || settings.partner) + " wrote:";
+    $("letter-body").textContent = text;
+    $("letter-paper").classList.add("hidden");
+    $("letter-envelope").classList.remove("hidden");
+    $("letter-hint").classList.remove("hidden");
+    $("letter-overlay").classList.remove("hidden");
+  }
+  function openLetter() {
+    $("letter-paper").classList.remove("hidden");
+    $("letter-envelope").classList.add("hidden");
+    $("letter-hint").classList.add("hidden");
+    spawnPanelHearts("heart", 22);
+    try { navigator.vibrate && navigator.vibrate(60); } catch (_) {}
+  }
+  function closeLetter() { $("letter-overlay").classList.add("hidden"); }
+
+  // --- Surprise scheduled notes ---
+  function renderScheduled() {
+    const el = $("sched-list");
+    el.innerHTML = "";
+    scheduled.slice().sort((a, b) => a.when - b.when).forEach((s) => {
+      const row = document.createElement("div");
+      const when = new Date(s.when);
+      const snip = s.text.length > 24 ? s.text.slice(0, 24) + "…" : s.text;
+      row.textContent = `⏰ "${snip}" — ${when.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+      el.appendChild(row);
+    });
+  }
+  function addScheduled() {
+    const text = $("sched-text").value.trim();
+    const whenStr = $("sched-when").value;
+    if (!text) { $("sched-text").focus(); return; }
+    if (!whenStr) { $("sched-when").focus(); return; }
+    const when = new Date(whenStr).getTime();
+    if (!when || when <= Date.now()) { addSys("Pick a time in the future ⏰"); return; }
+    scheduled.push({ text, when });
+    chrome.storage.local.set({ wt_scheduled: scheduled });
+    $("sched-text").value = ""; $("sched-when").value = "";
+    renderScheduled();
+    addSys(`⏰ Surprise note set for ${new Date(when).toLocaleString()} — delivered when you're both online`);
+  }
+  function checkScheduled() {
+    if (!scheduled.length) return;
+    const now = Date.now();
+    const due = scheduled.filter((s) => s.when <= now);
+    if (!due.length) return;
+    if (!(sendData || (rawDC && rawDC.readyState === "open"))) return; // keep queued until connected
+    due.forEach((s) => netSend({ t: "letter", text: s.text }));
+    scheduled = scheduled.filter((s) => s.when > now);
+    chrome.storage.local.set({ wt_scheduled: scheduled });
+    renderScheduled();
+    addSys(`💌 Delivered ${due.length} surprise note${due.length > 1 ? "s" : ""}`);
+  }
+  setInterval(checkScheduled, 20000);
+
+  // --- How well do you know me? quiz ---
+  const QUIZ_Q = [
+    "What's my favorite food?",
+    "What's my dream vacation spot?",
+    "What song do I have on repeat?",
+    "What's my biggest fear?",
+    "What's my go-to comfort movie?",
+    "What's my favorite way to relax?",
+    "What's my coffee/tea order?",
+    "What would my perfect date be?",
+    "What's my favorite thing about you?",
+    "What's a hidden talent of mine?",
+    "What's my favorite season?",
+    "What makes me laugh the hardest?",
+  ];
+  function setQuizQuestion(q, broadcast) {
+    $("quiz-q").textContent = q ? "💘 " + q : "";
+    $("quiz-answers").innerHTML = "";
+    $("quiz-input").value = "";
+    if (broadcast) netSend({ t: "quiz-q", q });
+  }
+  function newQuiz() { setQuizQuestion(QUIZ_Q[Math.floor(Math.random() * QUIZ_Q.length)], true); }
+  function renderQuizAnswer(who, text) {
+    const el = document.createElement("div");
+    el.className = "ans";
+    el.innerHTML = "<b></b> <span></span>";
+    el.querySelector("b").textContent = who + ":";
+    el.querySelector("span").textContent = text;
+    $("quiz-answers").appendChild(el);
+  }
+  function sendQuiz() {
+    const t = $("quiz-input").value.trim();
+    if (!t) return;
+    if (!$("quiz-q").textContent) newQuiz();
+    renderQuizAnswer(settings.me, t);
+    netSend({ t: "quiz-a", text: t });
+    $("quiz-input").value = "";
+  }
+
+  // --- Cuddle / goodnight mode ---
+  let cuddleEnd = 0, cuddleTick = null;
+  function setCuddle(on, broadcast) {
+    $("cuddle-overlay").classList.toggle("hidden", !on);
+    $("cuddle-sub").textContent = on ? `Goodnight, ${settings.partner} 🌙` : "";
+    if (broadcast) netSend({ t: "cuddle", on });
+    if (!on) clearCuddleTimer();
+    else { try { navigator.vibrate && navigator.vibrate(50); } catch (_) {} }
+  }
+  function clearCuddleTimer() {
+    if (cuddleTick) { clearInterval(cuddleTick); cuddleTick = null; }
+    cuddleEnd = 0;
+    $("cuddle-countdown").textContent = "";
+    document.querySelectorAll(".cuddle-tmr").forEach((b) => b.classList.remove("on"));
+  }
+  function setSleepTimer(min) {
+    clearCuddleTimer();
+    const btn = document.querySelector(`.cuddle-tmr[data-min="${min}"]`);
+    if (btn) btn.classList.add("on");
+    cuddleEnd = Date.now() + min * 60000;
+    cuddleTick = setInterval(() => {
+      const left = Math.max(0, cuddleEnd - Date.now());
+      const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+      $("cuddle-countdown").textContent = `Sleep timer: ${m}:${String(s).padStart(2, "0")}`;
+      if (left <= 0) { clearCuddleTimer(); fadeToSleep(); }
+    }, 1000);
+  }
+  function fadeToSleep() {
+    if (camOn) toggleCam();
+    if (micOn) toggleMic();
+    parentPost({ kind: "apply-video", action: "pause" });
+    $("cuddle-countdown").textContent = "Sweet dreams 💤";
+  }
+
+  // --- Memory scrapbook ---
+  function renderScrapbook() {
+    const list = $("mem-list");
+    list.innerHTML = "";
+    if (!scrapbook.length) { list.innerHTML = '<div class="muted small">No memories yet — add your first 💕</div>'; return; }
+    scrapbook.forEach((m) => {
+      const row = document.createElement("div");
+      row.className = "wl-item";
+      const sp = document.createElement("span"); sp.textContent = m.text;
+      const d = document.createElement("small"); d.className = "muted"; d.style.marginLeft = "auto"; d.textContent = m.date || "";
+      row.append(sp, d);
+      list.appendChild(row);
+    });
+  }
+  function addMemory() {
+    const t = $("mem-input").value.trim();
+    if (!t) return;
+    const item = { text: t, date: todayStr() };
+    scrapbook.unshift(item); scrapbook = scrapbook.slice(0, 100);
+    chrome.storage.local.set({ wt_scrapbook: scrapbook });
+    $("mem-input").value = "";
+    renderScrapbook();
+    netSend({ t: "memory", item });
+  }
+
   function openFun() {
     renderQotd();
     refreshDates();
     renderWatchlist();
+    renderCounts();
+    renderHands();
+    renderScheduled();
+    renderScrapbook();
     showPanel("fun");
   }
 
@@ -1212,6 +1501,7 @@
     $("btn-settings").addEventListener("click", () => showPanel("settings"));
     $("btn-reconnect").addEventListener("click", forceReconnect);
     $("btn-save-settings").addEventListener("click", saveSettings);
+    $("set-theme").addEventListener("input", () => applyTheme($("set-theme").value));
     $("btn-clear-history").addEventListener("click", () => {
       chrome.storage.local.set({ wt_stats: { count: 0, streak: 0, lastDate: null, history: [] } }, () => { refreshStats(); renderHistory(); });
     });
@@ -1242,7 +1532,48 @@
     $("doodle-clear").addEventListener("click", () => doodleClear(true));
     tttBuild(); tttReset(false);
     doodleInit();
-    chrome.storage.local.get(["wt_watchlist"], (r) => { if (Array.isArray(r.wt_watchlist)) { watchlist = r.wt_watchlist; renderWatchlist(); } });
+
+    // ---- New couple features ----
+    // Hold hands (press & hold)
+    const hb = $("hold-btn");
+    const holdOn = (e) => { e.preventDefault(); setLocalHold(true); };
+    const holdOff = () => setLocalHold(false);
+    hb.addEventListener("pointerdown", holdOn);
+    hb.addEventListener("pointerup", holdOff);
+    hb.addEventListener("pointerleave", holdOff);
+    hb.addEventListener("pointercancel", holdOff);
+    // Kiss & hug counters
+    document.querySelectorAll(".count-btn[data-count]").forEach((b) =>
+      b.addEventListener("click", () => bumpCount(b.dataset.count, false))
+    );
+    // Love letter
+    $("letter-send").addEventListener("click", sendLetter);
+    $("letter-envelope").addEventListener("click", openLetter);
+    $("letter-close").addEventListener("click", closeLetter);
+    // Surprise scheduled note
+    $("sched-add").addEventListener("click", addScheduled);
+    // Quiz
+    $("quiz-new").addEventListener("click", newQuiz);
+    $("quiz-send").addEventListener("click", sendQuiz);
+    $("quiz-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendQuiz(); });
+    // Cuddle / goodnight mode
+    $("btn-cuddle").addEventListener("click", () => setCuddle(true, true));
+    $("cuddle-exit").addEventListener("click", () => setCuddle(false, true));
+    document.querySelectorAll(".cuddle-tmr").forEach((b) =>
+      b.addEventListener("click", () => setSleepTimer(Number(b.dataset.min)))
+    );
+    // Memory scrapbook
+    $("mem-add").addEventListener("click", addMemory);
+    $("mem-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addMemory(); });
+
+    chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands"], (r) => {
+      if (Array.isArray(r.wt_watchlist)) { watchlist = r.wt_watchlist; renderWatchlist(); }
+      if (r.wt_counts) counts = { kiss: r.wt_counts.kiss || 0, hug: r.wt_counts.hug || 0 };
+      if (Array.isArray(r.wt_scrapbook)) scrapbook = r.wt_scrapbook;
+      if (Array.isArray(r.wt_scheduled)) scheduled = r.wt_scheduled;
+      if (typeof r.wt_hands === "number") handSeconds = r.wt_hands;
+      renderCounts(); renderHands(); renderScheduled(); renderScrapbook();
+    });
 
     // Initial panel is chosen by loadSettings (name gate on first run, else connect).
   }
