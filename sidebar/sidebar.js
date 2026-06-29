@@ -11,7 +11,7 @@
   const parentPost = (msg) => window.parent.postMessage({ __wt: true, ...msg }, "*");
 
   // ---- State --------------------------------------------------------------
-  let settings = { me: "You", partner: "Partner", tenorKey: "", autocam: true };
+  let settings = { me: "You", partner: "Partner", giphyKey: "", autocam: true };
   let peer = null;          // PeerJS instance (broker mode)
   let conn = null;          // PeerJS DataConnection
   let currentCall = null;   // PeerJS MediaConnection
@@ -35,7 +35,7 @@
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
       $("set-partner").value = settings.partner;
-      $("set-tenor").value = settings.tenorKey;
+      $("set-giphy").value = settings.giphyKey;
       $("set-autocam").checked = settings.autocam;
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
@@ -45,7 +45,7 @@
   function saveSettings() {
     settings.me = $("set-me").value.trim() || "You";
     settings.partner = $("set-partner").value.trim() || "Partner";
-    settings.tenorKey = $("set-tenor").value.trim();
+    settings.giphyKey = $("set-giphy").value.trim();
     settings.autocam = $("set-autocam").checked;
     chrome.storage.local.set({ wt_settings: settings });
     $("me-name").textContent = settings.me;
@@ -459,39 +459,42 @@
     });
   }
 
-  // ---- GIFs (Tenor) -------------------------------------------------------
+  // ---- GIFs (Giphy) -------------------------------------------------------
   let gifTimer = null;
   async function searchGifs(q) {
-    if (!settings.tenorKey) {
+    if (!settings.giphyKey) {
       $("gif-needkey").classList.remove("hidden");
       $("gif-results").innerHTML = "";
       return;
     }
     $("gif-needkey").classList.add("hidden");
-    const base = "https://tenor.googleapis.com/v2/";
+    const base = "https://api.giphy.com/v1/gifs/";
     const url = q
-      ? `${base}search?q=${encodeURIComponent(q)}&key=${settings.tenorKey}&limit=20&media_filter=tinygif&client_key=watchtogether`
-      : `${base}featured?key=${settings.tenorKey}&limit=20&media_filter=tinygif&client_key=watchtogether`;
+      ? `${base}search?api_key=${settings.giphyKey}&q=${encodeURIComponent(q)}&limit=24&rating=pg-13&bundle=messaging_non_clips`
+      : `${base}trending?api_key=${settings.giphyKey}&limit=24&rating=pg-13&bundle=messaging_non_clips`;
     try {
       const res = await fetch(url);
       const data = await res.json();
+      if (data.meta && data.meta.status >= 400) throw new Error(data.meta.msg || "Giphy error");
       const grid = $("gif-results");
       grid.innerHTML = "";
-      (data.results || []).forEach((g) => {
-        const media = g.media_formats?.tinygif || g.media_formats?.gif;
-        if (!media) return;
+      (data.data || []).forEach((g) => {
+        const imgs = g.images || {};
+        const thumb = imgs.fixed_width_small?.url || imgs.preview_gif?.url || imgs.fixed_height_small?.url;
+        if (!thumb) return;
+        const full = imgs.downsized_medium?.url || imgs.fixed_height?.url || imgs.original?.url || thumb;
         const img = document.createElement("img");
-        img.src = media.url;
+        img.src = thumb;
         img.addEventListener("click", () => {
-          const full = g.media_formats?.gif?.url || media.url;
           addMsg({ mine: true, gif: full });
           netSend({ t: "gif", url: full });
           $("gif-panel").classList.add("hidden");
         });
         grid.appendChild(img);
       });
+      if (!grid.children.length) grid.innerHTML = '<div class="muted small">No GIFs found.</div>';
     } catch (e) {
-      $("gif-results").innerHTML = '<div class="muted small">Couldn\'t reach Tenor. Check your API key.</div>';
+      $("gif-results").innerHTML = '<div class="muted small">Couldn\'t reach Giphy. Check your API key.</div>';
     }
   }
 
@@ -656,7 +659,7 @@
     $("btn-clear-history").addEventListener("click", () => {
       chrome.storage.local.set({ wt_stats: { count: 0, streak: 0, lastDate: null, history: [] } }, () => { refreshStats(); renderHistory(); });
     });
-    $("tenor-link").addEventListener("click", () => window.open("https://developers.google.com/tenor/guides/quickstart", "_blank"));
+    $("giphy-link").addEventListener("click", () => window.open("https://developers.giphy.com/", "_blank"));
 
     // History
     $("btn-history").addEventListener("click", () => { renderHistory(); showPanel("history"); });

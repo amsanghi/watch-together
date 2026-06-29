@@ -19,7 +19,7 @@ peer-to-peer over WebRTC.
     partner over text/Signal, paste their reply back. Uses Google's public STUN only.
 - **Voice & video call** — webcam tiles docked in the sidebar, or pop out into a draggable
   floating bubble. Starts muted with camera off; toggle each on when you're ready.
-- **Chat** — messages, a big emoji picker, and **GIF search** (Tenor).
+- **Chat** — messages, a big emoji picker, and **GIF search** (Giphy).
 - **Couple extras:**
   - 💗 **Floating hearts & kisses** drift up over the video on both screens.
   - **3·2·1 synced countdown** so you hit play at the exact same moment.
@@ -52,10 +52,10 @@ Do this on **both** computers.
 
 ## GIFs (optional)
 
-GIF search needs a free Tenor API key:
+GIF search needs a free Giphy API key:
 
-1. Get one from Google's [Tenor API quickstart](https://developers.google.com/tenor/guides/quickstart).
-2. Open the extension → ⚙ **Settings** → paste it into **Tenor GIF API key** → **Save**.
+1. Sign up at [developers.giphy.com](https://developers.giphy.com) → **Create an App** → choose **API** → copy the **API key**.
+2. Open the extension → ⚙ **Settings** → paste it into **Giphy API key** → **Save**.
 
 The key is stored only in your browser's local storage. Emojis work without any key.
 
@@ -96,7 +96,7 @@ toolbar click ─▶ background.js ─▶ content.js (injected on every page)
 There is no backend. Chat, video and voice flow directly between the two browsers. The only
 third parties are the **PeerJS broker** (used once to introduce the two browsers in Quick
 mode; no media flows through it), **Google STUN** (helps the two browsers find each other),
-and **Tenor** (only if you add a key and search GIFs). Your watch history and settings never
+and **Giphy** (only if you add a key and search GIFs). Your watch history and settings never
 leave your own browser.
 
 ## Project layout
