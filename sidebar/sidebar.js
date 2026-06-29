@@ -1621,9 +1621,15 @@
     scrapbook.forEach((m) => {
       const row = document.createElement("div");
       row.className = "wl-item";
-      const sp = document.createElement("span"); sp.textContent = m.text;
+      row.style.flexWrap = "wrap";
+      const sp = document.createElement("span"); sp.textContent = m.img ? "📸 Photobooth" : m.text;
       const d = document.createElement("small"); d.className = "muted"; d.style.marginLeft = "auto"; d.textContent = m.date || "";
       row.append(sp, d);
+      if (m.img) {
+        const img = document.createElement("img");
+        img.className = "mem-thumb"; img.src = m.img; img.alt = "memory";
+        row.appendChild(img);
+      }
       list.appendChild(row);
     });
   }
@@ -1886,6 +1892,161 @@
   }
   function clearTimeline() { timeline = []; chrome.storage.local.set({ wt_timeline: timeline }); renderTimeline(); }
 
+  // --- Photobooth 📸 ---
+  const PB_FILTERS = {
+    none: "none",
+    bw: "grayscale(1) contrast(1.08)",
+    sepia: "sepia(0.85)",
+    vintage: "sepia(0.4) contrast(1.2) saturate(1.5) hue-rotate(-12deg)",
+    dreamy: "brightness(1.12) saturate(1.35) contrast(0.95) blur(0.4px)",
+    blush: "saturate(1.5) brightness(1.06) contrast(1.04)",
+    neon: "saturate(2.2) contrast(1.35) hue-rotate(18deg)",
+    invert: "invert(1)",
+  };
+  let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false, pbResult = null;
+  const pbWait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function openPhotobooth() {
+    $("pb-overlay").classList.remove("hidden");
+    $("pb-result").classList.add("hidden");
+    $("pb-live").classList.remove("hidden");
+    if (!camOn) { try { await toggleCam(); } catch (_) {} }
+    $("pb-local").srcObject = localStream;
+    pbUpdatePreview();
+  }
+  function closePhotobooth() { $("pb-overlay").classList.add("hidden"); }
+  function pbUpdatePreview() {
+    const rv = $("pb-remote");
+    const useUs = pbLayout === "us" && $("remote-video").srcObject;
+    if (useUs) { rv.srcObject = $("remote-video").srcObject; rv.classList.remove("hidden"); }
+    else rv.classList.add("hidden");
+    const f = PB_FILTERS[pbFilter] || "none";
+    $("pb-local").style.filter = f;
+    rv.style.filter = f;
+    document.querySelectorAll("#pb-stage .pb-stk").forEach((s) => { s.textContent = pbSticker; });
+  }
+  function pbSelect(container, attr, val) {
+    document.querySelectorAll(`#${container} [data-${attr}]`).forEach((b) => b.classList.toggle("sel", b.dataset[attr] === val));
+  }
+  function pbCountdown() {
+    return new Promise((res) => {
+      let n = 3;
+      const el = $("pb-count");
+      el.textContent = n; el.classList.remove("hidden");
+      const iv = setInterval(() => {
+        n--;
+        if (n <= 0) { clearInterval(iv); el.textContent = "📸"; setTimeout(() => { el.classList.add("hidden"); res(); }, 220); }
+        else el.textContent = n;
+      }, 650);
+    });
+  }
+  function pbFlash() { const f = $("pb-flash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go"); }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function drawCover(ctx, video, x, y, w, h, mirror, filter) {
+    ctx.save();
+    roundRect(ctx, x, y, w, h, 2); ctx.clip();
+    const vw = video && video.videoWidth, vh = video && video.videoHeight;
+    if (!vw || !vh) { ctx.fillStyle = "#2c1f38"; ctx.fillRect(x, y, w, h); ctx.restore(); return; }
+    const scale = Math.max(w / vw, h / vh);
+    const dw = vw * scale, dh = vh * scale;
+    const dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
+    ctx.filter = filter || "none";
+    if (mirror) { ctx.translate(2 * (x + w / 2), 0); ctx.scale(-1, 1); }
+    ctx.drawImage(video, dx, dy, dw, dh);
+    ctx.restore();
+  }
+  async function pbCapture() {
+    if (pbBusy) return;
+    pbBusy = true;
+    $("pb-capture").disabled = true;
+    const lv = $("local-video"), rv = $("remote-video");
+    const useUs = pbLayout === "us" && rv.srcObject;
+    const shots = pbMode === "strip" ? 3 : 1;
+    const pad = 16, gap = 12, footer = 58, W = 380, cellH = 250, cellW = W - pad * 2;
+    const H = pad * 2 + shots * cellH + (shots - 1) * gap + footer;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#3a2247"); bg.addColorStop(1, "#241531");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    const filter = PB_FILTERS[pbFilter] || "none";
+    for (let s = 0; s < shots; s++) {
+      await pbCountdown();
+      const y = pad + s * (cellH + gap);
+      ctx.save();
+      roundRect(ctx, pad, y, cellW, cellH, 14); ctx.fillStyle = "#1d1424"; ctx.fill();
+      roundRect(ctx, pad, y, cellW, cellH, 14); ctx.clip();
+      if (useUs) {
+        drawCover(ctx, lv, pad, y, cellW / 2, cellH, true, filter);
+        drawCover(ctx, rv, pad + cellW / 2, y, cellW / 2, cellH, false, filter);
+      } else {
+        drawCover(ctx, lv, pad, y, cellW, cellH, true, filter);
+      }
+      ctx.restore();
+      if (pbSticker) {
+        ctx.filter = "none"; ctx.font = "26px " + "serif";
+        ctx.textAlign = "left"; ctx.fillText(pbSticker, pad + 8, y + 32);
+        ctx.textAlign = "right"; ctx.fillText(pbSticker, pad + cellW - 8, y + cellH - 12);
+      }
+      pbFlash();
+      await pbWait(480);
+    }
+    // frame + footer
+    ctx.filter = "none";
+    ctx.lineWidth = 4; ctx.strokeStyle = "#ff7ec0";
+    roundRect(ctx, 6, 6, W - 12, H - 12, 18); ctx.stroke();
+    const caption = ($("pb-caption").value.trim()) || `${settings.me} 💕 ${settings.partner}`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffe9f4"; ctx.font = "700 18px " + "system-ui, sans-serif";
+    ctx.fillText(caption, W / 2, H - footer / 2 + 2);
+    const dt = new Date();
+    ctx.fillStyle = "#c19ccf"; ctx.font = "600 12px system-ui, sans-serif";
+    ctx.fillText(dt.toLocaleDateString(), W / 2, H - footer / 2 + 20);
+    pbResult = c.toDataURL("image/jpeg", 0.85);
+    $("pb-img").src = pbResult;
+    $("pb-live").classList.add("hidden");
+    $("pb-result").classList.remove("hidden");
+    $("pb-capture").disabled = false;
+    pbBusy = false;
+    spawnPanelHearts(pbSticker === "🔥" ? "fire" : "heart", 14);
+  }
+  function pbSend() {
+    if (!pbResult) return;
+    addMsg({ mine: true, gif: pbResult });
+    netSend({ t: "snap", img: pbResult });
+    addSys("📸 Sent a photobooth pic");
+    closePhotobooth();
+  }
+  function pbSave() {
+    if (!pbResult) return;
+    addPhotoToScrapbook(pbResult);
+    addSys("📖 Saved to your scrapbook");
+  }
+  function pbDownload() {
+    if (!pbResult) return;
+    const a = document.createElement("a");
+    a.href = pbResult; a.download = "watchtogether-photobooth.jpg";
+    a.click();
+  }
+  function pbRetake() {
+    $("pb-result").classList.add("hidden");
+    $("pb-live").classList.remove("hidden");
+  }
+  function addPhotoToScrapbook(img) {
+    scrapbook.unshift({ img, date: todayStr() });
+    scrapbook = scrapbook.slice(0, 100);
+    chrome.storage.local.set({ wt_scrapbook: scrapbook });
+    renderScrapbook();
+  }
+
   function openFun() {
     renderQotd();
     refreshDates();
@@ -1961,6 +2122,23 @@
     $("invite-no").addEventListener("click", hideInviteBanner);
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
     $("btn-snap").addEventListener("click", sendSnap);
+    $("btn-photobooth").addEventListener("click", openPhotobooth);
+
+    // Photobooth
+    $("pb-close").addEventListener("click", closePhotobooth);
+    $("pb-capture").addEventListener("click", pbCapture);
+    $("pb-send").addEventListener("click", pbSend);
+    $("pb-save").addEventListener("click", pbSave);
+    $("pb-download").addEventListener("click", pbDownload);
+    $("pb-retake").addEventListener("click", pbRetake);
+    document.querySelectorAll("#pb-filters .pb-chip").forEach((b) =>
+      b.addEventListener("click", () => { pbFilter = b.dataset.filter; pbSelect("pb-filters", "filter", pbFilter); pbUpdatePreview(); }));
+    document.querySelectorAll("#pb-stickers .pb-chip").forEach((b) =>
+      b.addEventListener("click", () => { pbSticker = b.dataset.sticker; pbSelect("pb-stickers", "sticker", pbSticker); pbUpdatePreview(); }));
+    document.querySelectorAll("#pb-mode button").forEach((b) =>
+      b.addEventListener("click", () => { pbMode = b.dataset.mode; pbSelect("pb-mode", "mode", pbMode); }));
+    document.querySelectorAll("#pb-layout button").forEach((b) =>
+      b.addEventListener("click", () => { pbLayout = b.dataset.layout; pbSelect("pb-layout", "layout", pbLayout); pbUpdatePreview(); }));
 
     // Composer
     $("btn-send").addEventListener("click", sendChat);

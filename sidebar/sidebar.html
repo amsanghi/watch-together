@@ -123,6 +123,7 @@
         <button class="cute-btn" data-react="fire" title="🔥">🔥</button>
         <button class="cute-btn" data-react="laugh" title="😂">😂</button>
         <button id="btn-snap" class="cute-btn" title="Send a webcam selfie">📸</button>
+        <button id="btn-photobooth" class="cute-btn" title="Photobooth 🎞️">🎞️</button>
         <button id="btn-poke" class="cute-btn" title="Nudge / I miss you">👉💗</button>
         <button id="btn-bookmark" class="cute-btn" title="Bookmark this moment ❤️">🔖</button>
         <button id="btn-cuddle" class="cute-btn" title="Cuddle / goodnight mode 🌙">🌙</button>
@@ -450,6 +451,70 @@
       </div>
       <div id="cuddle-countdown" class="cuddle-countdown"></div>
       <button id="cuddle-exit" class="ghost">Wake up ☀️</button>
+    </div>
+
+    <!-- Photobooth overlay -->
+    <div id="pb-overlay" class="hidden">
+      <div class="pb-head">
+        <span>📸 Photobooth</span>
+        <button id="pb-close" class="icon-btn">✕</button>
+      </div>
+
+      <div id="pb-live">
+        <div class="pb-stage" id="pb-stage">
+          <video id="pb-local" autoplay muted playsinline></video>
+          <video id="pb-remote" autoplay playsinline class="hidden"></video>
+          <span class="pb-stk tl"></span>
+          <span class="pb-stk br"></span>
+          <div id="pb-count" class="pb-count hidden"></div>
+          <div id="pb-flash" class="pb-flash"></div>
+        </div>
+
+        <div class="pb-row pb-filters" id="pb-filters">
+          <button class="pb-chip sel" data-filter="none">Original</button>
+          <button class="pb-chip" data-filter="bw">B&amp;W</button>
+          <button class="pb-chip" data-filter="sepia">Sepia</button>
+          <button class="pb-chip" data-filter="vintage">Vintage</button>
+          <button class="pb-chip" data-filter="dreamy">Dreamy</button>
+          <button class="pb-chip" data-filter="blush">Blush</button>
+          <button class="pb-chip" data-filter="neon">Neon</button>
+          <button class="pb-chip" data-filter="invert">Invert</button>
+        </div>
+
+        <div class="pb-row">
+          <div class="pb-seg" id="pb-mode">
+            <button class="sel" data-mode="single">📷 Single</button>
+            <button data-mode="strip">🎞️ Strip ×3</button>
+          </div>
+          <div class="pb-seg" id="pb-layout">
+            <button class="sel" data-layout="me">Just me</button>
+            <button data-layout="us">Us 💕</button>
+          </div>
+        </div>
+
+        <div class="pb-row pb-stickers" id="pb-stickers">
+          <button class="pb-chip sel" data-sticker="💕">💕</button>
+          <button class="pb-chip" data-sticker="✨">✨</button>
+          <button class="pb-chip" data-sticker="🔥">🔥</button>
+          <button class="pb-chip" data-sticker="💋">💋</button>
+          <button class="pb-chip" data-sticker="🌙">🌙</button>
+          <button class="pb-chip" data-sticker="😎">😎</button>
+          <button class="pb-chip" data-sticker="">none</button>
+        </div>
+
+        <input id="pb-caption" type="text" maxlength="40" placeholder="Caption (optional)…" />
+        <button id="pb-capture" class="primary">Take photo 📸</button>
+      </div>
+
+      <div id="pb-result" class="hidden">
+        <img id="pb-img" alt="photobooth" />
+        <div class="pb-actions">
+          <button id="pb-send" class="primary">Send 💌</button>
+          <button id="pb-save" class="ghost">Save 📖</button>
+          <button id="pb-download" class="ghost">Download ⬇️</button>
+          <button id="pb-retake" class="ghost">Retake 🔁</button>
+        </div>
+      </div>
     </div>
 
     <!-- Love-letter envelope overlay (shown when one arrives) -->
