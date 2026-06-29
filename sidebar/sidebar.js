@@ -132,6 +132,7 @@
 
   function onConnected() {
     clearTimeout(connectHint);
+    clearTimeout(reconnectTimer);
     if (connectedOnce) return;
     connectedOnce = true;
     setStatus("on");
@@ -150,6 +151,18 @@
     // reconnects automatically when they come back.
     connectedOnce = false;
     setStatus("connecting");
+    scheduleReconnect();
+  }
+
+  // If we don't actually connect within a while, rebuild the rooms and try
+  // again. Covers the "closed the panel and reopened" case where the first
+  // handshake can stall on a stale peer.
+  let reconnectTimer = null;
+  function scheduleReconnect() {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => {
+      if (!connectedOnce && settings.pairCode) connect();
+    }, 9000 + Math.floor(Math.random() * 3000));
   }
 
   // Raw RTCDataChannel wiring (manual copy-paste mode — no broker at all).
@@ -240,6 +253,7 @@
     connectHint = setTimeout(() => {
       if (!connectedOnce) addSys("Still connecting… make sure your partner has the panel open and typed the exact same secret word.");
     }, 15000);
+    scheduleReconnect(); // retry the whole rendezvous if it stalls (e.g. after reopen)
   }
 
   // Leave the room cleanly when the panel closes.
