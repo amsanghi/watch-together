@@ -438,9 +438,11 @@
         updateRemoteTile();
         break;
       case "invite":
-        // Partner invited us to a video → show the Join banner on our page.
+        // Show the invite in the panel (works on any page, incl. new-tab/chrome://)
+        // and also on the page itself when possible.
+        pendingInvite = { url: d.url, title: d.title };
+        showInviteBanner(d.title);
         parentPost({ kind: "invite", url: d.url, title: d.title, fromName: settings.partner });
-        addSys(`${settings.partner} invited you to watch — check the page for the Join button 💌`);
         break;
       case "invite-ack":
         addSys(`${settings.partner} is joining 💞`);
@@ -448,13 +450,39 @@
     }
   }
 
+  // ---- Invite (you → partner) and accepting (partner → you) ---------------
+  let pendingInvite = null;
+  let pendingFollow = false;
+
   // Invite the partner to the video in the active tab.
   async function sendInvite() {
     if (!connectedOnce) { addSys("Not connected yet — pair first."); return; }
     const s = await getPageState();
-    if (!s || !s.url || /^chrome|^about:|^edge/.test(s.url)) { addSys("Open a video page first, then invite."); return; }
+    if (!s || !s.url || /^chrome|^about:|^edge|^devtools/.test(s.url)) { addSys("Open a video page first, then invite."); return; }
     netSend({ t: "invite", url: s.url, title: s.title });
     addSys(`Invite sent to ${settings.partner} 💌`);
+  }
+
+  function showInviteBanner(title) {
+    const t = title ? `"${title.length > 70 ? title.slice(0, 67) + "…" : title}"` : "a video";
+    $("invite-text").textContent = `💗 ${settings.partner} wants to watch ${t} together`;
+    $("invite-banner").classList.remove("hidden");
+  }
+  function hideInviteBanner() { $("invite-banner").classList.add("hidden"); }
+
+  // Accept: navigate the active tab ourselves (works even on new-tab/chrome://),
+  // then re-sync to the partner once the page's content script says hello.
+  function acceptInvite() {
+    const url = pendingInvite && pendingInvite.url;
+    hideInviteBanner();
+    if (!url) return;
+    pendingFollow = true;
+    netSend({ t: "invite-ack" });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const id = tabs && tabs[0] && tabs[0].id;
+      if (id != null) chrome.tabs.update(id, { url });
+      else chrome.tabs.create({ url });
+    });
   }
 
   // ---- Page state request (ask the active tab's content script) ----------
@@ -672,8 +700,9 @@
         $("video-warn").title = "Video detected — controls are synced";
         break;
       case "hello":
-        // A tab (re)loaded — if it followed a Join, re-sync it to the partner.
-        if (d.following && connectedOnce) netSend({ t: "sync-req" });
+        // A tab (re)loaded — if it followed a Join (page banner or panel accept),
+        // re-sync it to the partner.
+        if ((d.following || pendingFollow) && connectedOnce) { netSend({ t: "sync-req" }); pendingFollow = false; }
         break;
       case "invite-accepted":
         if (connectedOnce) netSend({ t: "invite-ack" });
@@ -709,6 +738,8 @@
       b.addEventListener("click", () => sendReaction(b.dataset.react))
     );
     $("btn-invite").addEventListener("click", sendInvite);
+    $("invite-join").addEventListener("click", acceptInvite);
+    $("invite-no").addEventListener("click", hideInviteBanner);
     $("btn-countdown").addEventListener("click", () => runCountdown(true));
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
 

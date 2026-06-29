@@ -32,6 +32,9 @@ peer-to-peer over WebRTC.
 
 ## Install
 
+Works on **Chrome 114+ (Windows, macOS, Linux)** — it uses Chrome's Side Panel. The
+one-line installer below is macOS-only; on **Windows**, use the "download & drop" method.
+
 Do this on **both** computers. Pick whichever is easier for you:
 
 ### Easiest — one-line installer (macOS)
@@ -42,7 +45,7 @@ curl -fsSL "https://raw.githubusercontent.com/amsanghi/watch-together/main/insta
 It downloads the latest version, opens Chrome's extensions page and the folder for you,
 then tells you the final 3 clicks. Re-run it any time to update.
 
-### No Terminal — download & drop
+### No Terminal — download & drop (works on Windows too)
 1. Download the latest **[`watch-together.zip`](https://github.com/amsanghi/watch-together/releases/latest)** from the Releases page and unzip it.
 2. Open `chrome://extensions`, turn on **Developer mode** (top-right).
 3. Click **Load unpacked** and choose the unzipped `watch-together` folder
