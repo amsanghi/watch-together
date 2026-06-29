@@ -73,6 +73,9 @@
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
     syncPageShift();
+    // Remember the open/minimized state so the panel restores itself across
+    // refreshes, navigation, and (crucially) a "Join" redirect.
+    try { chrome.storage.local.set({ wt_open: show }); } catch (_) {}
     if (show) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
   }
 
@@ -84,6 +87,16 @@
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.wt === "toggle") togglePanel();
   });
+
+  // On load, reopen the panel automatically if it was open and we're paired —
+  // keeps it persistent across navigation and after a Join redirect (so the
+  // connection re-establishes and the video syncs without a manual reopen).
+  try {
+    chrome.storage.local.get(["wt_open", "wt_settings"], (r) => {
+      const paired = r && r.wt_settings && r.wt_settings.pairCode;
+      if (r && r.wt_open && paired) togglePanel(true);
+    });
+  } catch (_) {}
 
   // ---- Video detection & control -----------------------------------------
   let video = null;
@@ -311,7 +324,11 @@
       '<button class="wt-join-go">Join ▶</button>' +
       '<button class="wt-join-x" title="Dismiss">✕</button>';
     joinBanner.querySelector(".wt-join-text").textContent = `💗 ${who} is watching ${what}`;
-    joinBanner.querySelector(".wt-join-go").addEventListener("click", () => { location.href = url; });
+    joinBanner.querySelector(".wt-join-go").addEventListener("click", () => {
+      // Ensure the panel auto-opens on the destination page so we reconnect & sync.
+      try { chrome.storage.local.set({ wt_open: true }, () => { location.href = url; }); }
+      catch (_) { location.href = url; }
+    });
     joinBanner.querySelector(".wt-join-x").addEventListener("click", () => { joinBanner.remove(); joinBanner = null; joinBannerKey = null; joinDismissedKey = key; });
     document.documentElement.appendChild(joinBanner);
   }
