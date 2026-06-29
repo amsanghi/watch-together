@@ -2037,7 +2037,8 @@
     const cx = c.getContext("2d");
     cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
     cx.filter = PB_FILTERS[filterKey] || "none";
-    cx.translate(w, 0); cx.scale(-1, 1); // mirror the selfie
+    // Capture in true orientation (NOT mirrored). The live preview is mirrored
+    // for a natural selfie feel, but the saved photo should read correctly.
     cx.drawImage(v, 0, 0, w, h);
     return c.toDataURL("image/jpeg", 0.92);
   }
