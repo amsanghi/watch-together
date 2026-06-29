@@ -36,13 +36,27 @@ async function ensureOffscreen() {
     creating = null;
   }
 }
-async function startIfPaired() {
+async function pairCode() {
   const { wt_settings } = await chrome.storage.local.get("wt_settings");
-  if (wt_settings && wt_settings.pairCode) await ensureOffscreen(); // offscreen self-connects from storage
+  return wt_settings && wt_settings.pairCode;
+}
+function tellOffscreenConnect() {
+  pairCode().then((code) => { if (code) chrome.runtime.sendMessage({ wtoff_cmd: "connect", pairCode: code }).catch(() => {}); });
+}
+async function startIfPaired() {
+  if (await pairCode()) await ensureOffscreen(); // its "ready" message will pull the code
 }
 chrome.runtime.onStartup.addListener(startIfPaired);
 chrome.runtime.onInstalled.addListener(startIfPaired);
 startIfPaired();
+
+// Pair/unpair changes (offscreen can't read storage itself).
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes.wt_settings) return;
+  const code = changes.wt_settings.newValue && changes.wt_settings.newValue.pairCode;
+  if (code) ensureOffscreen().then(() => chrome.runtime.sendMessage({ wtoff_cmd: "connect", pairCode: code }).catch(() => {}));
+  else chrome.runtime.sendMessage({ wtoff_cmd: "disconnect" }).catch(() => {});
+});
 
 // ---- Helpers ------------------------------------------------------------
 function toOffscreen(data) { chrome.runtime.sendMessage({ wtoff_cmd: "send", data }).catch(() => {}); }
@@ -87,11 +101,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     toPanel({ wtpipe: "status", connected: msg.connected, selfId: msg.selfId, peerId: msg.peerId });
     return;
   }
+  // Offscreen just loaded → give it the pair code to connect.
+  if (msg.wtoff === "ready") { tellOffscreenConnect(); return; }
 
   // From the side panel: outgoing app data, or it just opened.
   if (msg.wtpipe === "send") { toOffscreen(msg.data); return; }
   if (msg.wtpipe === "hello-panel") {
-    ensureOffscreen().then(() => chrome.runtime.sendMessage({ wtoff_cmd: "status" }).catch(() => {}));
+    ensureOffscreen().then(() => { tellOffscreenConnect(); chrome.runtime.sendMessage({ wtoff_cmd: "status" }).catch(() => {}); });
     return;
   }
 
