@@ -36,8 +36,6 @@
     root.appendChild(overlay);
   }
 
-  const DOCK_W = 372; // keep in sync with #wt-root width in content.css
-
   // Players like YouTube/Netflix size the video with JS off window dimensions
   // and only recompute on a resize event — so after shrinking the page we must
   // fire resize a few times (covering the CSS transition) to make them shrink.
@@ -50,19 +48,11 @@
   }
 
   // Shrink the page so the docked panel sits beside the video instead of over it.
-  // Use !important to beat host-page rules. Shift the root element only (shifting
-  // both html and body would double the gap).
+  // The actual margin/max-width live in content.css (html.wt-shifted) so a
+  // single-page app can't strip them off the inline style. We only toggle the
+  // class here, then fire resize so JS-sized players recompute.
   function setPageShift(on) {
-    const el = document.documentElement;
-    el.style.setProperty("transition", "margin-right 0.2s ease", "important");
-    if (on) {
-      el.style.setProperty("margin-right", DOCK_W + "px", "important");
-      el.style.setProperty("max-width", "calc(100vw - " + DOCK_W + "px)", "important");
-      el.style.setProperty("box-sizing", "border-box", "important");
-    } else {
-      el.style.removeProperty("margin-right");
-      el.style.removeProperty("max-width");
-    }
+    document.documentElement.classList.toggle("wt-shifted", on);
     fireResize();
   }
   function syncPageShift() {
