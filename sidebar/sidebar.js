@@ -168,9 +168,10 @@
     setStatus("connecting");
     const rid = roomId();
     try {
-      // BitTorrent WebRTC trackers (Trystero's maintained defaults) — built for
-      // browser P2P signaling, no write-auth/rate-limit walls like Nostr relays.
-      room = Trystero.joinRoom({ appId: "watchtogether" }, rid);
+      // BitTorrent WebRTC trackers (built for browser P2P signaling, no Nostr
+      // write-auth/rate-limit walls). Announce to several trackers at once so the
+      // fastest one wins — cuts the time-to-connect when some trackers are slow.
+      room = Trystero.joinRoom({ appId: "watchtogether", relayConfig: { redundancy: 6 } }, rid);
     } catch (e) { showError("Couldn't start: " + (e && e.message)); console.log("[WT] joinRoom error", e); return; }
     console.log("[WT] joined room", rid, "selfId", Trystero.selfId);
     // Trystero 0.25: makeAction returns an object; handlers are assignable props.
