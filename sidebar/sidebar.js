@@ -105,6 +105,19 @@
     ["name", "connect", "live", "settings", "history", "fun"].forEach((p) => {
       $(p + "-panel").classList.toggle("hidden", p !== name);
     });
+    // Bottom tab bar: hidden during the name gate, with the right tab lit.
+    const tb = $("tabbar");
+    if (tb) {
+      tb.classList.toggle("hidden", name === "name");
+      const active = { live: "home", connect: "home", fun: "fun", history: "us", settings: "you" }[name];
+      tb.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === active));
+    }
+  }
+  function goTab(tab) {
+    if (tab === "fun") openFun();
+    else if (tab === "us") { renderHistory(); showPanel("history"); }
+    else if (tab === "you") showPanel("settings");
+    else showPanel(connectedOnce ? "live" : "connect");
   }
 
   // ---- Networking abstraction --------------------------------------------
@@ -1212,10 +1225,10 @@
       gifTimer = setTimeout(() => searchGifs($("gif-q").value.trim()), 350);
     });
 
-    // Header buttons
+    // Header + bottom tab bar
     $("btn-close").addEventListener("click", () => { try { window.close(); } catch (_) {} });
-    $("btn-settings").addEventListener("click", () => showPanel("settings"));
     $("btn-reconnect").addEventListener("click", forceReconnect);
+    document.querySelectorAll("#tabbar .tab").forEach((b) => b.addEventListener("click", () => goTab(b.dataset.tab)));
     $("btn-save-settings").addEventListener("click", saveSettings);
     $("btn-clear-history").addEventListener("click", () => {
       chrome.storage.local.set({ wt_stats: { count: 0, streak: 0, lastDate: null, history: [] } }, () => { refreshStats(); renderHistory(); });
@@ -1231,7 +1244,6 @@
     $("set-me-first").addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
 
     // ---- Fun panel ----
-    $("btn-fun").addEventListener("click", openFun);
     $("btn-fun-back").addEventListener("click", () => showPanel(connectedOnce ? "live" : "connect"));
     document.querySelectorAll(".mood-opt").forEach((b) => b.addEventListener("click", () => setMood(b.dataset.mood)));
     $("mood-text").addEventListener("keydown", (e) => { if (e.key === "Enter") { setMood($("mood-text").value.trim()); } });
