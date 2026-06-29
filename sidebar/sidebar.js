@@ -422,7 +422,7 @@
         addMsg({ mine: false, who: settings.partner, gif: d.url });
         break;
       case "reaction":
-        parentPost({ kind: "reaction", reaction: d.reaction });
+        burst(d.reaction);
         break;
       case "video":
         parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: settings.partner });
@@ -467,7 +467,7 @@
         $("partner-mood").textContent = d.mood ? `${settings.partner}: ${d.mood}` : "";
         break;
       case "heartbeat":
-        beatFast(); parentPost({ kind: "reaction", reaction: "heart" });
+        beatFast(); burst("heart");
         try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (_) {}
         addSys(`💓 ${settings.partner}'s heartbeat`);
         break;
@@ -480,7 +480,7 @@
         break;
       case "kiss-pause":
         parentPost({ kind: "apply-video", action: "pause" });
-        parentPost({ kind: "reaction", reaction: "kiss" });
+        burst("kiss");
         addSys(`💋 ${settings.partner} paused for a kiss`);
         break;
       case "qotd":
@@ -611,9 +611,34 @@
   }
 
   // ---- Couple features ----------------------------------------------------
+  const FX_EMOJI = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲" };
+  // Burst emojis BOTH on the page (over the video) and inside the panel, so it's
+  // always visible even on pages where content scripts can't run (new-tab etc.).
+  function burst(kind) {
+    parentPost({ kind: "reaction", reaction: kind });
+    spawnPanelHearts(kind);
+  }
+  function spawnPanelHearts(kind, count = 12) {
+    const cont = $("fx-overlay");
+    if (!cont) return;
+    const emoji = FX_EMOJI[kind] || "❤️";
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("div");
+      el.className = "fx-heart";
+      el.textContent = emoji;
+      el.style.left = 6 + Math.random() * 84 + "%";
+      el.style.fontSize = 20 + Math.random() * 22 + "px";
+      el.style.setProperty("--dx", (Math.random() * 80 - 40) + "px");
+      el.style.setProperty("--r", (Math.random() * 50 - 25) + "deg");
+      el.style.setProperty("--d", 2.2 + Math.random() * 1.5 + "s");
+      el.style.animationDelay = Math.random() * 0.4 + "s";
+      cont.appendChild(el);
+      setTimeout(() => el.remove(), 4200);
+    }
+  }
   function sendReaction(kind) {
     netSend({ t: "reaction", reaction: kind });
-    parentPost({ kind: "reaction", reaction: kind });
+    burst(kind);
   }
   function beatFast() {
     const h = $("presence-heart");
@@ -791,7 +816,7 @@
   function celebrate() {
     if (celebratedToday) return;
     celebratedToday = true;
-    parentPost({ kind: "reaction", reaction: "heart" });
+    burst("heart");
     parentPost({ kind: "toast", text: "🎉 Happy day, lovebirds! 💕" });
   }
   setInterval(refreshDates, 60000); // keep the clock fresh
@@ -808,7 +833,7 @@
   function sendKissPause() {
     netSend({ t: "kiss-pause" });
     parentPost({ kind: "apply-video", action: "pause" });
-    parentPost({ kind: "reaction", reaction: "kiss" });
+    burst("kiss");
   }
   function sendSnap() {
     const v = $("local-video");
