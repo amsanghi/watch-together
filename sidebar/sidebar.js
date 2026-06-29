@@ -117,6 +117,7 @@
   function onConnected() {
     intentionalClose = false;
     clearTimeout(reconnectTimer);
+    clearTimeout(watchdog);
     if (connectedOnce) return;
     connectedOnce = true;
     setStatus("on");
@@ -165,8 +166,20 @@
   // (refresh, navigation, network blip) we retry automatically — no manual room
   // codes, no rejoining.
   let reconnectTimer = null;
+  let watchdog = null;
   let intentionalClose = false;
   let everConnected = false;
+
+  // If we don't actually connect within a few seconds, restart the whole
+  // rendezvous. This recovers from "ghost" peer ids the public broker keeps
+  // briefly after a panel close/reopen (which otherwise leaves us connecting to
+  // a dead host forever). Jitter breaks host/guest ping-pong between the two.
+  function armWatchdog() {
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      if (!connectedOnce && settings.pairCode && !intentionalClose) autoConnect();
+    }, 5000 + Math.floor(Math.random() * 3000));
+  }
 
   function hashStr(s) {
     let h = 5381;
@@ -182,6 +195,10 @@
     try { if (peer) peer.destroy(); } catch (_) {}
     currentCall = null; conn = null; peer = null; remotePeerId = null;
   }
+  // Free our peer id with the broker the moment the panel closes, so reopening
+  // doesn't collide with a lingering "ghost" registration.
+  window.addEventListener("pagehide", cleanupPeer);
+  window.addEventListener("beforeunload", cleanupPeer);
   function scheduleReconnect(delay) {
     if (intentionalClose || !settings.pairCode) return;
     clearTimeout(reconnectTimer);
@@ -194,6 +211,7 @@
     cleanupPeer();
     connectedOnce = false;
     setStatus("connecting");
+    armWatchdog();
     const H = pairHostId();
     amInitiator = false;
     peer = new Peer(H); // try to be the host
@@ -249,6 +267,7 @@
   function unpair() {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
+    clearTimeout(watchdog);
     settings.pairCode = "";
     chrome.storage.local.set({ wt_settings: settings });
     cleanupPeer();
