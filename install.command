@@ -35,23 +35,26 @@ rm -rf "$TMP"
 
 echo "    Installed to: $DEST"
 
-# Always open Chrome's extensions page so the next step is one click away.
-# Launching Chrome's binary with the URL is the most reliable way to reach a
-# chrome:// page (AppleScript "open location" is blocked for internal pages and
-# needs Automation permission).
+# Open Chrome's extensions page. chrome:// URLs are refused by `open`/LaunchServices
+# for security, so we script the browser to make the tab itself. This needs macOS
+# "Automation" permission the first time — Chrome will prompt; click Allow.
 open_extensions() {
-  local urls="chrome://extensions/"
-  for app in "Google Chrome" "Google Chrome Beta" "Google Chrome Canary" "Chromium" "Brave Browser" "Microsoft Edge"; do
-    local bin="/Applications/$app.app/Contents/MacOS/$app"
-    if [ -x "$bin" ]; then
-      "$bin" "$urls" >/dev/null 2>&1 &
-      return 0
-    fi
+  local app=""
+  for a in "Google Chrome" "Brave Browser" "Microsoft Edge" "Google Chrome Beta" "Google Chrome Canary" "Chromium"; do
+    [ -d "/Applications/$a.app" ] && { app="$a"; break; }
   done
-  # Fallbacks if Chrome isn't in /Applications under a known name.
-  open -a "Google Chrome" "$urls" >/dev/null 2>&1 && return 0
-  osascript -e 'tell application "Google Chrome" to activate' \
-            -e "tell application \"Google Chrome\" to open location \"$urls\"" >/dev/null 2>&1 || true
+  [ -z "$app" ] && app="Google Chrome"
+  osascript <<OSA >/dev/null 2>&1 || true
+tell application "$app"
+  activate
+  if (count of windows) = 0 then
+    make new window
+    set URL of active tab of front window to "chrome://extensions/"
+  else
+    tell front window to make new tab with properties {URL:"chrome://extensions/"}
+  end if
+end tell
+OSA
 }
 open_extensions
 
@@ -76,6 +79,9 @@ else
 ✅  Updated.  In the chrome://extensions tab that just opened,
     click the ↻ reload icon on the WatchTogether card
     (no need to Load unpacked again).
+
+   (No tab? Allow the "control Google Chrome" prompt if shown,
+    or just open  chrome://extensions  yourself and click ↻.)
 ────────────────────────────────────────────────────────────
 EOF
 fi
