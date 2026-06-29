@@ -24,7 +24,8 @@
   const DEFAULT_GIPHY_KEY = "4AV58X7gVu01rrXsHmbiuxsJ9kIBeZIw";
 
   // ---- State --------------------------------------------------------------
-  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false };
+  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
+                   anniversary: "", bdayMe: "", bdayPartner: "" };
   let sendData = null;      // sends app data over the active transport
   let streamAdded = false;  // whether we've shared our mic/cam stream yet
   let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
@@ -47,9 +48,13 @@
       $("set-me").value = settings.me;
       $("set-giphy").value = settings.giphyKey;
       $("set-autocam").checked = settings.autocam;
+      $("set-anniversary").value = settings.anniversary || "";
+      $("set-bday-me").value = settings.bdayMe || "";
+      $("set-bday-partner").value = settings.bdayPartner || "";
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
       refreshStats();
+      refreshDates();
       if ($("pair-code")) $("pair-code").value = settings.pairCode || "";
       // First open: ask for a name before anything else, then remember it.
       if (!settings.named) {
@@ -83,16 +88,20 @@
     settings.named = true;
     settings.giphyKey = $("set-giphy").value.trim();
     settings.autocam = $("set-autocam").checked;
+    settings.anniversary = $("set-anniversary").value || "";
+    settings.bdayMe = $("set-bday-me").value || "";
+    settings.bdayPartner = $("set-bday-partner").value || "";
     chrome.storage.local.set({ wt_settings: settings });
     $("me-name").textContent = settings.me;
     $("local-label").textContent = settings.me;
     $("remote-label").textContent = settings.partner;
+    refreshDates();
     showPanel(connectedOnce ? "live" : "connect");
   }
 
   // ---- Panels -------------------------------------------------------------
   function showPanel(name) {
-    ["name", "connect", "live", "settings", "history"].forEach((p) => {
+    ["name", "connect", "live", "settings", "history", "fun"].forEach((p) => {
       $(p + "-panel").classList.toggle("hidden", p !== name);
     });
   }
@@ -130,6 +139,8 @@
     everConnected = true;
     netSend({ t: "name", name: settings.me });
     netSend({ t: "media-state", mic: micOn, cam: camOn });
+    netSend({ t: "profile", tz: -new Date().getTimezoneOffset() }); // minutes east of UTC
+    if (watchlist.length) netSend({ t: "watchlist", items: watchlist });
     if (amInitiator) netSend({ t: "sync-req" });
     recordSession();
   }
@@ -449,6 +460,51 @@
       case "invite-ack":
         addSys(`${settings.partner} is joining 💞`);
         break;
+      case "profile":
+        if (typeof d.tz === "number") { partnerTz = d.tz; refreshDates(); }
+        break;
+      case "mood":
+        $("partner-mood").textContent = d.mood ? `${settings.partner}: ${d.mood}` : "";
+        break;
+      case "heartbeat":
+        beatFast(); parentPost({ kind: "reaction", reaction: "heart" });
+        try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (_) {}
+        addSys(`💓 ${settings.partner}'s heartbeat`);
+        break;
+      case "greet":
+        parentPost({ kind: "toast", text: d.kind === "gm" ? `☀️ Good morning from ${settings.partner}!` : `🌙 Good night from ${settings.partner}!` });
+        addSys(d.kind === "gm" ? `☀️ ${settings.partner} says good morning` : `🌙 ${settings.partner} says good night`);
+        break;
+      case "snap":
+        addMsg({ mine: false, who: settings.partner, gif: d.img });
+        break;
+      case "kiss-pause":
+        parentPost({ kind: "apply-video", action: "pause" });
+        parentPost({ kind: "reaction", reaction: "kiss" });
+        addSys(`💋 ${settings.partner} paused for a kiss`);
+        break;
+      case "qotd":
+        renderQotdAnswer(settings.partner, d.text);
+        break;
+      case "card":
+        $("card-out").classList.remove("hidden");
+        $("card-out").textContent = (d.kind === "wyr" ? "🤔 Would you rather: " : "🎴 ") + d.text;
+        addSys(`${settings.partner} drew a card — check ✨`);
+        break;
+      case "watchlist":
+        if (Array.isArray(d.items)) { watchlist = d.items; renderWatchlist(); }
+        break;
+      case "rate":
+        partnerRating = d.value; maybeRevealRatings();
+        break;
+      case "ttt":
+        if (d.reset) { tttReset(false); }
+        else if (typeof d.cell === "number") tttApply(d.cell, d.mark);
+        break;
+      case "doodle":
+        if (d.clear) doodleClear(false);
+        else doodleRemote(d);
+        break;
     }
   }
 
@@ -684,6 +740,292 @@
   }
 
 
+  // ======================================================================
+  // ---- Cute extras (the ✨ Fun panel + quick gestures) -----------------
+  // ======================================================================
+  let partnerTz = null;       // partner's UTC offset in minutes
+  let watchlist = [];         // [{text, done}]
+  let myRating = null, partnerRating = null;
+
+  // --- Dates: days together, next event, partner's clock ---
+  function daysBetween(dateStr, ref) {
+    return Math.floor((ref - new Date(dateStr + "T00:00:00")) / 86400000);
+  }
+  function nextOccurrence(mmdd) {
+    const now = new Date();
+    let y = now.getFullYear();
+    const d = new Date(mmdd); // a date input value YYYY-MM-DD
+    const cand = new Date(y, d.getMonth(), d.getDate());
+    if (cand < new Date(now.getFullYear(), now.getMonth(), now.getDate())) cand.setFullYear(y + 1);
+    return cand;
+  }
+  function refreshDates() {
+    const now = new Date();
+    if (settings.anniversary) {
+      const n = daysBetween(settings.anniversary, now);
+      $("days-together").textContent = n >= 0 ? `💕 ${n.toLocaleString()} days together` : "💕 counting down…";
+    } else {
+      $("days-together").textContent = "💕 set your dates in ⚙ settings";
+    }
+    // next event among anniversary + birthdays
+    const events = [];
+    if (settings.anniversary) events.push(["💞 Anniversary", nextOccurrence(settings.anniversary)]);
+    if (settings.bdayMe) events.push(["🎂 Your birthday", nextOccurrence(settings.bdayMe)]);
+    if (settings.bdayPartner) events.push([`🎂 ${settings.partner}'s birthday`, nextOccurrence(settings.bdayPartner)]);
+    events.sort((a, b) => a[1] - b[1]);
+    if (events.length) {
+      const [label, when] = events[0];
+      const days = Math.round((when - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+      $("next-event").textContent = days === 0 ? `${label} is TODAY! 🎉` : `${label} in ${days} day${days === 1 ? "" : "s"}`;
+      if (days === 0) celebrate();
+    } else { $("next-event").textContent = ""; }
+    // partner clock
+    if (partnerTz != null) {
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const theirs = new Date(utc + partnerTz * 60000);
+      const hh = String(theirs.getHours()).padStart(2, "0"), mm = String(theirs.getMinutes()).padStart(2, "0");
+      $("partner-clock").textContent = `🕒 ${settings.partner}'s time: ${hh}:${mm}`;
+    } else { $("partner-clock").textContent = ""; }
+  }
+  let celebratedToday = false;
+  function celebrate() {
+    if (celebratedToday) return;
+    celebratedToday = true;
+    parentPost({ kind: "reaction", reaction: "heart" });
+    parentPost({ kind: "toast", text: "🎉 Happy day, lovebirds! 💕" });
+  }
+  setInterval(refreshDates, 60000); // keep the clock fresh
+
+  // --- Mood ---
+  function setMood(mood) {
+    document.querySelectorAll(".mood-opt").forEach((b) => b.classList.toggle("sel", b.dataset.mood === mood));
+    netSend({ t: "mood", mood });
+  }
+
+  // --- Greetings / heartbeat / kiss / snap ---
+  function sendGreet(kind) { netSend({ t: "greet", kind }); addSys(kind === "gm" ? "☀️ Sent good morning" : "🌙 Sent good night"); }
+  function sendHeartbeat() { netSend({ t: "heartbeat" }); beatFast(); }
+  function sendKissPause() {
+    netSend({ t: "kiss-pause" });
+    parentPost({ kind: "apply-video", action: "pause" });
+    parentPost({ kind: "reaction", reaction: "kiss" });
+  }
+  function sendSnap() {
+    const v = $("local-video");
+    if (!v || !v.srcObject) { addSys("Turn your camera on first 📷"); return; }
+    try {
+      const c = document.createElement("canvas");
+      c.width = 320; c.height = Math.round(320 * (v.videoHeight || 240) / (v.videoWidth || 320));
+      const ctx = c.getContext("2d");
+      ctx.translate(c.width, 0); ctx.scale(-1, 1); // un-mirror
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      const img = c.toDataURL("image/jpeg", 0.6);
+      addMsg({ mine: true, gif: img });
+      netSend({ t: "snap", img });
+    } catch (_) { addSys("Couldn't take a snap."); }
+  }
+
+  // --- Question of the day (deterministic by date, same for both) ---
+  const QOTD = [
+    "What's a tiny thing I do that you love?",
+    "Where would you teleport us right now?",
+    "What's your favorite memory of us?",
+    "What song reminds you of me?",
+    "What's something new you want us to try together?",
+    "What made you smile today?",
+    "If we had a free day tomorrow, how would we spend it?",
+    "What's a dream you haven't told me yet?",
+    "What's your comfort food and would you share it with me?",
+    "What's the most attractive thing about me (besides looks)?",
+    "What would our perfect lazy Sunday look like?",
+    "What's a little adventure you want to go on with me?",
+  ];
+  function todaysQuestion() {
+    const epochDay = Math.floor((Date.now() + new Date().getTimezoneOffset() * -60000) / 86400000);
+    return QOTD[epochDay % QOTD.length];
+  }
+  function renderQotd() { $("qotd-q").textContent = todaysQuestion(); }
+  function renderQotdAnswer(who, text) {
+    const el = document.createElement("div");
+    el.className = "ans";
+    el.innerHTML = "<b></b> <span></span>";
+    el.querySelector("b").textContent = who + ":";
+    el.querySelector("span").textContent = text;
+    $("qotd-answers").appendChild(el);
+  }
+  function sendQotd() {
+    const t = $("qotd-input").value.trim();
+    if (!t) return;
+    renderQotdAnswer(settings.me, t);
+    netSend({ t: "qotd", text: t });
+    $("qotd-input").value = "";
+  }
+
+  // --- Love jar ---
+  const JAR = [
+    "You make ordinary days feel special. 💕",
+    "I'd choose you again, every time.",
+    "Your laugh is my favorite sound.",
+    "Home is wherever you are. 🏡",
+    "I'm so proud of you.",
+    "You're my favorite hello and hardest goodbye.",
+    "Thanks for being exactly you.",
+    "I fall for you a little more every day.",
+    "You + me = my favorite team. 🫶",
+    "Even my boring moments are better with you.",
+  ];
+  function pullJar() {
+    const note = JAR[Math.floor(Math.random() * JAR.length)];
+    const el = $("jar-note");
+    el.textContent = note;
+    el.classList.remove("hidden");
+  }
+
+  // --- Rate & reveal ---
+  function setMyRating(v) {
+    myRating = v;
+    document.querySelectorAll("#rate-stars span").forEach((s) => s.classList.toggle("on", Number(s.dataset.v) <= v));
+    netSend({ t: "rate", value: v });
+    $("rate-status").textContent = partnerRating ? "" : "Sent! Waiting for " + settings.partner + "…";
+    maybeRevealRatings();
+  }
+  function maybeRevealRatings() {
+    if (myRating != null && partnerRating != null) {
+      $("rate-status").textContent = `You: ${"★".repeat(myRating)} · ${settings.partner}: ${"★".repeat(partnerRating)}`;
+    }
+  }
+
+  // --- Watchlist ---
+  function renderWatchlist() {
+    const list = $("wl-list");
+    list.innerHTML = "";
+    watchlist.forEach((it, i) => {
+      const row = document.createElement("div");
+      row.className = "wl-item" + (it.done ? " done" : "");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !!it.done;
+      cb.addEventListener("change", () => { it.done = cb.checked; saveWatchlist(); });
+      const sp = document.createElement("span"); sp.textContent = it.text;
+      const x = document.createElement("button"); x.className = "x"; x.textContent = "✕";
+      x.addEventListener("click", () => { watchlist.splice(i, 1); saveWatchlist(); });
+      row.append(cb, sp, x);
+      list.appendChild(row);
+    });
+  }
+  function saveWatchlist() {
+    chrome.storage.local.set({ wt_watchlist: watchlist });
+    renderWatchlist();
+    netSend({ t: "watchlist", items: watchlist });
+  }
+  function addWatchItem() {
+    const t = $("wl-input").value.trim();
+    if (!t) return;
+    watchlist.push({ text: t, done: false });
+    $("wl-input").value = "";
+    saveWatchlist();
+  }
+
+  // --- Would you rather / truth or dare ---
+  const WYR = [
+    "stay in with movies or go out dancing?",
+    "have a beach day or a mountain cabin?",
+    "breakfast in bed or midnight snacks?",
+    "travel the world or build a cozy home?",
+    "read minds or teleport?",
+    "always be too hot or too cold?",
+    "relive our first date or fast-forward to our 50th anniversary?",
+  ];
+  const TOD = [
+    "Truth: what did you first think when you met me?",
+    "Dare: send me your most ridiculous selfie right now.",
+    "Truth: what's a secret talent you have?",
+    "Dare: do your best impression of me.",
+    "Truth: what's your favorite thing we've watched together?",
+    "Dare: blow a kiss and mean it. 😘",
+    "Truth: what's something you want more of in our relationship?",
+  ];
+  function drawCard(kind) {
+    const deck = kind === "wyr" ? WYR : TOD;
+    const text = deck[Math.floor(Math.random() * deck.length)];
+    $("card-out").classList.remove("hidden");
+    $("card-out").textContent = (kind === "wyr" ? "🤔 Would you rather: " : "🎴 ") + text;
+    netSend({ t: "card", kind, text });
+  }
+
+  // --- Tic-tac-toe ---
+  let tttBoard, tttTurn;
+  function tttBuild() {
+    const b = $("ttt-board"); b.innerHTML = "";
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement("div"); c.className = "cell"; c.dataset.i = i;
+      c.addEventListener("click", () => tttClick(i));
+      b.appendChild(c);
+    }
+  }
+  function tttReset(broadcast) {
+    tttBoard = Array(9).fill("");
+    tttTurn = "X";
+    document.querySelectorAll("#ttt-board .cell").forEach((c) => { c.textContent = ""; c.className = "cell"; });
+    $("ttt-status").textContent = "X starts — tap any square";
+    if (broadcast) netSend({ t: "ttt", reset: true });
+  }
+  function tttClick(i) {
+    if (!tttBoard || tttBoard[i] || tttWinner()) return;
+    // your mark = whichever side moves; simplest: you always place the current turn's mark
+    const mark = tttTurn;
+    tttApply(i, mark);
+    netSend({ t: "ttt", cell: i, mark });
+  }
+  function tttApply(i, mark) {
+    if (!tttBoard) tttReset(false);
+    if (tttBoard[i]) return;
+    tttBoard[i] = mark;
+    const cell = document.querySelector(`#ttt-board .cell[data-i="${i}"]`);
+    if (cell) { cell.textContent = mark === "X" ? "✕" : "◯"; cell.classList.add(mark.toLowerCase()); }
+    tttTurn = mark === "X" ? "O" : "X";
+    const w = tttWinner();
+    $("ttt-status").textContent = w ? (w === "draw" ? "It's a draw 🤝" : `${w} wins! 🎉`) : `${tttTurn}'s turn`;
+  }
+  function tttWinner() {
+    const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const [a,b,c] of L) if (tttBoard[a] && tttBoard[a] === tttBoard[b] && tttBoard[a] === tttBoard[c]) return tttBoard[a];
+    return tttBoard.every(Boolean) ? "draw" : null;
+  }
+
+  // --- Doodle together ---
+  let dctx, drawing = false, lastX = 0, lastY = 0;
+  function doodleInit() {
+    const c = $("doodle"); if (!c) return;
+    dctx = c.getContext("2d");
+    const pos = (e) => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+    c.addEventListener("pointerdown", (e) => { drawing = true; [lastX, lastY] = pos(e); });
+    c.addEventListener("pointermove", (e) => {
+      if (!drawing) return;
+      const [x, y] = pos(e);
+      const color = $("doodle-color").value;
+      doodleLine(lastX, lastY, x, y, color);
+      netSend({ t: "doodle", x0: lastX, y0: lastY, x1: x, y1: y, color });
+      [lastX, lastY] = [x, y];
+    });
+    window.addEventListener("pointerup", () => { drawing = false; });
+  }
+  function doodleLine(x0, y0, x1, y1, color) {
+    if (!dctx) return;
+    dctx.strokeStyle = color; dctx.lineWidth = 3; dctx.lineCap = "round";
+    dctx.beginPath(); dctx.moveTo(x0, y0); dctx.lineTo(x1, y1); dctx.stroke();
+  }
+  function doodleRemote(d) { doodleLine(d.x0, d.y0, d.x1, d.y1, d.color); }
+  function doodleClear(broadcast) {
+    if (dctx) dctx.clearRect(0, 0, $("doodle").width, $("doodle").height);
+    if (broadcast) netSend({ t: "doodle", clear: true });
+  }
+
+  function openFun() {
+    renderQotd();
+    refreshDates();
+    renderWatchlist();
+    showPanel("fun");
+  }
+
   function showError(msg) {
     const el = $("connect-error");
     el.textContent = msg;
@@ -744,6 +1086,11 @@
     $("invite-no").addEventListener("click", hideInviteBanner);
     $("btn-countdown").addEventListener("click", () => runCountdown(true));
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
+    $("btn-heartbeat").addEventListener("click", sendHeartbeat);
+    $("btn-snap").addEventListener("click", sendSnap);
+    $("btn-kiss-pause").addEventListener("click", sendKissPause);
+    $("btn-gm").addEventListener("click", () => sendGreet("gm"));
+    $("btn-gn").addEventListener("click", () => sendGreet("gn"));
 
     // Composer
     $("btn-send").addEventListener("click", sendChat);
@@ -786,6 +1133,25 @@
     // First-run name gate
     $("btn-name-continue").addEventListener("click", saveName);
     $("set-me-first").addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
+
+    // ---- Fun panel ----
+    $("btn-fun").addEventListener("click", openFun);
+    $("btn-fun-back").addEventListener("click", () => showPanel(connectedOnce ? "live" : "connect"));
+    document.querySelectorAll(".mood-opt").forEach((b) => b.addEventListener("click", () => setMood(b.dataset.mood)));
+    $("mood-text").addEventListener("keydown", (e) => { if (e.key === "Enter") { setMood($("mood-text").value.trim()); } });
+    $("qotd-send").addEventListener("click", sendQotd);
+    $("qotd-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendQotd(); });
+    $("jar-btn").addEventListener("click", pullJar);
+    document.querySelectorAll("#rate-stars span").forEach((s) => s.addEventListener("click", () => setMyRating(Number(s.dataset.v))));
+    $("wl-add").addEventListener("click", addWatchItem);
+    $("wl-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchItem(); });
+    $("wyr-btn").addEventListener("click", () => drawCard("wyr"));
+    $("tod-btn").addEventListener("click", () => drawCard("tod"));
+    $("ttt-reset").addEventListener("click", () => tttReset(true));
+    $("doodle-clear").addEventListener("click", () => doodleClear(true));
+    tttBuild(); tttReset(false);
+    doodleInit();
+    chrome.storage.local.get(["wt_watchlist"], (r) => { if (Array.isArray(r.wt_watchlist)) { watchlist = r.wt_watchlist; renderWatchlist(); } });
 
     // Initial panel is chosen by loadSettings (name gate on first run, else connect).
   }
