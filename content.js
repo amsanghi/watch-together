@@ -80,6 +80,13 @@
   let suppress = false; // guard against echoing remote-applied actions
   let suppressTimer = null;
 
+  // Netflix needs its own player API (see netflix-inject.js). We send commands
+  // to that main-world script via window.postMessage.
+  const IS_NETFLIX = /(^|\.)netflix\.com$/.test(location.hostname);
+  function nfx(cmd, time) {
+    window.postMessage({ __wtNetflix: true, cmd, time }, "*");
+  }
+
   function area(el) {
     const r = el.getBoundingClientRect();
     return r.width * r.height;
@@ -150,7 +157,8 @@
   function guard() {
     suppress = true;
     clearTimeout(suppressTimer);
-    suppressTimer = setTimeout(() => { suppress = false; }, 500);
+    // Longer on Netflix: API seek + buffering can fire echo events later.
+    suppressTimer = setTimeout(() => { suppress = false; }, IS_NETFLIX ? 1500 : 500);
   }
 
   function applyVideo(d) {
@@ -158,9 +166,20 @@
     if (!video) return;
     guard();
     try {
+      const drift = typeof d.time === "number" ? Math.abs(video.currentTime - d.time) : 0;
+
+      // Netflix: never touch the raw element — drive its player API instead.
+      if (IS_NETFLIX) {
+        if (typeof d.time === "number" && drift > 0.5) nfx("seek", d.time);
+        if (typeof d.paused === "boolean") nfx(d.paused ? "pause" : "play");
+        else if (d.action === "play") nfx("play");
+        else if (d.action === "pause") nfx("pause");
+        return;
+      }
+
       if (typeof d.rate === "number") video.playbackRate = d.rate;
       // Match the partner's playhead (skip tiny drift to avoid stutter).
-      if (typeof d.time === "number" && Math.abs(video.currentTime - d.time) > 0.4) {
+      if (typeof d.time === "number" && drift > 0.4) {
         video.currentTime = d.time;
       }
       // Reconcile play/paused to the sender's actual state when known,
