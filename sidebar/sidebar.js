@@ -227,6 +227,7 @@
         }
       };
       r.onPeerStream = (stream) => remoteStreamHandler(stream);
+      r.onPeerTrack = (track, stream) => remoteStreamHandler(stream); // addTrack fires this, not onPeerStream
       entries.push(entry);
     });
 
