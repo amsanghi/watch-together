@@ -1114,13 +1114,114 @@
 
   // --- Would you rather / truth or dare ---
   const WYR = [
-    "stay in with movies or go out dancing?",
-    "have a beach day or a mountain cabin?",
-    "breakfast in bed or midnight snacks?",
-    "travel the world or build a cozy home?",
-    "read minds or teleport?",
-    "always be too hot or too cold?",
-    "relive our first date or fast-forward to our 50th anniversary?",
+    "have me on top or be on top of me?",
+    "a slow tease all night or be taken right now?",
+    "feel my mouth or my hands on you first?",
+    "be blindfolded or do the blindfolding?",
+    "loud and rough or quiet and teasing?",
+    "morning sex or middle-of-the-night sex?",
+    "be tied up or tie me up?",
+    "make out for an hour first or skip straight to it?",
+    "shower together or soak in the bath together?",
+    "have me whisper filth in your ear or stay silent and just feel it?",
+    "wear something tiny for me or nothing at all?",
+    "get a striptease or give me one?",
+    "be in charge tonight or be told exactly what to do?",
+    "have me kiss down your neck or kiss down mine?",
+    "do it with the lights on or in the dark?",
+    "be teased until you beg or tease me until I beg?",
+    "a quickie somewhere risky or hours behind a locked door?",
+    "have me bite you or scratch you?",
+    "trade nudes all day or get edged over video all night?",
+    "be pinned against the wall or pressed into the bed?",
+    "bring a toy into it or just our hands?",
+    "role-play strangers who just met or lovers reuniting after months?",
+    "lace or bare skin?",
+    "have me go slow and deep or fast and relentless?",
+    "be woken up by my mouth or my hands?",
+    "get a hickey somewhere hidden or somewhere you can't cover?",
+    "once, intense and quick, or three times, slow all night?",
+    "watch me touch myself or be watched while you touch yourself?",
+    "have your hair pulled or your wrists held down?",
+    "dirty talk over the phone or a no-words video call?",
+    "be the dominant one tonight or the submissive one?",
+    "a full-body massage that turns into more, or skip the wait?",
+    "leave the curtains open or the door unlocked?",
+    "be praised the whole time or teased and bossed around?",
+    "have me describe every move before I make it or surprise you?",
+  ];
+  const NHIE = [
+    "touched myself thinking about you.",
+    "gotten turned on in public because of you.",
+    "saved a photo of you for... later.",
+    "had a sex dream about you.",
+    "wanted to sneak off somewhere risky with you.",
+    "fantasized about something with you I've never said out loud.",
+    "gotten off during a call with you.",
+    "pictured you while alone in the shower.",
+    "wanted you so badly I couldn't focus on anything else.",
+    "imagined a roleplay or threesome scenario with you.",
+    "worn something just hoping you'd take it off me.",
+    "lied about being busy because my thoughts about you were filthy.",
+    "wanted to get caught fooling around with you.",
+    "replayed a hot memory of us to get through a boring day.",
+    "sent a risky text and both regretted and loved it.",
+    "wanted to try something I saw and instantly thought of us.",
+    "gotten jealous and then weirdly turned on by it.",
+    "wanted to skip a whole event just to stay in bed with you.",
+    "moaned your name when you weren't there.",
+    "edged myself waiting to be with you.",
+  ];
+  const CONFESS = [
+    "Confess the filthiest thought you've had about me this week.",
+    "Admit the one thing you want me to do but are too shy to ask.",
+    "Tell me the fantasy about us you replay the most.",
+    "Confess every place you've imagined us doing it.",
+    "Admit what you were really thinking last time you looked at me like that.",
+    "Tell me the hottest dream you've ever had about us.",
+    "Confess a kink you want to explore with me.",
+    "Admit the last time you got off thinking about me — and exactly how.",
+    "Tell me the dirtiest thing you wish you were brave enough to say out loud.",
+    "Confess the part of me you can't stop thinking about.",
+    "Admit one rule you'd love me to break with you.",
+    "Tell me the naughtiest thing you've ever secretly wanted to try.",
+    "Confess what you'd do to me right now if there were zero limits.",
+    "Admit the most desperate you've ever been for me.",
+    "Tell me a turn-on you've never confessed to anyone.",
+    "Confess what you wear (or don't) just for me.",
+    "Admit the wildest thing you've done while thinking of me.",
+  ];
+  const FANTASY = [
+    "We're alone in a hotel room with the whole night ahead. What happens first?",
+    "I surprise you in the shower. Walk me through it.",
+    "You're tied to the bed and I'm in charge. What do I do to you?",
+    "We can't make a single sound or we'll get caught. How does it play out?",
+    "You find me waiting in your favorite thing to peel off me. Then what?",
+    "We're strangers who just locked eyes across a bar. Take it from there.",
+    "I'm yours to command for one hour. What's your very first order?",
+    "Lights off, blindfold on — describe everything you'd do to me.",
+    "One night, a long list of firsts. Pick the three you want most.",
+    "You're teasing me under the table at dinner. How far do you take it?",
+    "I tell you not to touch yourself until I say so. How long do you last?",
+    "We reunite after weeks apart and can't keep our hands off. Describe the first ten minutes.",
+    "You get to direct me like your own private show. What do you have me do?",
+    "We have the whole house to ourselves for 24 hours. What's the plan?",
+  ];
+  const FINISH = [
+    "Tonight I want you to ___.",
+    "I can't stop thinking about your ___.",
+    "If you were here right now, I'd ___.",
+    "The first thing I'd take off you is ___.",
+    "I love it most when you ___.",
+    "I've always wanted to try ___ with you.",
+    "You drive me wild when you ___.",
+    "Right now I'm imagining ___.",
+    "Next time I see you, be ready for ___.",
+    "I want you to beg me for ___.",
+    "My favorite place for your mouth is ___.",
+    "I'd let you ___ anytime you wanted.",
+    "The dirtiest thing I'd whisper to you is ___.",
+    "I get weak whenever you ___.",
   ];
   // Explicit, but built for long distance — everything works over video, voice,
   // photos or text. Just the two of you. 🔞
@@ -1204,11 +1305,15 @@
     "Tell me your safe word — then dare me to make you need it.",
     "Look into the camera and tell me what you'd do to me first.",
   ];
-  function cardLabel(kind) {
-    return kind === "wyr" ? "🤔 Would you rather: " : kind === "truth" ? "💬 Truth: " : kind === "dare" ? "🔥 Dare: " : "🎴 ";
-  }
+  const CARD_DECKS = { wyr: WYR, truth: TRUTH, dare: DARE, nhie: NHIE, confess: CONFESS, fantasy: FANTASY, finish: FINISH };
+  const CARD_LABELS = {
+    wyr: "🤔 Would you rather: ", truth: "💬 Truth: ", dare: "🔥 Dare: ",
+    nhie: "🙊 Never have I ever ", confess: "😈 ", fantasy: "🎬 Picture this: ", finish: "✍️ Finish it: ",
+  };
+  function cardLabel(kind) { return CARD_LABELS[kind] || "🎴 "; }
   function drawCard(kind) {
-    const deck = kind === "wyr" ? WYR : kind === "dare" ? DARE : TRUTH;
+    if (kind === "random") { const ks = Object.keys(CARD_DECKS); kind = ks[Math.floor(Math.random() * ks.length)]; }
+    const deck = CARD_DECKS[kind] || TRUTH;
     const text = deck[Math.floor(Math.random() * deck.length)];
     $("card-out").classList.remove("hidden");
     $("card-out").textContent = cardLabel(kind) + text;
@@ -1872,9 +1977,7 @@
     document.querySelectorAll("#rate-stars span").forEach((s) => s.addEventListener("click", () => setMyRating(Number(s.dataset.v))));
     $("wl-add").addEventListener("click", addWatchItem);
     $("wl-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchItem(); });
-    $("wyr-btn").addEventListener("click", () => drawCard("wyr"));
-    $("truth-btn").addEventListener("click", () => drawCard("truth"));
-    $("dare-btn").addEventListener("click", () => drawCard("dare"));
+    document.querySelectorAll(".card-btn[data-card]").forEach((b) => b.addEventListener("click", () => drawCard(b.dataset.card)));
     $("ttt-reset").addEventListener("click", () => tttReset(true));
     $("doodle-clear").addEventListener("click", () => doodleClear(true));
     tttBuild(); tttReset(false);

@@ -389,3 +389,8 @@ input[type="color"].theme-color { width: 56px; height: 36px; border: 1.5px solid
 
 /* Emoji movie puzzle */
 .emoji-puzzle { font-size: 40px; text-align: center; padding: 8px 0 14px; letter-spacing: 4px; min-height: 30px; }
+
+/* Spicy card grid */
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.card-grid .card-btn { padding: 11px 8px; font-size: 12px; }
+#card-out { animation: count-pop 0.4s ease; }
