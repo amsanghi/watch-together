@@ -57,7 +57,12 @@
   // class here, then fire resize so JS-sized players recompute. Works in
   // fullscreen too because fullscreen is redirected to the whole page.
   function setPageShift(on) {
-    document.documentElement.classList.toggle("wt-shifted", on);
+    const h = document.documentElement;
+    h.classList.toggle("wt-shifted", on);
+    // Site classes let content.css apply player-specific shrink rules for sites
+    // that size the video to the window instead of the page (YouTube, Prime).
+    h.classList.toggle("wt-yt", on && /(^|\.)youtube\.com$/.test(location.hostname));
+    h.classList.toggle("wt-prime", on && /(primevideo\.com|(^|\.)amazon\.)/.test(location.hostname));
     fireResize();
   }
   function syncPageShift() {
