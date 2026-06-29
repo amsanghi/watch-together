@@ -178,22 +178,23 @@
     const rid = roomId();
     try {
       room = Trystero.joinRoom(
-        { appId: "watchtogether", relayUrls: NOSTR_RELAYS, relayRedundancy: 4 },
+        { appId: "watchtogether", relayConfig: { urls: NOSTR_RELAYS, redundancy: 4 } },
         rid
       );
     } catch (e) { showError("Couldn't start: " + (e && e.message)); console.log("[WT] joinRoom error", e); return; }
     console.log("[WT] joined room", rid, "selfId", Trystero.selfId);
-    const [send, get] = room.makeAction("m");
-    sendData = send;
-    get((data) => handleData(data));
-    room.onPeerJoin((pid) => {
+    // Trystero 0.25: makeAction returns an object; handlers are assignable props.
+    const action = room.makeAction("m");
+    sendData = (obj) => action.send(obj);
+    action.onMessage = (data) => handleData(data);
+    room.onPeerJoin = (pid) => {
       console.log("[WT] peer joined", pid);
       amInitiator = String(Trystero.selfId) > String(pid); // deterministic sync leader
       if (localStream && room && !streamAdded) { try { room.addStream(localStream); streamAdded = true; } catch (_) {} }
       onConnected();
-    });
-    room.onPeerLeave((pid) => { console.log("[WT] peer left", pid); onDisconnected(); });
-    room.onPeerStream((stream) => remoteStreamHandler(stream));
+    };
+    room.onPeerLeave = (pid) => { console.log("[WT] peer left", pid); onDisconnected(); };
+    room.onPeerStream = (stream, pid) => remoteStreamHandler(stream);
 
     clearTimeout(connectHint);
     connectHint = setTimeout(() => {
