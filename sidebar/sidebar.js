@@ -26,7 +26,6 @@
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
                    anniversary: "", bdayMe: "", bdayPartner: "" };
-  let sendData = null;      // sends app data over the active transport
   let streamAdded = false;  // whether we've shared our mic/cam stream yet
   let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
   let rawDC = null;         // RTCDataChannel (manual mode)
@@ -107,10 +106,12 @@
   }
 
   // ---- Networking abstraction --------------------------------------------
+  // Data goes through the background → offscreen pipe (so it survives panel
+  // close); manual copy-paste mode uses its own raw channel.
   function netSend(obj) {
     try {
-      if (sendData) sendData(obj);
-      else if (rawDC && rawDC.readyState === "open") rawDC.send(JSON.stringify(obj));
+      if (rawDC && rawDC.readyState === "open") rawDC.send(JSON.stringify(obj));
+      else chrome.runtime.sendMessage({ wtpipe: "send", data: obj }).catch(() => {});
     } catch (_) {}
   }
 
@@ -159,90 +160,73 @@
     dc.onclose = onDisconnected;
   }
 
-  // ---- Serverless rendezvous via Trystero (no broker to run) --------------
-  // Both partners join the same room (derived from the shared secret) over
-  // public relays; Trystero connects them directly P2P and reconnects on its
-  // own. No server, no host/guest claiming, no ghost ids.
+  // ---- Connection (data via background offscreen; media in the panel) -----
+  // The DATA link (chat/sync/reactions/…) lives in the background offscreen
+  // document, so it stays alive when the panel is closed. The panel only holds
+  // the MEDIA (webcam/voice) link, joined over Trystero while it's open.
   function hashStr(s) {
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
     return h.toString(36);
   }
-  function roomId() { return "wt" + hashStr((settings.pairCode || "").trim().toLowerCase()); }
+  function mediaRoomId() { return "wtmedia" + hashStr((settings.pairCode || "").trim().toLowerCase()); }
 
-  // We race multiple transports (torrent + MQTT) so we connect via whichever
-  // network finds the peer first. Both partners join both rooms, so we can send
-  // on any transport we're connected on and the partner receives it once (no
-  // duplicates, since we send on a single transport at a time).
-  let entries = [];      // [{ name, room, action, connected }]
-  let primary = null;    // the entry we currently send on
   let connectHint = null;
+  let mediaEntries = [], mediaPrimary = null;
 
-  function leaveRoom() {
-    entries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
-    entries = []; primary = null; sendData = null; streamAdded = false;
+  function leaveMedia() {
+    mediaEntries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
+    mediaEntries = []; mediaPrimary = null; streamAdded = false;
   }
-
-  function repointSend() {
-    const live = entries.find((e) => e.connected);
-    primary = live || null;
-    sendData = live ? (obj) => live.action.send(obj) : null;
+  function mediaConnect() {
+    if (!settings.pairCode || typeof Trystero === "undefined") return;
+    leaveMedia();
+    const rid = mediaRoomId();
+    const cfg = { appId: "watchtogether-media", relayConfig: { redundancy: 6 } };
+    [["mqtt", Trystero.mqtt], ["torrent", Trystero.torrent]].forEach(([name, strat]) => {
+      if (!strat || !strat.joinRoom) return;
+      let r;
+      try { r = strat.joinRoom(cfg, rid); } catch (_) { return; }
+      const entry = { name, room: r, connected: false };
+      r.onPeerJoin = () => {
+        entry.connected = true;
+        if (!mediaPrimary) mediaPrimary = entry;
+        if (localStream && !streamAdded && mediaPrimary) { try { mediaPrimary.room.addStream(localStream); streamAdded = true; } catch (_) {} }
+      };
+      r.onPeerLeave = () => { entry.connected = false; if (mediaPrimary === entry) mediaPrimary = mediaEntries.find((e) => e.connected) || null; };
+      r.onPeerStream = (stream) => remoteStreamHandler(stream);
+      mediaEntries.push(entry);
+    });
   }
 
   function connect() {
     if (!settings.pairCode) return;
-    if (typeof Trystero === "undefined") { showError("Networking failed to load — use Advanced (manual) below."); return; }
-    leaveRoom();
-    connectedOnce = false;
     setStatus("connecting");
-    const rid = roomId();
-    const cfg = { appId: "watchtogether", relayConfig: { redundancy: 6 } };
-    const strategies = [
-      { name: "mqtt", join: Trystero.mqtt && Trystero.mqtt.joinRoom },     // usually fastest
-      { name: "torrent", join: Trystero.torrent && Trystero.torrent.joinRoom }, // reliable fallback
-    ];
-    console.log("[WT] joining room", rid, "selfId", Trystero.selfId);
-
-    strategies.forEach((s) => {
-      if (typeof s.join !== "function") return;
-      let r;
-      try { r = s.join(cfg, rid); } catch (e) { console.log("[WT]", s.name, "join error", e); return; }
-      const action = r.makeAction("m");
-      const entry = { name: s.name, room: r, action, connected: false };
-      action.onMessage = (data) => handleData(data);
-      r.onPeerJoin = (pid) => {
-        console.log("[WT] peer joined via", s.name, pid);
-        entry.connected = true;
-        amInitiator = String(Trystero.selfId) > String(pid);
-        if (!primary) repointSend();
-        if (localStream && !streamAdded && primary) { try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {} }
-        onConnected();
-      };
-      r.onPeerLeave = (pid) => {
-        console.log("[WT] peer left via", s.name, pid);
-        entry.connected = false;
-        if (entries.some((e) => e.connected)) {
-          if (primary === entry) repointSend(); // failover to the other transport
-        } else {
-          primary = null; sendData = null;
-          onDisconnected();
-        }
-      };
-      r.onPeerStream = (stream) => remoteStreamHandler(stream);
-      entries.push(entry);
-    });
-
-    if (!entries.length) { showError("Networking failed to start."); return; }
-
+    // The offscreen data link self-connects from saved settings (and on pair
+    // changes). Here we just make sure it's running and ask for current status —
+    // we do NOT tell it to reconnect, to avoid churning an already-live link.
+    chrome.runtime.sendMessage({ wtpipe: "hello-panel" }).catch(() => {});
+    mediaConnect();
     clearTimeout(connectHint);
     connectHint = setTimeout(() => {
-      if (!connectedOnce) addSys("Still connecting… make sure your partner has the panel open and typed the exact same secret word.");
+      if (!connectedOnce) addSys("Still connecting… make sure your partner has WatchTogether open and the exact same secret word.");
     }, 15000);
   }
 
-  // Leave the room cleanly when the panel closes.
-  window.addEventListener("pagehide", leaveRoom);
-  window.addEventListener("beforeunload", leaveRoom);
+  // The media link drops when the panel closes (no UI to show it); the data link
+  // keeps running in the background.
+  window.addEventListener("pagehide", leaveMedia);
+  window.addEventListener("beforeunload", leaveMedia);
+
+  // Status + incoming peer data from the background pipe.
+  chrome.runtime.onMessage.addListener((m) => {
+    if (!m) return;
+    if (m.wtpipe === "recv") { handleData(m.data); return; }
+    if (m.wtpipe === "status") {
+      if (m.connected) { amInitiator = String(m.selfId) > String(m.peerId); onConnected(); }
+      else onDisconnected();
+    }
+  });
 
   function showPairStatus() {
     $("pair-setup").classList.add("hidden");
@@ -258,16 +242,18 @@
     showPairStatus();
     connect();
   }
-  // Manual escape hatch: rejoin the room now.
+  // Manual escape hatch: tell the background to rejoin, and rejoin media.
   function forceReconnect() {
     if (!settings.pairCode) { addSys("Not paired yet."); return; }
     addSys("Reconnecting…");
-    connect();
+    chrome.runtime.sendMessage({ wtoff_cmd: "connect", pairCode: settings.pairCode }).catch(() => {});
+    mediaConnect();
   }
   function unpair() {
     settings.pairCode = "";
     chrome.storage.local.set({ wt_settings: settings });
-    leaveRoom();
+    chrome.runtime.sendMessage({ wtoff_cmd: "disconnect" }).catch(() => {});
+    leaveMedia();
     connectedOnce = false;
     everConnected = false;
     setStatus("off");
@@ -390,8 +376,8 @@
   }
   // Add our mic/cam stream to the active transport once (Trystero renegotiates).
   function ensureStreamShared() {
-    if (streamAdded || !primary || !localStream) return;
-    try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {}
+    if (streamAdded || !mediaPrimary || !localStream) return;
+    try { mediaPrimary.room.addStream(localStream); streamAdded = true; } catch (_) {}
   }
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");
@@ -510,7 +496,6 @@
 
   // ---- Invite (you → partner) and accepting (partner → you) ---------------
   let pendingInvite = null;
-  let pendingFollow = false;
 
   // Invite the partner to the video in the active tab.
   async function sendInvite() {
@@ -529,18 +514,18 @@
   function hideInviteBanner() { $("invite-banner").classList.add("hidden"); }
 
   // Accept: navigate the active tab ourselves (works even on new-tab/chrome://),
-  // then re-sync to the partner once the page's content script says hello.
+  // then ask the partner for their spot once the new page has loaded.
   function acceptInvite() {
     const url = pendingInvite && pendingInvite.url;
     hideInviteBanner();
     if (!url) return;
-    pendingFollow = true;
     netSend({ t: "invite-ack" });
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const id = tabs && tabs[0] && tabs[0].id;
       if (id != null) chrome.tabs.update(id, { url });
       else chrome.tabs.create({ url });
     });
+    setTimeout(() => netSend({ t: "sync-req" }), 3000); // let the page load, then sync
   }
 
   // ---- Page state request (ask the active tab's content script) ----------
@@ -1057,25 +1042,13 @@
     el.classList.toggle("hidden", !msg);
   }
 
-  // ---- Messages from content scripts (any tab in this window) ------------
+  // ---- Messages from content scripts (UI bits only; the background routes
+  // video-event/hello/invite to the peer over the offscreen data link). -----
   chrome.runtime.onMessage.addListener((d, sender) => {
     if (!d || d.__wt !== true) return;
-    switch (d.kind) {
-      case "video-event":
-        netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title });
-        break;
-      case "video-found":
-        $("video-warn").classList.add("found");
-        $("video-warn").title = "Video detected — controls are synced";
-        break;
-      case "hello":
-        // A tab (re)loaded — if it followed a Join (page banner or panel accept),
-        // re-sync it to the partner.
-        if ((d.following || pendingFollow) && connectedOnce) { netSend({ t: "sync-req" }); pendingFollow = false; }
-        break;
-      case "invite-accepted":
-        if (connectedOnce) netSend({ t: "invite-ack" });
-        break;
+    if (d.kind === "video-found") {
+      $("video-warn").classList.add("found");
+      $("video-warn").title = "Video detected — controls are synced";
     }
   });
 
