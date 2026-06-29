@@ -57,14 +57,24 @@ Load unpacked from the folder; `git pull` + ↻ reload to update.
 
 ## Use it
 
-1. Open the same video page on both computers (e.g. the same YouTube/Netflix URL).
-2. Click the 💗 toolbar icon to open the side panel.
-3. **One** of you clicks **Create a room** and shares the 5-letter code.
-   The other types it in and clicks **Join**. (Or use the **Manual** tab.)
-4. Grant the camera/mic permission prompt (needed for the call — you can stay muted/cam-off).
-5. Press play. Send hearts. Enjoy 🍿
+**Pair once (first time only):** open the 💗 panel on both computers and type the
+**same secret word** into the pairing box (e.g. `usforever`). That's it — from then on
+you auto-connect every time, with no codes and no rejoining, even after refreshing or
+switching pages.
 
-> Tip: hit the **3·2·1 ▶** button to start the movie at the exact same second.
+**Then just watch:**
+1. Open a video on your side and press play.
+2. Your partner gets a **"💗 … is watching … — Join ▶"** banner; one click takes them to
+   the same video at your exact timestamp. (They don't even need to be on the page first —
+   just have the panel open.)
+3. Either of you can play / pause / seek; it stays in sync. Send chat, hearts, GIFs.
+
+> Tips: grant the camera/mic prompt once for voice/video (you can stay muted/cam-off). Hit
+> **3·2·1 ▶** to start together on the same second. Minimize the panel with **–** and bring
+> it back with the toolbar icon or **Cmd/Ctrl+Shift+Y**.
+
+There's also an **Advanced** option under the pairing box for a fully broker-free,
+copy-paste connection if you ever want it.
 
 ## GIFs
 

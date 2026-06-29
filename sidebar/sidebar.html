@@ -35,48 +35,45 @@
     <section id="connect-panel" class="panel">
       <div class="hello">Hi <b id="me-name">you</b> 💕</div>
 
-      <div class="seg">
-        <button class="seg-btn active" data-mode="broker">Quick (room code)</button>
-        <button class="seg-btn" data-mode="manual">Manual (no broker)</button>
+      <!-- Pairing setup (shown until paired) -->
+      <div id="pair-setup" class="mode-ui">
+        <p class="muted small">Pair with your partner <b>once</b>: you both type the <b>same secret word</b>. After that you auto-connect every time — no codes, no rejoining, even after refreshing or switching pages.</p>
+        <input id="pair-code" type="text" placeholder="Shared secret word (e.g. usforever)" autocomplete="off" />
+        <button id="btn-pair" class="primary">Pair &amp; connect 💞</button>
+        <details class="advanced">
+          <summary>Advanced: connect without the broker</summary>
+          <div id="manual-ui" class="mode-ui">
+            <p class="muted small">No broker at all. One of you is the host: create an invite, paste it to your partner (over text/Signal/etc.), and paste their reply back.</p>
+            <div class="manual-roles">
+              <button id="btn-manual-host" class="ghost">I'm hosting → create invite</button>
+              <button id="btn-manual-guest" class="ghost">I'm joining → I have an invite</button>
+            </div>
+            <div id="manual-host-ui" class="hidden">
+              <label class="muted small">1. Send this invite to your partner:</label>
+              <textarea id="host-offer" readonly placeholder="Generating…"></textarea>
+              <button id="btn-copy-offer" class="mini">Copy invite</button>
+              <label class="muted small">2. Paste their reply here:</label>
+              <textarea id="host-answer" placeholder="Paste partner's reply code"></textarea>
+              <button id="btn-host-finish" class="primary">Connect</button>
+            </div>
+            <div id="manual-guest-ui" class="hidden">
+              <label class="muted small">1. Paste the invite you received:</label>
+              <textarea id="guest-offer" placeholder="Paste invite code"></textarea>
+              <button id="btn-guest-gen" class="primary">Generate my reply</button>
+              <label class="muted small">2. Send this reply back to them:</label>
+              <textarea id="guest-answer" readonly placeholder="Your reply appears here"></textarea>
+              <button id="btn-copy-answer" class="mini">Copy reply</button>
+            </div>
+          </div>
+        </details>
       </div>
 
-      <!-- Broker mode -->
-      <div id="broker-ui" class="mode-ui">
-        <button id="btn-create" class="primary">Create a room</button>
-        <div class="or">or</div>
-        <div class="row">
-          <input id="join-code" type="text" placeholder="Enter room code" autocomplete="off" />
-          <button id="btn-join" class="primary">Join</button>
-        </div>
-        <div id="room-share" class="room-share hidden">
-          <div class="muted">Share this code with your partner:</div>
-          <div class="code-box"><code id="room-code">…</code><button id="btn-copy-code" class="icon-btn" title="Copy">⧉</button></div>
-        </div>
-      </div>
-
-      <!-- Manual mode -->
-      <div id="manual-ui" class="mode-ui hidden">
-        <p class="muted small">No broker at all. One of you is the host: create an invite, paste it to your partner (over text/Signal/etc.), and paste their reply back.</p>
-        <div class="manual-roles">
-          <button id="btn-manual-host" class="ghost">I'm hosting → create invite</button>
-          <button id="btn-manual-guest" class="ghost">I'm joining → I have an invite</button>
-        </div>
-        <div id="manual-host-ui" class="hidden">
-          <label class="muted small">1. Send this invite to your partner:</label>
-          <textarea id="host-offer" readonly placeholder="Generating…"></textarea>
-          <button id="btn-copy-offer" class="mini">Copy invite</button>
-          <label class="muted small">2. Paste their reply here:</label>
-          <textarea id="host-answer" placeholder="Paste partner's reply code"></textarea>
-          <button id="btn-host-finish" class="primary">Connect</button>
-        </div>
-        <div id="manual-guest-ui" class="hidden">
-          <label class="muted small">1. Paste the invite you received:</label>
-          <textarea id="guest-offer" placeholder="Paste invite code"></textarea>
-          <button id="btn-guest-gen" class="primary">Generate my reply</button>
-          <label class="muted small">2. Send this reply back to them:</label>
-          <textarea id="guest-answer" readonly placeholder="Your reply appears here"></textarea>
-          <button id="btn-copy-answer" class="mini">Copy reply</button>
-        </div>
+      <!-- Connecting status (shown when paired) -->
+      <div id="pair-status" class="mode-ui hidden">
+        <div class="pair-spinner">💗</div>
+        <div>Connecting to <b id="partner-name2">your partner</b>…</div>
+        <p class="muted small">Auto-reconnects on refresh or page change. Keep this panel open.</p>
+        <button id="btn-unpair" class="ghost">Unpair</button>
       </div>
 
       <div id="connect-error" class="error hidden"></div>

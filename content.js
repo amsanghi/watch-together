@@ -123,11 +123,24 @@
         time: video ? video.currentTime : 0,
         rate: video ? video.playbackRate : 1,
         paused: video ? video.paused : true,
+        url: location.href,
+        title: document.title,
         ...extra,
       },
       "*"
     );
   }
+
+  // Identify "the same video" across URL noise (timestamps, tracking params).
+  function videoKey(u) {
+    try {
+      const x = new URL(u, location.href);
+      const v = x.searchParams.get("v");
+      if (v) return x.host + "|v=" + v; // YouTube
+      return x.host + x.pathname.replace(/\/+$/, ""); // Netflix /watch/ID, files, etc.
+    } catch (_) { return u; }
+  }
+  function sameVideo(a, b) { return videoKey(a) === videoKey(b); }
 
   // Players (Prime Video, etc.) fire a transient pause while seeking and resume
   // afterward. Suppress that pause so we don't pause the partner; the seeked
@@ -172,6 +185,12 @@
   }
 
   function applyVideo(d) {
+    // Follow mode: partner is on a different video → offer to jump there
+    // instead of controlling whatever (if anything) is on this page.
+    if (d.url && !sameVideo(d.url, location.href)) {
+      showJoinBanner(d.url, d.title, d.fromName);
+      return;
+    }
     if (!video) attach(pickVideo());
     if (!video) return;
     guard();
@@ -270,6 +289,31 @@
     void root.offsetWidth; // reflow to restart animation
     root.classList.add("wt-shake");
     setTimeout(() => root.classList.remove("wt-shake"), 600);
+  }
+
+  // ---- Follow: "join what my partner is watching" banner -----------------
+  let joinBanner = null;
+  let joinBannerKey = null;
+  let joinDismissedKey = null;
+  function showJoinBanner(url, title, fromName) {
+    if (!url) return;
+    const key = videoKey(url);
+    if (key === joinDismissedKey) return; // they said no to this one
+    if (joinBannerKey === key && joinBanner) return; // already offering this one
+    if (joinBanner) joinBanner.remove();
+    joinBannerKey = key;
+    joinBanner = document.createElement("div");
+    joinBanner.id = "wt-join";
+    const who = fromName || "Your partner";
+    const what = title ? `"${title.length > 60 ? title.slice(0, 57) + "…" : title}"` : "something";
+    joinBanner.innerHTML =
+      '<span class="wt-join-text"></span>' +
+      '<button class="wt-join-go">Join ▶</button>' +
+      '<button class="wt-join-x" title="Dismiss">✕</button>';
+    joinBanner.querySelector(".wt-join-text").textContent = `💗 ${who} is watching ${what}`;
+    joinBanner.querySelector(".wt-join-go").addEventListener("click", () => { location.href = url; });
+    joinBanner.querySelector(".wt-join-x").addEventListener("click", () => { joinBanner.remove(); joinBanner = null; joinBannerKey = null; joinDismissedKey = key; });
+    document.documentElement.appendChild(joinBanner);
   }
 
   // ---- Message bridge (iframe -> content) ---------------------------------

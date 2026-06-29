@@ -44,6 +44,7 @@
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
       refreshStats();
+      if ($("pair-code")) $("pair-code").value = settings.pairCode || "";
       // First open: ask for a name before anything else, then remember it.
       if (!settings.named) {
         $("set-me-first").value = settings.me === "You" ? "" : settings.me;
@@ -51,6 +52,12 @@
         setTimeout(() => $("set-me-first").focus(), 50);
       } else {
         showPanel("connect");
+        // Already paired → connect automatically, no codes or buttons.
+        if (settings.pairCode) {
+          intentionalClose = false;
+          showPairStatus();
+          autoConnect();
+        }
       }
     });
   }
@@ -101,11 +108,14 @@
   }
 
   function onConnected() {
+    intentionalClose = false;
+    clearTimeout(reconnectTimer);
     if (connectedOnce) return;
     connectedOnce = true;
     setStatus("on");
     showPanel("live");
-    addSys(`Connected 💞 Say hi to ${settings.partner}!`);
+    addSys(everConnected ? "Reconnected 💞" : `Connected 💞 Say hi to ${settings.partner}!`);
+    everConnected = true;
     netSend({ t: "name", name: settings.me });
     netSend({ t: "media-state", mic: micOn, cam: camOn });
     if (amInitiator) netSend({ t: "sync-req" });
@@ -113,9 +123,15 @@
   }
 
   function onDisconnected() {
-    if (!connectedOnce) return;
-    setStatus("off");
-    addSys("Disconnected.");
+    setStatus("connecting");
+    if (settings.pairCode && !intentionalClose) {
+      // Auto-reconnect (covers refresh on the other side, navigation, blips).
+      connectedOnce = false;
+      cleanupPeer();
+      scheduleReconnect(1200);
+    } else {
+      setStatus("off");
+    }
   }
 
   // PeerJS DataConnection wiring
@@ -125,7 +141,7 @@
     c.on("open", onConnected);
     c.on("data", (d) => handleData(d));
     c.on("close", onDisconnected);
-    c.on("error", (e) => showError("Connection error: " + (e?.message || e)));
+    c.on("error", () => onDisconnected());
   }
 
   // Raw RTCDataChannel wiring
@@ -136,66 +152,105 @@
     dc.onclose = onDisconnected;
   }
 
-  // ---- Broker (PeerJS) ----------------------------------------------------
-  function shortCode() {
-    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    let s = "";
-    for (let i = 0; i < 5; i++) s += chars[Math.floor(Math.random() * chars.length)];
-    return s;
+  // ---- Auto-pairing (PeerJS rendezvous on a shared secret) ----------------
+  // Both partners enter the same secret once. We derive a fixed host id from it;
+  // whoever claims it first is the host, the other connects to it. On any drop
+  // (refresh, navigation, network blip) we retry automatically — no manual room
+  // codes, no rejoining.
+  let reconnectTimer = null;
+  let intentionalClose = false;
+  let everConnected = false;
+
+  function hashStr(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+  function pairHostId() {
+    return "wt-pair-" + hashStr((settings.pairCode || "").trim().toLowerCase());
+  }
+  function cleanupPeer() {
+    try { if (currentCall) currentCall.close(); } catch (_) {}
+    try { if (conn) conn.close(); } catch (_) {}
+    try { if (peer) peer.destroy(); } catch (_) {}
+    currentCall = null; conn = null; peer = null; remotePeerId = null;
+  }
+  function scheduleReconnect(delay) {
+    if (intentionalClose || !settings.pairCode) return;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(autoConnect, delay || 1500);
   }
 
-  function makePeer(id) {
-    if (typeof Peer === "undefined") {
-      showError("PeerJS failed to load. Use Manual mode instead.");
-      return null;
-    }
-    // "wt-" prefix avoids collisions with other apps on the public broker.
-    const p = id ? new Peer("wt-" + id) : new Peer();
-    p.on("error", (e) => {
-      if (e.type === "unavailable-id") showError("That room code is taken — try creating again.");
-      else if (e.type === "peer-unavailable") showError("No one is in that room yet, or the code is wrong.");
-      else showError("Broker error: " + e.type);
-      setStatus("off");
-    });
-    return p;
-  }
-
-  async function createRoom() {
-    showError("");
-    const code = shortCode();
+  function autoConnect() {
+    if (!settings.pairCode) return;
+    if (typeof Peer === "undefined") { showError("PeerJS failed to load — use Advanced (manual) below."); return; }
+    cleanupPeer();
+    connectedOnce = false;
     setStatus("connecting");
-    peer = makePeer(code);
-    if (!peer) return;
+    const H = pairHostId();
+    amInitiator = false;
+    peer = new Peer(H); // try to be the host
     peer.on("open", () => {
-      $("room-code").textContent = code;
-      $("room-share").classList.remove("hidden");
-      addSysReady();
+      peer.on("connection", (c) => wireConn(c));
+      peer.on("call", async (call) => {
+        await ensureMedia();
+        call.answer(localStream || undefined);
+        currentCall = call;
+        call.on("stream", remoteStreamHandler);
+      });
     });
-    peer.on("connection", (c) => wireConn(c));
-    peer.on("call", async (call) => {
-      await ensureMedia();
-      call.answer(localStream || undefined);
-      currentCall = call;
-      call.on("stream", remoteStreamHandler);
+    peer.on("disconnected", () => { try { peer.reconnect(); } catch (_) {} });
+    peer.on("error", (e) => {
+      if (e.type === "unavailable-id") becomeGuest(); // host slot taken → I'm the guest
+      else scheduleReconnect(2000);
     });
   }
 
-  async function joinRoom() {
-    showError("");
-    const raw = $("join-code").value.trim().toUpperCase().replace(/^WT-/, "");
-    if (!raw) return showError("Enter the room code your partner shared.");
-    amInitiator = true;
+  function becomeGuest() {
+    cleanupPeer();
     setStatus("connecting");
-    peer = makePeer(null);
-    if (!peer) return;
+    amInitiator = true;
+    const H = pairHostId();
+    peer = new Peer();
     peer.on("open", async () => {
-      wireConn(peer.connect("wt-" + raw, { reliable: true }));
+      wireConn(peer.connect(H, { reliable: true }));
       await ensureMedia();
       try {
-        currentCall = peer.call("wt-" + raw, localStream || new MediaStream());
+        currentCall = peer.call(H, localStream || new MediaStream());
         currentCall.on("stream", remoteStreamHandler);
       } catch (_) {}
     });
+    peer.on("disconnected", () => { try { peer.reconnect(); } catch (_) {} });
+    peer.on("error", () => scheduleReconnect(1500)); // host not up yet → retry rendezvous
+  }
+
+  function showPairStatus() {
+    $("pair-setup").classList.add("hidden");
+    $("pair-status").classList.remove("hidden");
+    $("partner-name2").textContent = settings.partner && settings.partner !== "Partner" ? settings.partner : "your partner";
+  }
+  function startPairing() {
+    const code = $("pair-code").value.trim();
+    if (!code) { $("pair-code").focus(); return; }
+    showError("");
+    settings.pairCode = code;
+    chrome.storage.local.set({ wt_settings: settings });
+    intentionalClose = false;
+    showPairStatus();
+    autoConnect();
+  }
+  function unpair() {
+    intentionalClose = true;
+    clearTimeout(reconnectTimer);
+    settings.pairCode = "";
+    chrome.storage.local.set({ wt_settings: settings });
+    cleanupPeer();
+    connectedOnce = false;
+    everConnected = false;
+    setStatus("off");
+    $("pair-status").classList.add("hidden");
+    $("pair-setup").classList.remove("hidden");
+    showPanel("connect");
   }
 
   // ---- Manual mode (raw WebRTC, copy-paste) -------------------------------
@@ -349,7 +404,7 @@
         parentPost({ kind: "reaction", reaction: d.reaction });
         break;
       case "video":
-        parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused });
+        parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: settings.partner });
         break;
       case "sync-req": {
         const s = await getPageState();
@@ -358,8 +413,7 @@
       }
       case "sync-state":
         if (d.state) {
-          parentPost({ kind: "apply-video", action: d.state.paused ? "pause" : "play", time: d.state.time, rate: d.state.rate, paused: d.state.paused });
-          addSys(`Synced to ${settings.partner}'s spot ⏱️`);
+          parentPost({ kind: "apply-video", action: d.state.paused ? "pause" : "play", time: d.state.time, rate: d.state.rate, paused: d.state.paused, url: d.state.url, title: d.state.title, fromName: settings.partner });
         }
         break;
       case "typing":
@@ -584,7 +638,7 @@
     if (!d || d.__wt !== true || e.source !== window.parent) return;
     switch (d.kind) {
       case "video-event":
-        netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused });
+        netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title });
         break;
       case "video-found":
         $("video-warn").classList.add("found");
@@ -601,23 +655,12 @@
     loadSettings();
     buildEmoji();
 
-    // Connection mode segmented control
-    document.querySelectorAll(".seg-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        document.querySelectorAll(".seg-btn").forEach((x) => x.classList.remove("active"));
-        b.classList.add("active");
-        const manual = b.dataset.mode === "manual";
-        $("manual-ui").classList.toggle("hidden", !manual);
-        $("broker-ui").classList.toggle("hidden", manual);
-      })
-    );
+    // Pairing
+    $("btn-pair").addEventListener("click", startPairing);
+    $("pair-code").addEventListener("keydown", (e) => { if (e.key === "Enter") startPairing(); });
+    $("btn-unpair").addEventListener("click", unpair);
 
-    $("btn-create").addEventListener("click", createRoom);
-    $("btn-join").addEventListener("click", joinRoom);
-    $("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
-    $("btn-copy-code").addEventListener("click", () => navigator.clipboard.writeText($("room-code").textContent));
-
-    // Manual mode
+    // Manual mode (advanced fallback)
     $("btn-manual-host").addEventListener("click", () => { $("manual-host-ui").classList.remove("hidden"); $("manual-guest-ui").classList.add("hidden"); manualHost(); });
     $("btn-manual-guest").addEventListener("click", () => { $("manual-guest-ui").classList.remove("hidden"); $("manual-host-ui").classList.add("hidden"); });
     $("btn-host-finish").addEventListener("click", manualHostFinish);
