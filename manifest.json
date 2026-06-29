@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WatchTogether",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Watch any video together in perfect sync — with chat, voice, video, emojis, GIFs and cute couple extras. Peer-to-peer, no backend.",
   "permissions": ["storage", "scripting"],
   "host_permissions": ["<all_urls>"],

@@ -24,6 +24,17 @@
     <!-- Drag handle (only shown in float mode) -->
     <div id="drag-handle" title="Drag me">⠿ camera</div>
 
+    <!-- First-run name gate -->
+    <section id="name-panel" class="panel hidden">
+      <div class="name-gate">
+        <div class="name-emoji">💗</div>
+        <h3>Welcome to WatchTogether</h3>
+        <p class="muted">What should we call you? Your partner will see this name.</p>
+        <input id="set-me-first" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
+        <button id="btn-name-continue" class="primary">Continue</button>
+      </div>
+    </section>
+
     <!-- Connection panel -->
     <section id="connect-panel" class="panel">
       <div class="hello">Hi <b id="me-name">you</b> 💕</div>
@@ -148,7 +159,6 @@
     <section id="settings-panel" class="panel hidden">
       <h3>Settings</h3>
       <label>Your name<input id="set-me" type="text" placeholder="You" /></label>
-      <label>Partner's name<input id="set-partner" type="text" placeholder="Partner" /></label>
       <label>Giphy API key
         <input id="set-giphy" type="text" placeholder="Paste your free Giphy key" />
       </label>

@@ -186,5 +186,13 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 .hist-item .t { font-weight: 600; }
 .hist-item .d { color: var(--muted); font-size: 11px; }
 
+/* First-run name gate */
+.name-gate { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding: 36px 14px; }
+.name-gate .name-emoji { font-size: 52px; animation: beat 1.4s ease-in-out infinite; }
+.name-gate h3 { margin: 0; font-size: 18px; }
+.name-gate p { margin: 0; max-width: 280px; }
+.name-gate input { text-align: center; font-size: 16px; }
+.name-gate .primary { width: 100%; }
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 4px; }

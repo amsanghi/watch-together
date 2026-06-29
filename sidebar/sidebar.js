@@ -16,7 +16,7 @@
   const DEFAULT_GIPHY_KEY = "4AV58X7gVu01rrXsHmbiuxsJ9kIBeZIw";
 
   // ---- State --------------------------------------------------------------
-  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true };
+  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false };
   let peer = null;          // PeerJS instance (broker mode)
   let conn = null;          // PeerJS DataConnection
   let currentCall = null;   // PeerJS MediaConnection
@@ -40,17 +40,36 @@
       if (!settings.giphyKey) settings.giphyKey = DEFAULT_GIPHY_KEY; // fall back to built-in key
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
-      $("set-partner").value = settings.partner;
       $("set-giphy").value = settings.giphyKey;
       $("set-autocam").checked = settings.autocam;
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
       refreshStats();
+      // First open: ask for a name before anything else, then remember it.
+      if (!settings.named) {
+        $("set-me-first").value = settings.me === "You" ? "" : settings.me;
+        showPanel("name");
+        setTimeout(() => $("set-me-first").focus(), 50);
+      } else {
+        showPanel("connect");
+      }
     });
+  }
+
+  function saveName() {
+    const n = $("set-me-first").value.trim();
+    if (!n) { $("set-me-first").focus(); return; }
+    settings.me = n;
+    settings.named = true;
+    chrome.storage.local.set({ wt_settings: settings });
+    $("me-name").textContent = n;
+    $("set-me").value = n;
+    $("local-label").textContent = n;
+    showPanel("connect");
   }
   function saveSettings() {
     settings.me = $("set-me").value.trim() || "You";
-    settings.partner = $("set-partner").value.trim() || "Partner";
+    settings.named = true;
     settings.giphyKey = $("set-giphy").value.trim();
     settings.autocam = $("set-autocam").checked;
     chrome.storage.local.set({ wt_settings: settings });
@@ -62,7 +81,7 @@
 
   // ---- Panels -------------------------------------------------------------
   function showPanel(name) {
-    ["connect", "live", "settings", "history"].forEach((p) => {
+    ["name", "connect", "live", "settings", "history"].forEach((p) => {
       $(p + "-panel").classList.toggle("hidden", p !== name);
     });
   }
@@ -671,7 +690,11 @@
     $("btn-history").addEventListener("click", () => { renderHistory(); showPanel("history"); });
     $("btn-history-back").addEventListener("click", () => showPanel(connectedOnce ? "live" : "connect"));
 
-    showPanel("connect");
+    // First-run name gate
+    $("btn-name-continue").addEventListener("click", saveName);
+    $("set-me-first").addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
+
+    // Initial panel is chosen by loadSettings (name gate on first run, else connect).
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

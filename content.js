@@ -36,11 +36,27 @@
     root.appendChild(overlay);
   }
 
+  const DOCK_W = 372; // keep in sync with #wt-root width in content.css
+
+  // Shrink the page so the docked panel sits beside the video instead of over it.
+  function setPageShift(on) {
+    const el = document.documentElement;
+    el.style.transition = "margin-right 0.25s ease";
+    el.style.marginRight = on ? DOCK_W + "px" : "";
+  }
+  function syncPageShift() {
+    if (!wrap) return setPageShift(false);
+    const visible = !wrap.classList.contains("wt-hidden");
+    const dock = !wrap.classList.contains("wt-float");
+    setPageShift(visible && dock);
+  }
+
   function togglePanel(forceShow) {
     ensureUI();
     const hidden = wrap.classList.contains("wt-hidden");
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
+    syncPageShift();
     if (show) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
   }
 
@@ -231,6 +247,7 @@
         wrap.classList.toggle("wt-float", d.mode === "float");
         wrap.classList.toggle("wt-dock", d.mode !== "float");
         if (d.mode === "dock") { wrap.style.left = ""; wrap.style.top = ""; wrap.style.right = ""; wrap.style.bottom = ""; }
+        syncPageShift();
         break;
       case "close-panel":
         togglePanel(false);
