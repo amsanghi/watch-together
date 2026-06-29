@@ -213,7 +213,7 @@
         entry.connected = true;
         amInitiator = String(Trystero.selfId) > String(pid);
         if (!primary) repointSend();
-        shareAll(); // push any mic/cam tracks we already have to the new peer
+        reshareTo(r, pid); // (re)send our mic/cam to this (possibly rejoined) peer
         onConnected();
       };
       r.onPeerLeave = (pid) => {
@@ -350,12 +350,21 @@
     if (!localStream) return false;
     return (kind === "video" ? localStream.getVideoTracks() : localStream.getAudioTracks()).length > 0;
   }
-  // Push any local tracks we have to the connected peer (Trystero renegotiates).
+  // Push any local tracks we have to all currently-connected peers (used when we
+  // first enable mic/cam). Deduped so we don't double-add to the same peers.
   function shareAll() {
     if (!primary || !localStream) return;
     localStream.getTracks().forEach((t) => {
       if (sharedTracks.has(t)) return;
       try { primary.room.addTrack(t, localStream); sharedTracks.add(t); } catch (_) {}
+    });
+  }
+  // (Re)send our tracks to ONE specific peer that just (re)joined — bypasses the
+  // dedup since a rejoined peer is a brand-new connection that has nothing yet.
+  function reshareTo(room, pid) {
+    if (!localStream) return;
+    localStream.getTracks().forEach((t) => {
+      try { room.addTrack(t, localStream, { target: pid }); } catch (_) {}
     });
   }
   // Acquire ONE kind (camera or mic) on demand. Asks only for what was clicked,
