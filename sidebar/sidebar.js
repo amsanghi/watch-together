@@ -1,8 +1,9 @@
 /* WatchTogether — side panel app logic.
    Runs as Chrome's side panel (one per window, persists across tabs and
    navigation). Talks to the active tab's content script over chrome messaging,
-   and to the partner via PeerJS (auto-pairing) or a raw RTCPeerConnection
-   (manual copy-paste). Both paths feed one message handler. */
+   and to the partner via Trystero (serverless rendezvous over public relays,
+   no broker to run) or a raw RTCPeerConnection (manual copy-paste). Both paths
+   feed one message handler. */
 
 (() => {
   "use strict";
@@ -24,12 +25,11 @@
 
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false };
-  let peer = null;          // PeerJS instance (broker mode)
-  let conn = null;          // PeerJS DataConnection
-  let currentCall = null;   // PeerJS MediaConnection
-  let rawPC = null;         // RTCPeerConnection (manual mode)
+  let room = null;          // Trystero room (serverless rendezvous)
+  let sendData = null;      // Trystero data sender
+  let streamAdded = false;  // whether we've added our mic/cam stream to the room
+  let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
   let rawDC = null;         // RTCDataChannel (manual mode)
-  let remotePeerId = null;
   let localStream = null;
   let mediaTried = false;
   let mediaDenied = false;
@@ -61,9 +61,8 @@
         showPanel("connect");
         // Already paired → connect automatically, no codes or buttons.
         if (settings.pairCode) {
-          intentionalClose = false;
           showPairStatus();
-          autoConnect();
+          connect();
         }
       }
     });
@@ -102,7 +101,7 @@
   // ---- Networking abstraction --------------------------------------------
   function netSend(obj) {
     try {
-      if (conn && conn.open) conn.send(obj);
+      if (sendData) sendData(obj);
       else if (rawDC && rawDC.readyState === "open") rawDC.send(JSON.stringify(obj));
     } catch (_) {}
   }
@@ -114,10 +113,9 @@
     $("presence-heart").className = s === "on" ? "heart-beat" : "heart-idle";
   }
 
+  let everConnected = false;
+
   function onConnected() {
-    intentionalClose = false;
-    clearTimeout(reconnectTimer);
-    clearTimeout(watchdog);
     if (connectedOnce) return;
     connectedOnce = true;
     setStatus("on");
@@ -129,30 +127,14 @@
     if (amInitiator) netSend({ t: "sync-req" });
     recordSession();
   }
-
   function onDisconnected() {
+    // Partner left (closed panel / browser). We stay in the room, so Trystero
+    // reconnects automatically when they come back.
+    connectedOnce = false;
     setStatus("connecting");
-    if (settings.pairCode && !intentionalClose) {
-      // Auto-reconnect (covers refresh on the other side, navigation, blips).
-      connectedOnce = false;
-      cleanupPeer();
-      scheduleReconnect(1200);
-    } else {
-      setStatus("off");
-    }
   }
 
-  // PeerJS DataConnection wiring
-  function wireConn(c) {
-    conn = c;
-    remotePeerId = c.peer;
-    c.on("open", onConnected);
-    c.on("data", (d) => handleData(d));
-    c.on("close", onDisconnected);
-    c.on("error", () => onDisconnected());
-  }
-
-  // Raw RTCDataChannel wiring
+  // Raw RTCDataChannel wiring (manual copy-paste mode — no broker at all).
   function wireDC(dc) {
     rawDC = dc;
     dc.onopen = onConnected;
@@ -160,94 +142,46 @@
     dc.onclose = onDisconnected;
   }
 
-  // ---- Auto-pairing (PeerJS rendezvous on a shared secret) ----------------
-  // Both partners enter the same secret once. We derive a fixed host id from it;
-  // whoever claims it first is the host, the other connects to it. On any drop
-  // (refresh, navigation, network blip) we retry automatically — no manual room
-  // codes, no rejoining.
-  let reconnectTimer = null;
-  let watchdog = null;
-  let intentionalClose = false;
-  let everConnected = false;
-
-  // If we don't actually connect within a few seconds, restart the whole
-  // rendezvous. This recovers from "ghost" peer ids the public broker keeps
-  // briefly after a panel close/reopen (which otherwise leaves us connecting to
-  // a dead host forever). Jitter breaks host/guest ping-pong between the two.
-  function armWatchdog() {
-    clearTimeout(watchdog);
-    watchdog = setTimeout(() => {
-      if (!connectedOnce && settings.pairCode && !intentionalClose) autoConnect();
-    }, 5000 + Math.floor(Math.random() * 3000));
-  }
-
+  // ---- Serverless rendezvous via Trystero (no broker to run) --------------
+  // Both partners join the same room (derived from the shared secret) over
+  // public relays; Trystero connects them directly P2P and reconnects on its
+  // own. No server, no host/guest claiming, no ghost ids.
   function hashStr(s) {
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
     return h.toString(36);
   }
-  function pairHostId() {
-    return "wt-pair-" + hashStr((settings.pairCode || "").trim().toLowerCase());
-  }
-  function cleanupPeer() {
-    try { if (currentCall) currentCall.close(); } catch (_) {}
-    try { if (conn) conn.close(); } catch (_) {}
-    try { if (peer) peer.destroy(); } catch (_) {}
-    currentCall = null; conn = null; peer = null; remotePeerId = null;
-  }
-  // Free our peer id with the broker the moment the panel closes, so reopening
-  // doesn't collide with a lingering "ghost" registration.
-  window.addEventListener("pagehide", cleanupPeer);
-  window.addEventListener("beforeunload", cleanupPeer);
-  function scheduleReconnect(delay) {
-    if (intentionalClose || !settings.pairCode) return;
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(autoConnect, delay || 1500);
-  }
+  function roomId() { return "wt" + hashStr((settings.pairCode || "").trim().toLowerCase()); }
 
-  function autoConnect() {
+  function leaveRoom() {
+    try { if (room) room.leave(); } catch (_) {}
+    room = null; sendData = null; streamAdded = false;
+  }
+  function connect() {
     if (!settings.pairCode) return;
-    if (typeof Peer === "undefined") { showError("PeerJS failed to load — use Advanced (manual) below."); return; }
-    cleanupPeer();
+    if (typeof Trystero === "undefined") { showError("Networking failed to load — use Advanced (manual) below."); return; }
+    leaveRoom();
     connectedOnce = false;
     setStatus("connecting");
-    armWatchdog();
-    const H = pairHostId();
-    amInitiator = false;
-    peer = new Peer(H); // try to be the host
-    peer.on("open", () => {
-      peer.on("connection", (c) => wireConn(c));
-      peer.on("call", async (call) => {
-        await ensureMedia();
-        call.answer(localStream || undefined);
-        currentCall = call;
-        call.on("stream", remoteStreamHandler);
-      });
+    try {
+      room = Trystero.joinRoom({ appId: "watchtogether" }, roomId());
+    } catch (e) { showError("Couldn't start: " + (e && e.message)); return; }
+    const [send, get] = room.makeAction("m");
+    sendData = send;
+    get((data) => handleData(data));
+    room.onPeerJoin((pid) => {
+      // Deterministic sync leader: the larger id asks the other for state.
+      amInitiator = String(Trystero.selfId) > String(pid);
+      if (localStream && room && !streamAdded) { try { room.addStream(localStream); streamAdded = true; } catch (_) {} }
+      onConnected();
     });
-    peer.on("disconnected", () => { try { peer.reconnect(); } catch (_) {} });
-    peer.on("error", (e) => {
-      if (e.type === "unavailable-id") becomeGuest(); // host slot taken → I'm the guest
-      else scheduleReconnect(2000);
-    });
+    room.onPeerLeave(() => onDisconnected());
+    room.onPeerStream((stream) => remoteStreamHandler(stream));
   }
 
-  function becomeGuest() {
-    cleanupPeer();
-    setStatus("connecting");
-    amInitiator = true;
-    const H = pairHostId();
-    peer = new Peer();
-    peer.on("open", async () => {
-      wireConn(peer.connect(H, { reliable: true }));
-      await ensureMedia();
-      try {
-        currentCall = peer.call(H, localStream || new MediaStream());
-        currentCall.on("stream", remoteStreamHandler);
-      } catch (_) {}
-    });
-    peer.on("disconnected", () => { try { peer.reconnect(); } catch (_) {} });
-    peer.on("error", () => scheduleReconnect(1500)); // host not up yet → retry rendezvous
-  }
+  // Leave the room cleanly when the panel closes.
+  window.addEventListener("pagehide", leaveRoom);
+  window.addEventListener("beforeunload", leaveRoom);
 
   function showPairStatus() {
     $("pair-setup").classList.add("hidden");
@@ -260,28 +194,19 @@
     showError("");
     settings.pairCode = code;
     chrome.storage.local.set({ wt_settings: settings });
-    intentionalClose = false;
     showPairStatus();
-    autoConnect();
+    connect();
   }
-  // Manual escape hatch: tear everything down and restart the rendezvous now.
+  // Manual escape hatch: rejoin the room now.
   function forceReconnect() {
     if (!settings.pairCode) { addSys("Not paired yet."); return; }
-    intentionalClose = false;
-    clearTimeout(reconnectTimer);
-    clearTimeout(watchdog);
-    cleanupPeer();
-    connectedOnce = false;
     addSys("Reconnecting…");
-    autoConnect();
+    connect();
   }
   function unpair() {
-    intentionalClose = true;
-    clearTimeout(reconnectTimer);
-    clearTimeout(watchdog);
     settings.pairCode = "";
     chrome.storage.local.set({ wt_settings: settings });
-    cleanupPeer();
+    leaveRoom();
     connectedOnce = false;
     everConnected = false;
     setStatus("off");
@@ -383,7 +308,7 @@
     micOn = !micOn;
     localStream.getAudioTracks().forEach((t) => (t.enabled = micOn));
     updateMediaButtons();
-    ensureCall();
+    ensureStreamShared();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   async function toggleCam() {
@@ -393,7 +318,7 @@
     localStream.getVideoTracks().forEach((t) => (t.enabled = camOn));
     $("local-video").parentElement.classList.toggle("live", camOn);
     updateMediaButtons();
-    ensureCall();
+    ensureStreamShared();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   function updateMediaButtons() {
@@ -402,13 +327,10 @@
     $("local-off").textContent = mediaDenied ? "blocked" : "cam off";
     $("local-off").style.display = camOn ? "none" : "flex";
   }
-  // If broker mode connected but no media call yet (lazy), start one now.
-  function ensureCall() {
-    if (currentCall || !peer || !remotePeerId || !localStream) return;
-    try {
-      currentCall = peer.call(remotePeerId, localStream);
-      currentCall.on("stream", remoteStreamHandler);
-    } catch (_) {}
+  // Add our mic/cam stream to the room once (Trystero renegotiates as needed).
+  function ensureStreamShared() {
+    if (streamAdded || !room || !localStream) return;
+    try { room.addStream(localStream); streamAdded = true; } catch (_) {}
   }
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");

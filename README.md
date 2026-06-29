@@ -12,10 +12,11 @@ peer-to-peer over WebRTC.
 
 - **Universal video sync** — works on any site with an HTML5 `<video>` (YouTube, Netflix,
   Disney+, plain `.mp4`, etc.). **Either** person can play / pause / seek and it stays in sync.
-- **Two ways to connect, both serverless:**
-  - **Quick (room code):** one of you creates a room and shares a 5-letter code. Uses
-    PeerJS's free public signaling broker — you don't run or pay for anything.
-  - **Manual (no broker):** truly zero third-party. Create an invite, paste it to your
+- **Pair once, then auto-connect — no server, no broker to run:**
+  - **Pairing:** you both type the same secret word once. You then join the same room over
+    **Trystero** (serverless rendezvous over public relays) and connect directly P2P. No
+    server to host, no account, no room codes after pairing.
+  - **Manual (Advanced):** truly zero third-party — create an invite, paste it to your
     partner over text/Signal, paste their reply back. Uses Google's public STUN only.
 - **Voice & video call** — webcam tiles in the side panel. Starts muted with camera off;
   toggle each on when you're ready.
@@ -95,7 +96,7 @@ browser's local storage and overrides the built-in key.
 ```
 toolbar icon / Cmd+Shift+Y ─▶ Chrome Side Panel (sidebar.html + sidebar.js)
                               · one per window, persists across tabs/navigation
-                              · holds the PeerJS connection (auto-pairing) + UI
+                              · holds the Trystero connection (auto-pairing) + UI
                                      │  chrome messaging
                                      ▼
                               content.js (on the video tab)
@@ -117,30 +118,31 @@ toolbar icon / Cmd+Shift+Y ─▶ Chrome Side Panel (sidebar.html + sidebar.js)
 - Videos embedded in a **cross-origin iframe** on a page can't be controlled (browser
   security). Most sites — YouTube, Netflix, direct video files — keep the player in the main
   frame and work fine.
-- The "Quick" room mode depends on PeerJS's free public broker being up. If it's ever down,
-  use the **Manual** tab — it has no third-party dependency at all.
+- Pairing uses public **Trystero** relays for the initial handshake. If they're ever
+  unreachable, hit **🔄 Reconnect**, or use the **Advanced** (manual copy-paste) option,
+  which has no third-party dependency at all.
 
 ## Privacy
 
 There is no backend. Chat, video and voice flow directly between the two browsers. The only
-third parties are the **PeerJS broker** (used once to introduce the two browsers in Quick
-mode; no media flows through it), **Google STUN** (helps the two browsers find each other),
-and **Giphy** (only if you add a key and search GIFs). Your watch history and settings never
-leave your own browser.
+third parties are the **public relays Trystero uses** (only to introduce the two browsers;
+no media or messages flow through them — those go peer-to-peer), **Google STUN** (helps the
+two browsers find each other), and **Giphy** (only if you add a key and search GIFs). Your
+watch history and settings never leave your own browser.
 
 ## Project layout
 
 ```
 watch-together/
-├── manifest.json        # MV3 manifest
-├── background.js        # toolbar click → toggle panel
-├── content.js           # video control + page effects + iframe bridge
-├── content.css          # injected wrapper / overlay styles
+├── manifest.json        # MV3 manifest (side_panel + content scripts)
+├── background.js        # opens the side panel on icon click / shortcut
+├── content.js           # video control + page effects (talks to the panel)
+├── content.css          # page-effect styles
 ├── sidebar/
-│   ├── sidebar.html     # the app UI
+│   ├── sidebar.html     # the side-panel UI
 │   ├── sidebar.css      # dark/cinematic theme
 │   └── sidebar.js       # connection, chat, media, couple features
-├── lib/peerjs.min.js    # vendored PeerJS (no remote code, MV3-safe)
+├── lib/trystero-nostr.js # vendored Trystero (serverless P2P, MV3-safe)
 └── icons/               # generated heart icons
 ```
 
