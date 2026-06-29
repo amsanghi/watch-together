@@ -110,6 +110,12 @@
     dot.className = "dot " + s; // off | connecting | on
     dot.title = s === "on" ? "Connected" : s === "connecting" ? "Connecting…" : "Disconnected";
     $("presence-heart").className = s === "on" ? "heart-beat" : "heart-idle";
+    const label = $("header-status");
+    if (label) {
+      label.textContent = s === "on"
+        ? (settings.partner && settings.partner !== "Partner" ? settings.partner : "Connected")
+        : s === "connecting" ? "Connecting…" : "Not connected";
+    }
   }
 
   let everConnected = false;
@@ -396,6 +402,7 @@
       case "name":
         settings.partner = d.name || settings.partner;
         $("remote-label").textContent = settings.partner;
+        if (connectedOnce && $("header-status")) $("header-status").textContent = settings.partner;
         break;
       case "chat":
         addMsg({ mine: false, who: settings.partner, text: d.text });
