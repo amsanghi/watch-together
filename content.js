@@ -38,11 +38,32 @@
 
   const DOCK_W = 372; // keep in sync with #wt-root width in content.css
 
+  // Players like YouTube/Netflix size the video with JS off window dimensions
+  // and only recompute on a resize event — so after shrinking the page we must
+  // fire resize a few times (covering the CSS transition) to make them shrink.
+  function fireResize() {
+    [0, 120, 280, 500].forEach((t) =>
+      setTimeout(() => {
+        try { window.dispatchEvent(new Event("resize")); } catch (_) {}
+      }, t)
+    );
+  }
+
   // Shrink the page so the docked panel sits beside the video instead of over it.
+  // Use !important to beat host-page rules. Shift the root element only (shifting
+  // both html and body would double the gap).
   function setPageShift(on) {
     const el = document.documentElement;
-    el.style.transition = "margin-right 0.25s ease";
-    el.style.marginRight = on ? DOCK_W + "px" : "";
+    el.style.setProperty("transition", "margin-right 0.2s ease", "important");
+    if (on) {
+      el.style.setProperty("margin-right", DOCK_W + "px", "important");
+      el.style.setProperty("max-width", "calc(100vw - " + DOCK_W + "px)", "important");
+      el.style.setProperty("box-sizing", "border-box", "important");
+    } else {
+      el.style.removeProperty("margin-right");
+      el.style.removeProperty("max-width");
+    }
+    fireResize();
   }
   function syncPageShift() {
     if (!wrap) return setPageShift(false);
