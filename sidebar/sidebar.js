@@ -116,6 +116,7 @@
   let everConnected = false;
 
   function onConnected() {
+    clearTimeout(connectHint);
     if (connectedOnce) return;
     connectedOnce = true;
     setStatus("on");
@@ -157,26 +158,47 @@
     try { if (room) room.leave(); } catch (_) {}
     room = null; sendData = null; streamAdded = false;
   }
+  // Known-good public Nostr relays (redundant so a slow/down one doesn't stall us).
+  const NOSTR_RELAYS = [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.nostr.band",
+    "wss://relay.primal.net",
+    "wss://nostr.wine",
+    "wss://relay.snort.social",
+  ];
+  let connectHint = null;
+
   function connect() {
     if (!settings.pairCode) return;
     if (typeof Trystero === "undefined") { showError("Networking failed to load — use Advanced (manual) below."); return; }
     leaveRoom();
     connectedOnce = false;
     setStatus("connecting");
+    const rid = roomId();
     try {
-      room = Trystero.joinRoom({ appId: "watchtogether" }, roomId());
-    } catch (e) { showError("Couldn't start: " + (e && e.message)); return; }
+      room = Trystero.joinRoom(
+        { appId: "watchtogether", relayUrls: NOSTR_RELAYS, relayRedundancy: 4 },
+        rid
+      );
+    } catch (e) { showError("Couldn't start: " + (e && e.message)); console.log("[WT] joinRoom error", e); return; }
+    console.log("[WT] joined room", rid, "selfId", Trystero.selfId);
     const [send, get] = room.makeAction("m");
     sendData = send;
     get((data) => handleData(data));
     room.onPeerJoin((pid) => {
-      // Deterministic sync leader: the larger id asks the other for state.
-      amInitiator = String(Trystero.selfId) > String(pid);
+      console.log("[WT] peer joined", pid);
+      amInitiator = String(Trystero.selfId) > String(pid); // deterministic sync leader
       if (localStream && room && !streamAdded) { try { room.addStream(localStream); streamAdded = true; } catch (_) {} }
       onConnected();
     });
-    room.onPeerLeave(() => onDisconnected());
+    room.onPeerLeave((pid) => { console.log("[WT] peer left", pid); onDisconnected(); });
     room.onPeerStream((stream) => remoteStreamHandler(stream));
+
+    clearTimeout(connectHint);
+    connectHint = setTimeout(() => {
+      if (!connectedOnce) addSys("Still connecting… make sure your partner has the panel open and typed the exact same secret word.");
+    }, 15000);
   }
 
   // Leave the room cleanly when the panel closes.
