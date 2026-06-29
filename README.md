@@ -30,14 +30,30 @@ peer-to-peer over WebRTC.
 
 ---
 
-## Install (load unpacked)
+## Install
 
-1. Open `chrome://extensions` in Chrome.
-2. Turn on **Developer mode** (top-right).
-3. Click **Load unpacked** and select this `watch-together` folder.
+Do this on **both** computers. Pick whichever is easier for you:
+
+### Easiest — one-line installer (macOS)
+Open **Terminal** and paste:
+```bash
+curl -fsSL https://raw.githubusercontent.com/amsanghi/watch-together/main/install.command | bash
+```
+It downloads the latest version, opens Chrome's extensions page and the folder for you,
+then tells you the final 3 clicks. Re-run it any time to update.
+
+### No Terminal — download & drop
+1. Download the latest **[`watch-together.zip`](https://github.com/amsanghi/watch-together/releases/latest)** from the Releases page and unzip it.
+2. Open `chrome://extensions`, turn on **Developer mode** (top-right).
+3. Click **Load unpacked** and choose the unzipped `watch-together` folder
+   (or just **drag the folder onto the page**).
 4. Pin the 💗 WatchTogether icon to your toolbar.
 
-Do this on **both** computers.
+### For developers — clone & pull
+```bash
+git clone https://github.com/amsanghi/watch-together.git
+```
+Load unpacked from the folder; `git pull` + ↻ reload to update.
 
 ## Use it
 
