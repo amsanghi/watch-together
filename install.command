@@ -35,10 +35,11 @@ rm -rf "$TMP"
 
 echo "    Installed to: $DEST"
 
+# Always open Chrome's extensions page so the next step is one click away.
+osascript -e 'tell application "Google Chrome" to activate' \
+          -e 'tell application "Google Chrome" to open location "chrome://extensions"' >/dev/null 2>&1 || true
+
 if [ "$FIRST_INSTALL" = "1" ]; then
-  # First install: open Chrome's extensions page so you can load it.
-  osascript -e 'tell application "Google Chrome" to activate' \
-            -e 'tell application "Google Chrome" to open location "chrome://extensions"' >/dev/null 2>&1 || true
   cat <<EOF
 
 ────────────────────────────────────────────────────────────
@@ -56,9 +57,9 @@ else
   cat <<EOF
 
 ────────────────────────────────────────────────────────────
-✅  Updated.  Now reload it:  open chrome://extensions and click
-    the ↻ reload icon on the WatchTogether card (no need to
-    Load unpacked again).
+✅  Updated.  In the chrome://extensions tab that just opened,
+    click the ↻ reload icon on the WatchTogether card
+    (no need to Load unpacked again).
 ────────────────────────────────────────────────────────────
 EOF
 fi
