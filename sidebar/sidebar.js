@@ -2043,22 +2043,26 @@
     return c.toDataURL("image/jpeg", 0.92);
   }
   function loadImg(src) { return new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
-  function drawImgCover(ctx, img, x, y, w, h) {
-    if (!img || !img.naturalWidth) { ctx.fillStyle = "#2c1f38"; ctx.fillRect(x, y, w, h); return; }
+  function drawImgCover(ctx, img, x, y, w, h, mirror) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    if (!img || !img.naturalWidth) { ctx.fillStyle = "#2c1f38"; ctx.fillRect(x, y, w, h); ctx.restore(); return; }
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
     const vw = img.naturalWidth, vh = img.naturalHeight;
     const scale = Math.max(w / vw, h / vh);
     const dw = vw * scale, dh = vh * scale;
-    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    const dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
+    if (mirror) { ctx.translate(2 * (x + w / 2), 0); ctx.scale(-1, 1); } // match the mirrored selfie preview
+    ctx.drawImage(img, dx, dy, dw, dh);
     ctx.restore();
   }
-  // Stitch HD frames into the final framed photo / strip.
-  async function pbStitch(leftShots, rightShots, p) {
-    const useUs = !!rightShots;
+  // Stitch HD frames into the final framed photo / strip — laid out EXACTLY like
+  // the preview: a 4:3 cell, and in "Us" mode two tall (2:3) halves with my cam
+  // (mirrored, like my preview) on the left and my partner (un-mirrored) right.
+  async function pbStitch(myShots, partnerShots, p) {
+    const useUs = !!partnerShots;
     const shots = p.shots;
-    const cellH = 720, halfW = Math.round(cellH * 4 / 3); // 4:3 cells
-    const cellW = useUs ? halfW * 2 : halfW;
+    const cellH = 960, cellW = Math.round(cellH * 4 / 3); // 4:3, same as the preview stage
+    const halfW = Math.round(cellW / 2);
     const pad = Math.round(cellW * 0.035), gap = Math.round(cellH * 0.05), footer = Math.round(cellH * 0.17);
     const W = cellW + pad * 2, H = pad * 2 + shots * cellH + (shots - 1) * gap + footer;
     const c = document.createElement("canvas"); c.width = W; c.height = H;
@@ -2070,8 +2074,12 @@
       const y = pad + s * (cellH + gap);
       ctx.save(); roundRect(ctx, pad, y, cellW, cellH, 22); ctx.clip();
       ctx.fillStyle = "#1d1424"; ctx.fillRect(pad, y, cellW, cellH);
-      drawImgCover(ctx, await loadImg(leftShots[s]), pad, y, useUs ? halfW : cellW, cellH);
-      if (useUs) drawImgCover(ctx, await loadImg(rightShots[s]), pad + halfW, y, halfW, cellH);
+      if (useUs) {
+        drawImgCover(ctx, await loadImg(myShots[s]), pad, y, halfW, cellH, true);          // me — mirrored, left
+        drawImgCover(ctx, await loadImg(partnerShots[s]), pad + halfW, y, cellW - halfW, cellH, false); // partner — right
+      } else {
+        drawImgCover(ctx, await loadImg(myShots[s]), pad, y, cellW, cellH, true);           // just me — mirrored
+      }
       ctx.restore();
       if (p.sticker) {
         ctx.fillStyle = "#fff"; ctx.font = Math.round(cellH * 0.1) + "px serif";
@@ -2104,9 +2112,9 @@
   async function pbMaybeStitch() {
     if (!pbSession || pbSession.done || !pbSession.myShots || !pbSession.partnerShots) return;
     pbSession.done = true;
-    const left = amInitiator ? pbSession.myShots : pbSession.partnerShots;
-    const right = amInitiator ? pbSession.partnerShots : pbSession.myShots;
-    pbFinish(await pbStitch(left, right, pbSession));
+    // Each side builds its own photo to match its own preview: me on the left
+    // (mirrored), partner on the right (un-mirrored).
+    pbFinish(await pbStitch(pbSession.myShots, pbSession.partnerShots, pbSession));
   }
   async function pbRunPhoto() {
     if (pbBusy) return;
