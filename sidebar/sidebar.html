@@ -195,6 +195,20 @@
         <button id="btn-fun-back" class="icon-btn" title="Back">✕</button>
       </div>
 
+      <!-- Camera strip (mirrors the live cams so you can still see each other) -->
+      <div id="fun-cam" class="hidden">
+        <div class="cam-tile">
+          <video id="fun-local-video" autoplay muted playsinline></video>
+          <span class="cam-label" id="fun-local-label">You</span>
+          <div class="cam-off-badge" id="fun-local-off">cam off</div>
+        </div>
+        <div class="cam-tile">
+          <video id="fun-remote-video" autoplay playsinline></video>
+          <span class="cam-label" id="fun-remote-label">Partner</span>
+          <div class="cam-off-badge" id="fun-remote-off">waiting…</div>
+        </div>
+      </div>
+
       <!-- Us at a glance -->
       <div class="fun-card" id="fun-dates">
         <div id="days-together" class="big-num">💕 — days together</div>

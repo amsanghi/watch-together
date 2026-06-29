@@ -481,6 +481,7 @@
     $("btn-cam").className = "media-btn " + (camOn ? "on" : "off");
     $("local-off").textContent = mediaDenied ? "allow access" : "cam off";
     $("local-off").style.display = camOn ? "none" : "flex";
+    syncFunCams();
   }
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");
@@ -493,6 +494,28 @@
     tile.classList.toggle("live", hasStream && remoteState.cam);
     $("remote-off").textContent = !hasStream ? "waiting…" : remoteState.cam ? "" : "cam off";
     $("remote-off").style.display = hasStream && remoteState.cam ? "none" : "flex";
+    syncFunCams();
+  }
+
+  // Mirror the live camera tiles into the Fun panel's strip so you can still
+  // see each other while playing games / reading letters. Multiple <video>
+  // elements can share the same MediaStream, so we just copy srcObject across.
+  function syncFunCams() {
+    const fl = $("fun-local-video"), fr = $("fun-remote-video");
+    if (!fl || !fr) return;
+    const lv = $("local-video"), rv = $("remote-video");
+    if (fl.srcObject !== lv.srcObject) fl.srcObject = lv.srcObject;
+    if (fr.srcObject !== rv.srcObject) fr.srcObject = rv.srcObject;
+    $("fun-cam").classList.toggle("hidden", !connectedOnce);
+    fl.parentElement.classList.toggle("live", camOn);
+    $("fun-local-off").textContent = mediaDenied ? "allow access" : "cam off";
+    $("fun-local-off").style.display = camOn ? "none" : "flex";
+    const rHas = !!rv.srcObject;
+    fr.parentElement.classList.toggle("live", rHas && remoteState.cam);
+    $("fun-remote-off").textContent = !rHas ? "waiting…" : remoteState.cam ? "" : "cam off";
+    $("fun-remote-off").style.display = rHas && remoteState.cam ? "none" : "flex";
+    $("fun-local-label").textContent = settings.me;
+    $("fun-remote-label").textContent = settings.partner;
   }
 
   // ---- Incoming data handler ---------------------------------------------
@@ -1408,6 +1431,7 @@
     renderHands();
     renderScheduled();
     renderScrapbook();
+    syncFunCams();
     showPanel("fun");
   }
 
