@@ -61,6 +61,21 @@
     console.log("[WatchTogether] tab clicked → fsOpen=", fsOpen,
       "wrap.classes=", wrap && wrap.className,
       "wrap.popoverOpen=", wrap && wrap.matches && safeMatches(wrap, ":popover-open"));
+    if (fsOpen) setTimeout(probePanel, 350);
+  }
+
+  // Logs where the panel actually is and what's painted on top of its center.
+  function probePanel() {
+    if (!wrap) return;
+    const r = wrap.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const stack = (document.elementsFromPoint(cx, cy) || [])
+      .slice(0, 5)
+      .map((el) => "#" + (el.id || el.tagName.toLowerCase()))
+      .join(" > ");
+    console.log("[WT-PANELRECT]", JSON.stringify({ left: Math.round(r.left), top: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }),
+      "centerStack:", stack);
   }
 
   function safeMatches(el, sel) {
