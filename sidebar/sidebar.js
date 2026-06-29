@@ -408,7 +408,9 @@
   async function ensureKind(kind) {
     if (hasKind(kind)) return true;
     try {
-      const s = await navigator.mediaDevices.getUserMedia(kind === "video" ? { video: true } : { audio: true });
+      const s = await navigator.mediaDevices.getUserMedia(kind === "video"
+        ? { video: { width: { ideal: 1280 }, height: { ideal: 720 } } }
+        : { audio: true });
       if (!localStream) { localStream = new MediaStream(); $("local-video").srcObject = localStream; }
       s.getTracks().forEach((t) => { t.enabled = false; localStream.addTrack(t); });
       mediaDenied = false;
@@ -602,6 +604,12 @@
         break;
       case "pb-set":
         applyPbSettings(d);
+        break;
+      case "pb-photo":
+        if (Array.isArray(d.shots)) {
+          if (pbSession && !pbSession.done) { pbSession.partnerShots = d.shots; pbMaybeStitch(); }
+          else pbIncomingShots = d.shots; // arrived before our own capture finished
+        }
         break;
       case "pb-go":
         (async () => {
@@ -1929,6 +1937,7 @@
   };
   let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false, pbTimer = 3;
   let pbResult = null, pbClip = null, pbResultType = "img", pbDrawCtx = null;
+  let pbSession = null, pbIncomingShots = null, pbStitchTimer = null;
   let gallery = [];
   const pbWait = (ms) => new Promise((r) => setTimeout(r, ms));
   const blobToDataURL = (blob) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
@@ -2016,59 +2025,117 @@
     ctx.drawImage(video, dx, dy, dw, dh);
     ctx.restore();
   }
+  // Grab one full-res frame of the LOCAL camera (mirrored, filter baked in).
+  // We capture each side locally in HD and exchange the frames, so both halves
+  // of an "Us" shot are crisp instead of the low-res streamed video.
+  function pbGrabLocal(filterKey) {
+    const v = $("local-video");
+    let w = v.videoWidth || 1280, h = v.videoHeight || 720;
+    const cap = 1280;
+    if (Math.max(w, h) > cap) { const sc = cap / Math.max(w, h); w = Math.round(w * sc); h = Math.round(h * sc); }
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const cx = c.getContext("2d");
+    cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
+    cx.filter = PB_FILTERS[filterKey] || "none";
+    cx.translate(w, 0); cx.scale(-1, 1); // mirror the selfie
+    cx.drawImage(v, 0, 0, w, h);
+    return c.toDataURL("image/jpeg", 0.92);
+  }
+  function loadImg(src) { return new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+  function drawImgCover(ctx, img, x, y, w, h) {
+    if (!img || !img.naturalWidth) { ctx.fillStyle = "#2c1f38"; ctx.fillRect(x, y, w, h); return; }
+    const vw = img.naturalWidth, vh = img.naturalHeight;
+    const scale = Math.max(w / vw, h / vh);
+    const dw = vw * scale, dh = vh * scale;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+  // Stitch HD frames into the final framed photo / strip.
+  async function pbStitch(leftShots, rightShots, p) {
+    const useUs = !!rightShots;
+    const shots = p.shots;
+    const cellH = 720, halfW = Math.round(cellH * 4 / 3); // 4:3 cells
+    const cellW = useUs ? halfW * 2 : halfW;
+    const pad = Math.round(cellW * 0.035), gap = Math.round(cellH * 0.05), footer = Math.round(cellH * 0.17);
+    const W = cellW + pad * 2, H = pad * 2 + shots * cellH + (shots - 1) * gap + footer;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#3a2247"); bg.addColorStop(1, "#241531");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    for (let s = 0; s < shots; s++) {
+      const y = pad + s * (cellH + gap);
+      ctx.save(); roundRect(ctx, pad, y, cellW, cellH, 22); ctx.clip();
+      ctx.fillStyle = "#1d1424"; ctx.fillRect(pad, y, cellW, cellH);
+      drawImgCover(ctx, await loadImg(leftShots[s]), pad, y, useUs ? halfW : cellW, cellH);
+      if (useUs) drawImgCover(ctx, await loadImg(rightShots[s]), pad + halfW, y, halfW, cellH);
+      ctx.restore();
+      if (p.sticker) {
+        ctx.fillStyle = "#fff"; ctx.font = Math.round(cellH * 0.1) + "px serif";
+        ctx.textBaseline = "top"; ctx.textAlign = "left"; ctx.fillText(p.sticker, pad + 16, y + 14);
+        ctx.textBaseline = "bottom"; ctx.textAlign = "right"; ctx.fillText(p.sticker, pad + cellW - 16, y + cellH - 14);
+        ctx.textBaseline = "alphabetic";
+      }
+    }
+    const bw = Math.max(5, Math.round(W * 0.01));
+    ctx.lineWidth = bw; ctx.strokeStyle = "#ff7ec0";
+    roundRect(ctx, bw, bw, W - 2 * bw, H - 2 * bw, 30); ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffe9f4"; ctx.font = "700 " + Math.round(footer * 0.42) + "px system-ui, sans-serif";
+    ctx.fillText(p.caption, W / 2, H - footer * 0.55);
+    ctx.fillStyle = "#c19ccf"; ctx.font = "600 " + Math.round(footer * 0.26) + "px system-ui, sans-serif";
+    ctx.fillText(new Date().toLocaleDateString(), W / 2, H - footer * 0.2);
+    return c.toDataURL("image/jpeg", 0.92);
+  }
+  function pbFinish(dataUrl) {
+    pbResult = dataUrl;
+    showImageResult(dataUrl);
+    addToGallery("img", dataUrl);
+    $("pb-capture").disabled = false;
+    $("pb-sync").textContent = "";
+    pbBusy = false; pbSession = null;
+    clearTimeout(pbStitchTimer);
+    spawnPanelHearts(pbSticker === "🔥" ? "fire" : "heart", 14);
+    pbSyncStatus();
+  }
+  async function pbMaybeStitch() {
+    if (!pbSession || pbSession.done || !pbSession.myShots || !pbSession.partnerShots) return;
+    pbSession.done = true;
+    const left = amInitiator ? pbSession.myShots : pbSession.partnerShots;
+    const right = amInitiator ? pbSession.partnerShots : pbSession.myShots;
+    pbFinish(await pbStitch(left, right, pbSession));
+  }
   async function pbRunPhoto() {
     if (pbBusy) return;
     pbBusy = true;
     $("pb-capture").disabled = true;
-    const lv = $("local-video"), rv = $("remote-video");
-    const useUs = pbLayout === "us" && rv.srcObject;
     const shots = pbMode === "strip" ? 3 : 1;
-    const pad = 16, gap = 12, footer = 58, W = 380, cellH = 250, cellW = W - pad * 2;
-    const H = pad * 2 + shots * cellH + (shots - 1) * gap + footer;
-    const c = document.createElement("canvas"); c.width = W; c.height = H;
-    const ctx = c.getContext("2d");
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, "#3a2247"); bg.addColorStop(1, "#241531");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-    const filter = PB_FILTERS[pbFilter] || "none";
+    const useUs = pbLayout === "us" && $("remote-video").srcObject;
+    const filterKey = pbFilter;
+    const caption = ($("pb-caption").value.trim()) || `${settings.me} 💕 ${settings.partner}`;
+    const myShots = [];
     for (let s = 0; s < shots; s++) {
       await pbCountdown(s === 0 ? pbTimer : Math.min(3, pbTimer));
-      const y = pad + s * (cellH + gap);
-      ctx.save();
-      roundRect(ctx, pad, y, cellW, cellH, 14); ctx.fillStyle = "#1d1424"; ctx.fill();
-      roundRect(ctx, pad, y, cellW, cellH, 14); ctx.clip();
-      if (useUs) {
-        drawCover(ctx, lv, pad, y, cellW / 2, cellH, true, filter);
-        drawCover(ctx, rv, pad + cellW / 2, y, cellW / 2, cellH, false, filter);
-      } else {
-        drawCover(ctx, lv, pad, y, cellW, cellH, true, filter);
-      }
-      ctx.restore();
-      if (pbSticker) {
-        ctx.filter = "none"; ctx.font = "26px " + "serif";
-        ctx.textAlign = "left"; ctx.fillText(pbSticker, pad + 8, y + 32);
-        ctx.textAlign = "right"; ctx.fillText(pbSticker, pad + cellW - 8, y + cellH - 12);
-      }
+      myShots.push(pbGrabLocal(filterKey));
       pbFlash();
-      await pbWait(480);
+      await pbWait(450);
     }
-    // frame + footer
-    ctx.filter = "none";
-    ctx.lineWidth = 4; ctx.strokeStyle = "#ff7ec0";
-    roundRect(ctx, 6, 6, W - 12, H - 12, 18); ctx.stroke();
-    const caption = ($("pb-caption").value.trim()) || `${settings.me} 💕 ${settings.partner}`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ffe9f4"; ctx.font = "700 18px " + "system-ui, sans-serif";
-    ctx.fillText(caption, W / 2, H - footer / 2 + 2);
-    const dt = new Date();
-    ctx.fillStyle = "#c19ccf"; ctx.font = "600 12px system-ui, sans-serif";
-    ctx.fillText(dt.toLocaleDateString(), W / 2, H - footer / 2 + 20);
-    pbResult = c.toDataURL("image/jpeg", 0.85);
-    showImageResult(pbResult);
-    addToGallery("img", pbResult);
-    $("pb-capture").disabled = false;
-    pbBusy = false;
-    spawnPanelHearts(pbSticker === "🔥" ? "fire" : "heart", 14);
+    if (!useUs) {
+      pbFinish(await pbStitch(myShots, null, { shots, sticker: pbSticker, caption }));
+      return;
+    }
+    // "Us": exchange HD frames so both panels stitch the same crisp photo.
+    pbSession = { shots, sticker: pbSticker, caption, myShots, partnerShots: pbIncomingShots, done: false };
+    pbIncomingShots = null;
+    netSend({ t: "pb-photo", shots: myShots, total: shots, sticker: pbSticker, caption });
+    $("pb-sync").textContent = `✨ Stitching your HD photo with ${settings.partner}…`;
+    pbMaybeStitch();
+    clearTimeout(pbStitchTimer);
+    pbStitchTimer = setTimeout(async () => {
+      if (pbSession && !pbSession.done) { pbSession.done = true; pbFinish(await pbStitch(pbSession.myShots, null, pbSession)); }
+    }, 12000);
   }
 
   function showImageResult(dataUrl) {
