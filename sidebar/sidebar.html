@@ -302,6 +302,14 @@
         <div id="mem-list" class="wl-list"></div>
       </div>
 
+      <!-- Photobooth gallery -->
+      <div class="fun-card">
+        <div class="fun-title">Our gallery 📸</div>
+        <p class="muted small">Every photobooth shot you take or get lands here. Tap one to send it again.</p>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <button id="gallery-clear" class="link-btn" style="margin-top:6px;">clear gallery</button>
+      </div>
+
       <!-- Mood -->
       <div class="fun-card">
         <div class="fun-title">Your mood</div>
@@ -484,7 +492,8 @@
         <div class="pb-row">
           <div class="pb-seg" id="pb-mode">
             <button class="sel" data-mode="single">📷 Single</button>
-            <button data-mode="strip">🎞️ Strip ×3</button>
+            <button data-mode="strip">🎞️ Strip</button>
+            <button data-mode="boom">🔄 Clip</button>
           </div>
           <div class="pb-seg" id="pb-layout">
             <button class="sel" data-layout="me">Just me</button>
@@ -507,7 +516,16 @@
       </div>
 
       <div id="pb-result" class="hidden">
-        <img id="pb-img" alt="photobooth" />
+        <div id="pb-img-wrap">
+          <img id="pb-img" alt="photobooth" />
+          <canvas id="pb-draw"></canvas>
+        </div>
+        <video id="pb-clip" class="hidden" autoplay loop muted playsinline></video>
+        <div id="pb-draw-row" class="pb-row" style="align-items:center; justify-content:center;">
+          <span class="muted small">Doodle on it ✏️</span>
+          <input id="pb-draw-color" type="color" value="#ff7ec0" class="theme-color" />
+          <button id="pb-draw-clear" class="mini">Clear</button>
+        </div>
         <div class="pb-actions">
           <button id="pb-send" class="primary">Send 💌</button>
           <button id="pb-save" class="ghost">Save 📖</button>

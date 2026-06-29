@@ -591,6 +591,11 @@
         break;
       case "snap":
         addMsg({ mine: false, who: settings.partner, gif: d.img });
+        addToGallery("img", d.img);
+        break;
+      case "clip":
+        addMsg({ mine: false, who: settings.partner, clip: d.clip });
+        addToGallery("clip", d.clip);
         break;
       case "kiss-pause":
         parentPost({ kind: "apply-video", action: "pause" });
@@ -722,7 +727,7 @@
   }
 
   // ---- Chat UI ------------------------------------------------------------
-  function addMsg({ mine, who, text, gif }) {
+  function addMsg({ mine, who, text, gif, clip }) {
     const el = document.createElement("div");
     el.className = "msg " + (mine ? "me" : "them");
     if (!mine) {
@@ -739,6 +744,12 @@
       const img = document.createElement("img");
       img.src = gif; img.alt = "gif";
       el.appendChild(img);
+    }
+    if (clip) {
+      const v = document.createElement("video");
+      v.src = clip; v.loop = true; v.autoplay = true; v.muted = true; v.playsInline = true;
+      v.style.maxWidth = "100%"; v.style.borderRadius = "14px"; v.style.display = "block";
+      el.appendChild(v);
     }
     const chat = $("chat");
     chat.appendChild(el);
@@ -1903,8 +1914,11 @@
     neon: "saturate(2.2) contrast(1.35) hue-rotate(18deg)",
     invert: "invert(1)",
   };
-  let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false, pbResult = null;
+  let pbFilter = "none", pbMode = "single", pbLayout = "me", pbSticker = "💕", pbBusy = false;
+  let pbResult = null, pbClip = null, pbResultType = "img", pbDrawCtx = null;
+  let gallery = [];
   const pbWait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const blobToDataURL = (blob) => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
 
   async function openPhotobooth() {
     $("pb-overlay").classList.remove("hidden");
@@ -1965,6 +1979,7 @@
   }
   async function pbCapture() {
     if (pbBusy) return;
+    if (pbMode === "boom") return pbCaptureClip();
     pbBusy = true;
     $("pb-capture").disabled = true;
     const lv = $("local-video"), rv = $("remote-video");
@@ -2011,32 +2026,113 @@
     ctx.fillStyle = "#c19ccf"; ctx.font = "600 12px system-ui, sans-serif";
     ctx.fillText(dt.toLocaleDateString(), W / 2, H - footer / 2 + 20);
     pbResult = c.toDataURL("image/jpeg", 0.85);
-    $("pb-img").src = pbResult;
-    $("pb-live").classList.add("hidden");
-    $("pb-result").classList.remove("hidden");
+    showImageResult(pbResult);
+    addToGallery("img", pbResult);
     $("pb-capture").disabled = false;
     pbBusy = false;
     spawnPanelHearts(pbSticker === "🔥" ? "fire" : "heart", 14);
   }
+
+  function showImageResult(dataUrl) {
+    pbResultType = "img";
+    const img = $("pb-img");
+    $("pb-img-wrap").classList.remove("hidden");
+    $("pb-clip").classList.add("hidden");
+    $("pb-draw-row").classList.remove("hidden");
+    img.onload = () => {
+      const dc = $("pb-draw");
+      dc.width = img.naturalWidth; dc.height = img.naturalHeight;
+      pbDrawCtx = dc.getContext("2d");
+    };
+    img.src = dataUrl;
+    $("pb-live").classList.add("hidden");
+    $("pb-result").classList.remove("hidden");
+  }
+
+  // Boomerang / short looping clip via MediaRecorder on a filtered canvas.
+  async function pbCaptureClip() {
+    if (!window.MediaRecorder) { addSys("Looping clips aren't supported on this browser — try a strip 🎞️"); return; }
+    pbBusy = true; $("pb-capture").disabled = true;
+    const lv = $("local-video"), rv = $("remote-video");
+    const useUs = pbLayout === "us" && rv.srcObject;
+    const filter = PB_FILTERS[pbFilter] || "none";
+    const W = 320, H = 240;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const cx = cv.getContext("2d");
+    await pbCountdown();
+    const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) || "video/webm";
+    const stream = cv.captureStream(15);
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1200000 });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    const done = new Promise((res) => { rec.onstop = res; });
+    rec.start();
+    pbFlash();
+    const start = performance.now(), dur = 2200; let raf;
+    const draw = () => {
+      cx.fillStyle = "#1d1424"; cx.fillRect(0, 0, W, H);
+      if (useUs) { drawCover(cx, lv, 0, 0, W / 2, H, true, filter); drawCover(cx, rv, W / 2, 0, W / 2, H, false, filter); }
+      else drawCover(cx, lv, 0, 0, W, H, true, filter);
+      if (pbSticker) { cx.filter = "none"; cx.font = "22px serif"; cx.textAlign = "left"; cx.fillText(pbSticker, 6, 26); cx.textAlign = "right"; cx.fillText(pbSticker, W - 6, H - 10); }
+      if (performance.now() - start < dur) raf = requestAnimationFrame(draw);
+      else rec.stop();
+    };
+    draw();
+    await done;
+    if (raf) cancelAnimationFrame(raf);
+    const url = await blobToDataURL(new Blob(chunks, { type: mime }));
+    showClipResult(url);
+    addToGallery("clip", url);
+    pbBusy = false; $("pb-capture").disabled = false;
+    spawnPanelHearts("heart", 14);
+  }
+
+  function showClipResult(url) {
+    pbResultType = "clip"; pbClip = url;
+    $("pb-clip").src = url;
+    $("pb-clip").classList.remove("hidden");
+    $("pb-img-wrap").classList.add("hidden");
+    $("pb-draw-row").classList.add("hidden");
+    $("pb-live").classList.add("hidden");
+    $("pb-result").classList.remove("hidden");
+  }
+  function pbComposite() {
+    const img = $("pb-img");
+    if (!img.naturalWidth) return pbResult;
+    const base = document.createElement("canvas");
+    base.width = img.naturalWidth; base.height = img.naturalHeight;
+    const bx = base.getContext("2d");
+    bx.drawImage(img, 0, 0);
+    const dc = $("pb-draw");
+    if (dc.width) bx.drawImage(dc, 0, 0, base.width, base.height);
+    return base.toDataURL("image/jpeg", 0.85);
+  }
   function pbSend() {
-    if (!pbResult) return;
-    addMsg({ mine: true, gif: pbResult });
-    netSend({ t: "snap", img: pbResult });
+    if (pbResultType === "clip") {
+      if (!pbClip) return;
+      addMsg({ mine: true, clip: pbClip });
+      netSend({ t: "clip", clip: pbClip });
+    } else {
+      const out = pbComposite();
+      addMsg({ mine: true, gif: out });
+      netSend({ t: "snap", img: out });
+    }
     addSys("📸 Sent a photobooth pic");
     closePhotobooth();
   }
   function pbSave() {
-    if (!pbResult) return;
-    addPhotoToScrapbook(pbResult);
+    if (pbResultType === "clip") { addSys("📸 It's in your gallery below 👇"); return; }
+    addPhotoToScrapbook(pbComposite());
     addSys("📖 Saved to your scrapbook");
   }
   function pbDownload() {
-    if (!pbResult) return;
     const a = document.createElement("a");
-    a.href = pbResult; a.download = "watchtogether-photobooth.jpg";
+    if (pbResultType === "clip") { if (!pbClip) return; a.href = pbClip; a.download = "watchtogether-clip.webm"; }
+    else { a.href = pbComposite(); a.download = "watchtogether-photobooth.jpg"; }
     a.click();
   }
   function pbRetake() {
+    pbClearDraw();
     $("pb-result").classList.add("hidden");
     $("pb-live").classList.remove("hidden");
   }
@@ -2046,6 +2142,53 @@
     chrome.storage.local.set({ wt_scrapbook: scrapbook });
     renderScrapbook();
   }
+
+  // Doodle on the captured photo
+  function pbDrawInit() {
+    const c = $("pb-draw"); if (!c) return;
+    let drawing = false, lx = 0, ly = 0;
+    const pos = (e) => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+    c.addEventListener("pointerdown", (e) => { if (!pbDrawCtx) return; drawing = true; [lx, ly] = pos(e); e.preventDefault(); });
+    c.addEventListener("pointermove", (e) => {
+      if (!drawing || !pbDrawCtx) return;
+      const [x, y] = pos(e);
+      pbDrawCtx.strokeStyle = $("pb-draw-color").value;
+      pbDrawCtx.lineWidth = Math.max(3, c.width / 90); pbDrawCtx.lineCap = "round"; pbDrawCtx.lineJoin = "round";
+      pbDrawCtx.beginPath(); pbDrawCtx.moveTo(lx, ly); pbDrawCtx.lineTo(x, y); pbDrawCtx.stroke();
+      [lx, ly] = [x, y];
+    });
+    window.addEventListener("pointerup", () => { drawing = false; });
+  }
+  function pbClearDraw() { if (pbDrawCtx) pbDrawCtx.clearRect(0, 0, $("pb-draw").width, $("pb-draw").height); }
+
+  // --- Shared photobooth gallery ---
+  function addToGallery(type, data) {
+    if (!data) return;
+    gallery.unshift({ type, data, date: todayStr() });
+    gallery = gallery.slice(0, 60);
+    chrome.storage.local.set({ wt_gallery: gallery });
+    renderGallery();
+  }
+  function renderGallery() {
+    const grid = $("gallery-grid"); if (!grid) return;
+    grid.innerHTML = "";
+    if (!gallery.length) { grid.innerHTML = '<div class="muted small gallery-empty">No photos yet — open the photobooth 🎞️</div>'; return; }
+    gallery.forEach((g) => {
+      let el;
+      if (g.type === "clip") { el = document.createElement("video"); el.src = g.data; el.muted = true; el.loop = true; el.autoplay = true; el.playsInline = true; }
+      else { el = document.createElement("img"); el.src = g.data; el.alt = "photo"; }
+      el.title = "Tap to send again";
+      el.addEventListener("click", () => resendGalleryItem(g));
+      grid.appendChild(el);
+    });
+  }
+  function resendGalleryItem(g) {
+    if (g.type === "clip") { addMsg({ mine: true, clip: g.data }); netSend({ t: "clip", clip: g.data }); }
+    else { addMsg({ mine: true, gif: g.data }); netSend({ t: "snap", img: g.data }); }
+    addSys("📸 Sent from your gallery");
+    burst("heart");
+  }
+  function clearGallery() { gallery = []; chrome.storage.local.set({ wt_gallery: gallery }); renderGallery(); }
 
   function openFun() {
     renderQotd();
@@ -2058,6 +2201,7 @@
     renderMyWeather();
     renderPartnerWeather();
     renderTimeline();
+    renderGallery();
     syncFunCams();
     showPanel("fun");
   }
@@ -2139,6 +2283,9 @@
       b.addEventListener("click", () => { pbMode = b.dataset.mode; pbSelect("pb-mode", "mode", pbMode); }));
     document.querySelectorAll("#pb-layout button").forEach((b) =>
       b.addEventListener("click", () => { pbLayout = b.dataset.layout; pbSelect("pb-layout", "layout", pbLayout); pbUpdatePreview(); }));
+    pbDrawInit();
+    $("pb-draw-clear").addEventListener("click", pbClearDraw);
+    $("gallery-clear").addEventListener("click", clearGallery);
 
     // Composer
     $("btn-send").addEventListener("click", sendChat);
@@ -2251,7 +2398,7 @@
     $("mem-add").addEventListener("click", addMemory);
     $("mem-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addMemory(); });
 
-    chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands", "wt_weather", "wt_timeline"], (r) => {
+    chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands", "wt_weather", "wt_timeline", "wt_gallery"], (r) => {
       if (Array.isArray(r.wt_watchlist)) { watchlist = r.wt_watchlist; renderWatchlist(); }
       if (r.wt_counts) counts = { kiss: r.wt_counts.kiss || 0, hug: r.wt_counts.hug || 0 };
       if (Array.isArray(r.wt_scrapbook)) scrapbook = r.wt_scrapbook;
@@ -2259,7 +2406,8 @@
       if (typeof r.wt_hands === "number") handSeconds = r.wt_hands;
       if (r.wt_weather) { myWeather = r.wt_weather; $("weather-btn").textContent = "Update my weather 🔄"; }
       if (Array.isArray(r.wt_timeline)) timeline = r.wt_timeline;
-      renderCounts(); renderHands(); renderScheduled(); renderScrapbook(); renderMyWeather(); renderTimeline();
+      if (Array.isArray(r.wt_gallery)) gallery = r.wt_gallery;
+      renderCounts(); renderHands(); renderScheduled(); renderScrapbook(); renderMyWeather(); renderTimeline(); renderGallery();
     });
 
     // Initial panel is chosen by loadSettings (name gate on first run, else connect).
