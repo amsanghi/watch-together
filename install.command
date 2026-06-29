@@ -12,7 +12,9 @@ set -e
 
 REPO="amsanghi/watch-together"
 DEST="$HOME/WatchTogether"
-URL="https://github.com/$REPO/archive/refs/heads/main.zip"
+# GitHub's API zipball reflects the latest push promptly (the codeload archive
+# and raw CDN can lag by minutes). Cache-buster query for good measure.
+URL="https://api.github.com/repos/$REPO/zipball/main?cb=$(date +%s)"
 TMP="$(mktemp -d)"
 FIRST_INSTALL=0
 [ -d "$DEST" ] || FIRST_INSTALL=1
@@ -20,16 +22,19 @@ FIRST_INSTALL=0
 echo ""
 echo "💗  Installing WatchTogether…"
 echo "    Downloading the latest version from GitHub…"
-curl -fsSL "$URL" -o "$TMP/wt.zip"
+curl -fsSL -H "Cache-Control: no-cache" "$URL" -o "$TMP/wt.zip"
 
 echo "    Unpacking…"
-unzip -q "$TMP/wt.zip" -d "$TMP"
+unzip -q "$TMP/wt.zip" -d "$TMP/x"
+# The zipball's top folder is named OWNER-REPO-<sha>; find it generically.
+SRC="$(find "$TMP/x" -maxdepth 1 -mindepth 1 -type d | head -1)"
 mkdir -p "$DEST"
-
-if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete "$TMP/watch-together-main/" "$DEST/"
+if [ -n "$SRC" ] && command -v rsync >/dev/null 2>&1; then
+  rsync -a --delete "$SRC/" "$DEST/"
+elif [ -n "$SRC" ]; then
+  cp -R "$SRC/." "$DEST/"
 else
-  cp -R "$TMP/watch-together-main/." "$DEST/"
+  echo "    ⚠️  Could not find the unpacked folder — download may have failed." >&2
 fi
 rm -rf "$TMP"
 

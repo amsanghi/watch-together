@@ -37,7 +37,7 @@ Do this on **both** computers. Pick whichever is easier for you:
 ### Easiest — one-line installer (macOS)
 Open **Terminal** and paste:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/amsanghi/watch-together/main/install.command | bash
+curl -fsSL "https://raw.githubusercontent.com/amsanghi/watch-together/main/install.command?$(date +%s)" | bash
 ```
 It downloads the latest version, opens Chrome's extensions page and the folder for you,
 then tells you the final 3 clicks. Re-run it any time to update.
