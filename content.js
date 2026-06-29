@@ -53,9 +53,10 @@
     if (e) { e.preventDefault(); e.stopPropagation(); }
     fsOpen = !fsOpen;
     if (wrap) {
+      wrap.classList.add("wt-fs"); // ensure fullscreen positioning rules apply
       wrap.classList.remove("wt-hidden"); // base-hidden must not block interaction
       wrap.classList.toggle("wt-fs-open", fsOpen);
-      topLayer(wrap, true); // ensure it's actually in the top layer
+      if (fsOpen) { raise(overlay); raise(wrap); raise(fsTab); } // jump above the fullscreen element
     }
     if (fsTab) fsTab.style.setProperty("right", fsOpen ? "372px" : "0px", "important");
     console.log("[WatchTogether] tab clicked → fsOpen=", fsOpen,
@@ -144,6 +145,17 @@
       console.log("[WatchTogether] topLayer(", el.id, on, ") failed:", err && err.message);
     }
   }
+
+  // Re-show an open popover so it jumps to the TOP of the top layer — needed to
+  // get above the fullscreen element, which can be inserted after we first show.
+  function raise(el) {
+    if (!el) return;
+    try {
+      if (!el.hasAttribute("popover")) el.setAttribute("popover", "manual");
+      if (safeMatches(el, ":popover-open")) el.hidePopover();
+      el.showPopover();
+    } catch (_) {}
+  }
   function isFullscreen() {
     return !!(document.fullscreenElement || document.webkitFullscreenElement);
   }
@@ -162,11 +174,19 @@
     if (fs) {
       topLayer(overlay, true);
       topLayer(wrap, true);
+      topLayer(fsTab, dockFs);
+      // The fullscreen element can be inserted into the top layer after we show
+      // our popovers, ending up above them. Re-raise next frame to get on top.
+      requestAnimationFrame(() => {
+        raise(overlay);
+        raise(wrap);
+        if (dockFs) raise(fsTab);
+      });
     } else {
+      topLayer(fsTab, false);
       topLayer(wrap, false);
       topLayer(overlay, false);
     }
-    topLayer(fsTab, dockFs); // tab visibility is driven by its popover state
     console.log("[WatchTogether] fullscreen=", fs, "dockFs=", dockFs,
       "tab.popoverOpen=", fsTab && safeMatches(fsTab, ":popover-open"),
       "tab.display=", fsTab && getComputedStyle(fsTab).display,
