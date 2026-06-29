@@ -39,8 +39,9 @@
 
   // ---- Settings -----------------------------------------------------------
   function loadSettings() {
-    chrome.storage.local.get(["wt_settings"], (r) => {
+    chrome.storage.local.get(["wt_settings", "wt_media"], (r) => {
       if (r.wt_settings) settings = { ...settings, ...r.wt_settings };
+      if (r.wt_media) { wantMic = !!r.wt_media.mic; wantCam = !!r.wt_media.cam; }
       if (!settings.giphyKey) settings.giphyKey = DEFAULT_GIPHY_KEY; // fall back to built-in key
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
@@ -66,6 +67,8 @@
           showPairStatus();
           connect();
         }
+        // Restore mic/cam to their last state (if permission's already granted).
+        if (wantMic || wantCam) resumeMedia();
       }
     });
   }
@@ -397,11 +400,14 @@
     }
   }
 
+  function saveMedia() { chrome.storage.local.set({ wt_media: { mic: micOn, cam: camOn } }); }
+
   async function toggleMic() {
     if (!micOn) { if (!(await ensureKind("audio"))) return; }
     micOn = !micOn;
     localStream.getAudioTracks().forEach((t) => (t.enabled = micOn));
     updateMediaButtons();
+    saveMedia();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   async function toggleCam() {
@@ -410,7 +416,33 @@
     localStream.getVideoTracks().forEach((t) => (t.enabled = camOn));
     $("local-video").parentElement.classList.toggle("live", camOn);
     updateMediaButtons();
+    saveMedia();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
+  }
+
+  // Auto-resume mic/cam to their last state — but only if the browser permission
+  // is already granted (so we never trigger a prompt without a click).
+  let wantMic = false, wantCam = false;
+  async function resumeMedia() {
+    const permGranted = async (name) => {
+      try { return (await navigator.permissions.query({ name })).state === "granted"; }
+      catch (_) { return false; }
+    };
+    if (wantCam && !camOn && (await permGranted("camera"))) {
+      if (await ensureKind("video")) {
+        camOn = true;
+        localStream.getVideoTracks().forEach((t) => (t.enabled = true));
+        $("local-video").parentElement.classList.add("live");
+      }
+    }
+    if (wantMic && !micOn && (await permGranted("microphone"))) {
+      if (await ensureKind("audio")) {
+        micOn = true;
+        localStream.getAudioTracks().forEach((t) => (t.enabled = true));
+      }
+    }
+    updateMediaButtons();
+    if (camOn || micOn) netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   function updateMediaButtons() {
     $("btn-mic").className = "media-btn " + (micOn ? "on" : "off");
