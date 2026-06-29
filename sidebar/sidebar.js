@@ -264,6 +264,17 @@
     showPairStatus();
     autoConnect();
   }
+  // Manual escape hatch: tear everything down and restart the rendezvous now.
+  function forceReconnect() {
+    if (!settings.pairCode) { addSys("Not paired yet."); return; }
+    intentionalClose = false;
+    clearTimeout(reconnectTimer);
+    clearTimeout(watchdog);
+    cleanupPeer();
+    connectedOnce = false;
+    addSys("Reconnecting…");
+    autoConnect();
+  }
   function unpair() {
     intentionalClose = true;
     clearTimeout(reconnectTimer);
@@ -788,6 +799,7 @@
     // Header buttons
     $("btn-close").addEventListener("click", () => { try { window.close(); } catch (_) {} });
     $("btn-settings").addEventListener("click", () => showPanel("settings"));
+    $("btn-reconnect").addEventListener("click", forceReconnect);
     $("btn-save-settings").addEventListener("click", saveSettings);
     $("btn-clear-history").addEventListener("click", () => {
       chrome.storage.local.set({ wt_stats: { count: 0, streak: 0, lastDate: null, history: [] } }, () => { refreshStats(); renderHistory(); });
