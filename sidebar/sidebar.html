@@ -124,6 +124,7 @@
         <button class="cute-btn" data-react="laugh" title="😂">😂</button>
         <button id="btn-snap" class="cute-btn" title="Send a webcam selfie">📸</button>
         <button id="btn-poke" class="cute-btn" title="Nudge / I miss you">👉💗</button>
+        <button id="btn-bookmark" class="cute-btn" title="Bookmark this moment ❤️">🔖</button>
         <button id="btn-cuddle" class="cute-btn" title="Cuddle / goodnight mode 🌙">🌙</button>
         <button id="btn-invite" class="cute-btn" title="Invite your partner to watch this video together">📺</button>
       </div>
@@ -219,6 +220,29 @@
           <span id="watch-count" title="Things watched together">🎬 0 together</span>
           <button id="btn-history" class="link-btn">history</button>
         </div>
+      </div>
+
+      <!-- Same sky / weather -->
+      <div class="fun-card">
+        <div class="fun-title">Same sky 🌗</div>
+        <div id="my-weather" class="muted small"></div>
+        <div id="partner-weather" class="muted small">Tap below so you can see each other's sky 💕</div>
+        <button id="weather-btn" class="mini" style="margin-top:8px;">Share my weather</button>
+      </div>
+
+      <!-- Reaction timeline -->
+      <div class="fun-card">
+        <div class="fun-title">Our moments 🔖</div>
+        <p class="muted small">Bookmark a bit of whatever you're watching — tap a moment to jump you both back to it.</p>
+        <div class="rps-row" style="margin-top:6px;">
+          <button class="mark-btn" data-mark="😂">😂</button>
+          <button class="mark-btn" data-mark="😮">😮</button>
+          <button class="mark-btn" data-mark="❤️">❤️</button>
+          <button class="mark-btn" data-mark="😭">😭</button>
+          <button class="mark-btn" data-mark="🔥">🔥</button>
+        </div>
+        <div id="timeline-list" class="wl-list"></div>
+        <button id="timeline-clear" class="link-btn" style="margin-top:6px;">clear moments</button>
       </div>
 
       <!-- Hold hands -->
@@ -328,14 +352,58 @@
         <div id="wl-list" class="wl-list"></div>
       </div>
 
-      <!-- Would you rather / truth or dare -->
+      <!-- Would you rather / truth / dare -->
       <div class="fun-card">
         <div class="fun-title">Play a card 🎴</div>
         <div class="row">
-          <button id="wyr-btn" class="ghost">Would you rather</button>
-          <button id="tod-btn" class="ghost">Truth or dare</button>
+          <button id="wyr-btn" class="ghost">🤔 Would you rather</button>
         </div>
+        <div class="row" style="margin-top:7px;">
+          <button id="truth-btn" class="ghost">💬 Truth</button>
+          <button id="dare-btn" class="ghost">🔥 Dare</button>
+        </div>
+        <p class="muted small" style="margin-top:6px;">Spicy, but made for long distance — every dare works over video, voice or text 😏</p>
         <div id="card-out" class="card-out hidden"></div>
+      </div>
+
+      <!-- Rock paper scissors -->
+      <div class="fun-card">
+        <div class="fun-title">Rock paper scissors ✊</div>
+        <div class="rps-row">
+          <button class="rps-opt" data-rps="rock">🪨</button>
+          <button class="rps-opt" data-rps="paper">📄</button>
+          <button class="rps-opt" data-rps="scissors">✂️</button>
+        </div>
+        <div class="row" style="margin-top:8px; align-items:center;">
+          <span id="rps-status" class="muted small">Pick one — revealed when you both have.</span>
+          <button id="rps-reset" class="mini" style="margin-left:auto;">Again</button>
+        </div>
+      </div>
+
+      <!-- Connect 4 -->
+      <div class="fun-card">
+        <div class="fun-title">Connect 4 🔴🟡</div>
+        <div id="c4-board" class="c4"></div>
+        <div class="row" style="margin-top:8px; align-items:center;">
+          <span id="c4-status" class="muted small"></span>
+          <button id="c4-reset" class="mini" style="margin-left:auto;">New game</button>
+        </div>
+      </div>
+
+      <!-- Emoji movie guessing -->
+      <div class="fun-card">
+        <div class="fun-title">Guess the movie 🎬</div>
+        <div id="emoji-puzzle" class="emoji-puzzle"></div>
+        <div class="row">
+          <input id="emoji-guess" type="text" placeholder="Your guess…" />
+          <button id="emoji-send" class="mini">Guess</button>
+        </div>
+        <div class="row" style="margin-top:7px;">
+          <button id="emoji-new" class="mini">🎲 New puzzle</button>
+          <button id="emoji-reveal" class="mini">Reveal</button>
+        </div>
+        <div id="emoji-answer" class="card-out hidden"></div>
+        <div id="emoji-guesses" class="qotd-answers"></div>
       </div>
 
       <!-- Tic-tac-toe -->

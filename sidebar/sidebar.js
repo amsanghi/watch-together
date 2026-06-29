@@ -160,6 +160,7 @@
     netSend({ t: "media-state", mic: micOn, cam: camOn });
     netSend({ t: "profile", tz: -new Date().getTimezoneOffset() }); // minutes east of UTC
     if (settings.themeColor) netSend({ t: "theme", color: settings.themeColor });
+    if (myWeather) netSend({ t: "weather", ...myWeather });
     if (watchlist.length) netSend({ t: "watchlist", items: watchlist });
     if (amInitiator) netSend({ t: "sync-req" });
     recordSession();
@@ -601,7 +602,7 @@
         break;
       case "card":
         $("card-out").classList.remove("hidden");
-        $("card-out").textContent = (d.kind === "wyr" ? "🤔 Would you rather: " : "🎴 ") + d.text;
+        $("card-out").textContent = cardLabel(d.kind) + d.text;
         addSys(`${settings.partner} drew a card — check ✨`);
         break;
       case "watchlist":
@@ -641,6 +642,30 @@
         break;
       case "memory":
         if (d.item) { scrapbook.unshift(d.item); scrapbook = scrapbook.slice(0, 100); chrome.storage.local.set({ wt_scrapbook: scrapbook }); renderScrapbook(); }
+        break;
+      case "weather":
+        partnerWeather = { temp: d.temp, code: d.code, isDay: d.isDay };
+        renderPartnerWeather();
+        break;
+      case "rps":
+        if (d.reset) rpsReset(false);
+        else { rpsPartner = d.pick; rpsEval(); }
+        break;
+      case "c4":
+        if (d.reset) c4Reset(false);
+        else if (typeof d.col === "number") c4Apply(d.col, d.color);
+        break;
+      case "emoji-q":
+        if (typeof d.i === "number") setEmojiPuzzle(d.i, false);
+        break;
+      case "emoji-a":
+        renderEmojiGuess(settings.partner, d.text);
+        break;
+      case "emoji-r":
+        emojiReveal(false);
+        break;
+      case "mark":
+        addTimelineItem({ time: d.time, emoji: d.emoji, who: d.who || settings.partner, title: d.title || "", url: d.url || "" });
         break;
     }
   }
@@ -946,7 +971,8 @@
       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
       const theirs = new Date(utc + partnerTz * 60000);
       const hh = String(theirs.getHours()).padStart(2, "0"), mm = String(theirs.getMinutes()).padStart(2, "0");
-      $("partner-clock").textContent = `🕒 ${settings.partner}'s time: ${hh}:${mm}`;
+      const sky = theirs.getHours() >= 6 && theirs.getHours() < 19 ? "☀️" : "🌙";
+      $("partner-clock").textContent = `${sky} ${settings.partner}'s time: ${hh}:${mm}`;
     } else { $("partner-clock").textContent = ""; }
   }
   let celebratedToday = false;
@@ -1096,25 +1122,49 @@
     "always be too hot or too cold?",
     "relive our first date or fast-forward to our 50th anniversary?",
   ];
-  const TOD = [
-    "Truth: what did you first think when you met me?",
-    "Dare: send me your most ridiculous selfie right now.",
-    "Truth: what's a secret talent you have?",
-    "Dare: do your best impression of me.",
-    "Truth: what's your favorite thing we've watched together?",
-    "Dare: blow a kiss and mean it. 😘",
-    "Truth: what's something you want more of in our relationship?",
+  // Spicy but long-distance-friendly — everything is doable over video/voice/text.
+  const TRUTH = [
+    "What was the very first thing you noticed about me?",
+    "Describe our perfect night in together — in detail. 😏",
+    "What's something I do that drives you a little wild?",
+    "Where do you most want me to kiss you?",
+    "What's a fantasy about us you've never told me?",
+    "What were you wearing the last time you thought about me?",
+    "What's the most attractive photo of me you've saved?",
+    "What's something new you want to try the next time we're together?",
+    "Which outfit of mine is your favorite — to see or to take off?",
+    "What's a secret turn-on you've never admitted?",
+    "When did I last give you butterflies?",
+    "What part of me do you miss the most right now?",
   ];
+  const DARE = [
+    "Send me a flirty selfie right now. 📸",
+    "Blow the camera a slow kiss and hold eye contact for 10 seconds.",
+    "Whisper the last thing you'd say to me tonight.",
+    "Show me what you're wearing — give me a little model spin. 🔥",
+    "Bite your lip and look right at the camera for 5 seconds. 😏",
+    "Text me one thing you'd do if I were there right now.",
+    "Give the camera your best bedroom eyes.",
+    "Say out loud what you'd do first if I walked in.",
+    "Send a voice note saying my name the way you like to. 🎙️",
+    "Point to the part of you that misses me most.",
+    "Do a slow spin so I can see all of you. 😘",
+    "Send me your single most irresistible look.",
+  ];
+  function cardLabel(kind) {
+    return kind === "wyr" ? "🤔 Would you rather: " : kind === "truth" ? "💬 Truth: " : kind === "dare" ? "🔥 Dare: " : "🎴 ";
+  }
   function drawCard(kind) {
-    const deck = kind === "wyr" ? WYR : TOD;
+    const deck = kind === "wyr" ? WYR : kind === "dare" ? DARE : TRUTH;
     const text = deck[Math.floor(Math.random() * deck.length)];
     $("card-out").classList.remove("hidden");
-    $("card-out").textContent = (kind === "wyr" ? "🤔 Would you rather: " : "🎴 ") + text;
+    $("card-out").textContent = cardLabel(kind) + text;
     netSend({ t: "card", kind, text });
   }
 
-  // --- Tic-tac-toe ---
-  let tttBoard, tttTurn;
+  // --- Tic-tac-toe (each side owns one mark; you can only play your own turns) ---
+  let tttBoard, tttTurn, tttMyMark = "X";
+  function myMark() { return amInitiator ? "X" : "O"; } // initiator is X and moves first
   function tttBuild() {
     const b = $("ttt-board"); b.innerHTML = "";
     for (let i = 0; i < 9; i++) {
@@ -1123,19 +1173,27 @@
       b.appendChild(c);
     }
   }
+  function tttStatus() {
+    tttMyMark = myMark();
+    const w = tttWinner();
+    if (w) { $("ttt-status").textContent = w === "draw" ? "It's a draw 🤝" : `${w === tttMyMark ? "You" : settings.partner} win${w === tttMyMark ? "" : "s"}! 🎉`; return; }
+    $("ttt-status").textContent = tttTurn === tttMyMark ? `Your turn (${tttMyMark})` : `${settings.partner}'s turn`;
+  }
   function tttReset(broadcast) {
     tttBoard = Array(9).fill("");
     tttTurn = "X";
+    tttMyMark = myMark();
     document.querySelectorAll("#ttt-board .cell").forEach((c) => { c.textContent = ""; c.className = "cell"; });
-    $("ttt-status").textContent = "X starts — tap any square";
+    tttStatus();
     if (broadcast) netSend({ t: "ttt", reset: true });
   }
   function tttClick(i) {
-    if (!tttBoard || tttBoard[i] || tttWinner()) return;
-    // your mark = whichever side moves; simplest: you always place the current turn's mark
-    const mark = tttTurn;
-    tttApply(i, mark);
-    netSend({ t: "ttt", cell: i, mark });
+    if (!tttBoard) tttReset(false);
+    if (tttBoard[i] || tttWinner()) return;
+    tttMyMark = myMark();
+    if (tttTurn !== tttMyMark) { $("ttt-status").textContent = `Wait for ${settings.partner} ⏳`; return; }
+    tttApply(i, tttMyMark);
+    netSend({ t: "ttt", cell: i, mark: tttMyMark });
   }
   function tttApply(i, mark) {
     if (!tttBoard) tttReset(false);
@@ -1144,8 +1202,7 @@
     const cell = document.querySelector(`#ttt-board .cell[data-i="${i}"]`);
     if (cell) { cell.textContent = mark === "X" ? "✕" : "◯"; cell.classList.add(mark.toLowerCase()); }
     tttTurn = mark === "X" ? "O" : "X";
-    const w = tttWinner();
-    $("ttt-status").textContent = w ? (w === "draw" ? "It's a draw 🤝" : `${w} wins! 🎉`) : `${tttTurn}'s turn`;
+    tttStatus();
   }
   function tttWinner() {
     const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -1423,6 +1480,215 @@
     netSend({ t: "memory", item });
   }
 
+  // --- Same sky / weather (Open-Meteo, no API key) ---
+  let myWeather = null, partnerWeather = null;
+  function wmoEmoji(code) {
+    if (code === 0) return "☀️";
+    if (code === 1 || code === 2) return "🌤️";
+    if (code === 3) return "☁️";
+    if (code === 45 || code === 48) return "🌫️";
+    if ([51, 53, 55, 56, 57].includes(code)) return "🌦️";
+    if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "🌧️";
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return "❄️";
+    if ([95, 96, 99].includes(code)) return "⛈️";
+    return "🌡️";
+  }
+  function renderMyWeather() {
+    if (!myWeather) { $("my-weather").textContent = ""; return; }
+    $("my-weather").textContent = `${myWeather.isDay ? "☀️" : "🌙"} You: ${wmoEmoji(myWeather.code)} ${myWeather.temp}°C`;
+  }
+  function renderPartnerWeather() {
+    if (!partnerWeather) return;
+    $("partner-weather").textContent = `${partnerWeather.isDay ? "☀️" : "🌙"} ${settings.partner}: ${wmoEmoji(partnerWeather.code)} ${partnerWeather.temp}°C`;
+  }
+  function shareWeather() {
+    if (!navigator.geolocation) { addSys("Location isn't available on this device."); return; }
+    $("weather-btn").textContent = "Getting location…";
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        // round to ~1km for privacy; we only ever send the summary, never coords
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude.toFixed(2)}&longitude=${longitude.toFixed(2)}&current=temperature_2m,weather_code,is_day`);
+        const d = await r.json();
+        const c = d.current || {};
+        myWeather = { temp: Math.round(c.temperature_2m), code: c.weather_code, isDay: c.is_day ? 1 : 0 };
+        chrome.storage.local.set({ wt_weather: myWeather });
+        $("weather-btn").textContent = "Update my weather 🔄";
+        renderMyWeather();
+        netSend({ t: "weather", ...myWeather });
+      } catch (e) { $("weather-btn").textContent = "Share my weather"; addSys("Couldn't fetch the weather right now."); }
+    }, () => { $("weather-btn").textContent = "Share my weather"; addSys("Location permission denied — can't share weather."); }, { timeout: 10000 });
+  }
+
+  // --- Rock paper scissors ---
+  let rpsMy = null, rpsPartner = null;
+  const RPS_E = { rock: "🪨", paper: "📄", scissors: "✂️" };
+  function rpsPick(p) {
+    rpsMy = p;
+    document.querySelectorAll(".rps-opt").forEach((b) => b.classList.toggle("sel", b.dataset.rps === p));
+    netSend({ t: "rps", pick: p });
+    rpsEval();
+  }
+  function rpsEval() {
+    if (rpsMy && rpsPartner) {
+      const beats = { rock: "scissors", paper: "rock", scissors: "paper" };
+      const res = rpsMy === rpsPartner ? "it's a tie 🤝" : beats[rpsMy] === rpsPartner ? "you win! 🎉" : `${settings.partner} wins 😘`;
+      $("rps-status").textContent = `${RPS_E[rpsMy]} vs ${RPS_E[rpsPartner]} — ${res}`;
+    } else if (rpsMy) {
+      $("rps-status").textContent = `Locked in ${RPS_E[rpsMy]} — waiting for ${settings.partner}…`;
+    }
+  }
+  function rpsReset(broadcast) {
+    rpsMy = null; rpsPartner = null;
+    document.querySelectorAll(".rps-opt").forEach((b) => b.classList.remove("sel"));
+    $("rps-status").textContent = "Pick one — revealed when you both have.";
+    if (broadcast) netSend({ t: "rps", reset: true });
+  }
+
+  // --- Connect 4 (7 cols x 6 rows; each side owns a color, turn-based) ---
+  let c4Board, c4Turn;
+  function c4Color() { return amInitiator ? "r" : "y"; } // initiator is red and moves first
+  function c4Build() {
+    const b = $("c4-board"); b.innerHTML = "";
+    for (let i = 0; i < 42; i++) {
+      const c = document.createElement("div"); c.className = "c4-cell"; c.dataset.i = i;
+      c.addEventListener("click", () => c4Click(i % 7));
+      b.appendChild(c);
+    }
+  }
+  function c4Status() {
+    const mine = c4Color();
+    const w = c4Winner();
+    if (w) { $("c4-status").textContent = w === "draw" ? "Draw 🤝" : `${w === mine ? "You" : settings.partner} win${w === mine ? "" : "s"}! 🎉`; return; }
+    $("c4-status").textContent = c4Turn === mine ? `Your turn (${mine === "r" ? "🔴" : "🟡"})` : `${settings.partner}'s turn`;
+  }
+  function c4Reset(broadcast) {
+    c4Board = Array(42).fill(""); c4Turn = "r";
+    document.querySelectorAll("#c4-board .c4-cell").forEach((c) => { c.className = "c4-cell"; });
+    c4Status();
+    if (broadcast) netSend({ t: "c4", reset: true });
+  }
+  function c4DropRow(col) { for (let row = 5; row >= 0; row--) if (!c4Board[row * 7 + col]) return row; return -1; }
+  function c4Click(col) {
+    if (!c4Board) c4Reset(false);
+    if (c4Winner()) return;
+    const mine = c4Color();
+    if (c4Turn !== mine) { $("c4-status").textContent = `Wait for ${settings.partner} ⏳`; return; }
+    if (c4DropRow(col) < 0) return;
+    c4Apply(col, mine);
+    netSend({ t: "c4", col, color: mine });
+  }
+  function c4Apply(col, color) {
+    if (!c4Board) c4Reset(false);
+    const row = c4DropRow(col); if (row < 0) return;
+    const idx = row * 7 + col; c4Board[idx] = color;
+    const cell = document.querySelector(`#c4-board .c4-cell[data-i="${idx}"]`);
+    if (cell) cell.classList.add(color === "r" ? "red" : "yellow");
+    c4Turn = color === "r" ? "y" : "r";
+    c4Status();
+  }
+  function c4Winner() {
+    if (!c4Board) return null;
+    const at = (r, c) => (r < 0 || r > 5 || c < 0 || c > 6) ? "" : c4Board[r * 7 + c];
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) {
+      const v = at(r, c); if (!v) continue;
+      for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]])
+        if (at(r + dr, c + dc) === v && at(r + 2 * dr, c + 2 * dc) === v && at(r + 3 * dr, c + 3 * dc) === v) return v;
+    }
+    return c4Board.every(Boolean) ? "draw" : null;
+  }
+
+  // --- Emoji movie guessing ---
+  const EMOJI_MOVIES = [
+    { e: "🦁👑", a: "The Lion King" },
+    { e: "🚢🧊💔", a: "Titanic" },
+    { e: "👻🚫", a: "Ghostbusters" },
+    { e: "🧙‍♂️💍🌋", a: "The Lord of the Rings" },
+    { e: "🤡🎈🚸", a: "It" },
+    { e: "🦖🏝️", a: "Jurassic Park" },
+    { e: "🔍🐠", a: "Finding Nemo" },
+    { e: "❄️👭👸", a: "Frozen" },
+    { e: "🕷️🧑", a: "Spider-Man" },
+    { e: "💊🔴🔵🕶️", a: "The Matrix" },
+    { e: "🚗⚡🏁", a: "Cars" },
+    { e: "🤖❤️🌱", a: "WALL-E" },
+    { e: "🎈🏠👴", a: "Up" },
+    { e: "🦇🃏", a: "The Dark Knight" },
+    { e: "👽📞🏠🌕", a: "E.T." },
+    { e: "🐀👨‍🍳🍝", a: "Ratatouille" },
+  ];
+  let emojiIdx = -1;
+  function setEmojiPuzzle(i, broadcast) {
+    emojiIdx = i;
+    $("emoji-puzzle").textContent = EMOJI_MOVIES[i].e;
+    $("emoji-answer").textContent = ""; $("emoji-answer").classList.add("hidden");
+    $("emoji-guesses").innerHTML = ""; $("emoji-guess").value = "";
+    if (broadcast) netSend({ t: "emoji-q", i });
+  }
+  function emojiNew() { setEmojiPuzzle(Math.floor(Math.random() * EMOJI_MOVIES.length), true); }
+  function renderEmojiGuess(who, text) {
+    const el = document.createElement("div");
+    el.className = "ans"; el.innerHTML = "<b></b> <span></span>";
+    el.querySelector("b").textContent = who + ":"; el.querySelector("span").textContent = text;
+    $("emoji-guesses").appendChild(el);
+  }
+  function emojiSendGuess() {
+    if (emojiIdx < 0) emojiNew();
+    const t = $("emoji-guess").value.trim(); if (!t) return;
+    renderEmojiGuess(settings.me, t);
+    netSend({ t: "emoji-a", text: t });
+    $("emoji-guess").value = "";
+  }
+  function emojiReveal(broadcast) {
+    if (emojiIdx < 0) return;
+    const el = $("emoji-answer"); el.textContent = "🎬 " + EMOJI_MOVIES[emojiIdx].a; el.classList.remove("hidden");
+    if (broadcast) netSend({ t: "emoji-r" });
+  }
+
+  // --- Reaction timeline (bookmark movie moments, jump back together) ---
+  let timeline = [];
+  function fmtClock(sec) {
+    sec = Math.floor(sec || 0);
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (h ? h + ":" : "") + String(m).padStart(h ? 2 : 1, "0") + ":" + String(s).padStart(2, "0");
+  }
+  async function bookmarkMoment(emoji) {
+    const st = await getPageState();
+    if (!st || st.time == null) { addSys("Play a video first to bookmark a moment 🎬"); return; }
+    const item = { time: Math.floor(st.time), emoji, who: settings.me, title: st.title || "", url: st.url || "" };
+    addTimelineItem(item);
+    burst("heart");
+    addSys(`🔖 Bookmarked ${emoji} at ${fmtClock(item.time)}`);
+    netSend({ t: "mark", time: item.time, emoji, who: settings.me, title: item.title, url: item.url });
+  }
+  function addTimelineItem(item) {
+    timeline.push(item);
+    timeline.sort((a, b) => a.time - b.time);
+    timeline = timeline.slice(0, 200);
+    chrome.storage.local.set({ wt_timeline: timeline });
+    renderTimeline();
+  }
+  function renderTimeline() {
+    const list = $("timeline-list"); if (!list) return;
+    list.innerHTML = "";
+    if (!timeline.length) { list.innerHTML = '<div class="muted small">No moments yet — tap an emoji above while watching 💕</div>'; return; }
+    timeline.forEach((m, i) => {
+      const row = document.createElement("div"); row.className = "wl-item";
+      const sp = document.createElement("span");
+      sp.textContent = `${m.emoji} ${fmtClock(m.time)} · ${m.who}`;
+      sp.title = "Jump here together"; sp.style.cursor = "pointer";
+      sp.addEventListener("click", () => jumpToMoment(m));
+      const x = document.createElement("button"); x.className = "x"; x.textContent = "✕";
+      x.addEventListener("click", () => { timeline.splice(i, 1); chrome.storage.local.set({ wt_timeline: timeline }); renderTimeline(); });
+      row.append(sp, x); list.appendChild(row);
+    });
+  }
+  function jumpToMoment(m) {
+    parentPost({ kind: "apply-video", action: "play", time: m.time, url: m.url, fromName: settings.me });
+    netSend({ t: "video", action: "seek", time: m.time, url: m.url });
+  }
+  function clearTimeline() { timeline = []; chrome.storage.local.set({ wt_timeline: timeline }); renderTimeline(); }
+
   function openFun() {
     renderQotd();
     refreshDates();
@@ -1431,6 +1697,9 @@
     renderHands();
     renderScheduled();
     renderScrapbook();
+    renderMyWeather();
+    renderPartnerWeather();
+    renderTimeline();
     syncFunCams();
     showPanel("fun");
   }
@@ -1551,11 +1820,30 @@
     $("wl-add").addEventListener("click", addWatchItem);
     $("wl-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchItem(); });
     $("wyr-btn").addEventListener("click", () => drawCard("wyr"));
-    $("tod-btn").addEventListener("click", () => drawCard("tod"));
+    $("truth-btn").addEventListener("click", () => drawCard("truth"));
+    $("dare-btn").addEventListener("click", () => drawCard("dare"));
     $("ttt-reset").addEventListener("click", () => tttReset(true));
     $("doodle-clear").addEventListener("click", () => doodleClear(true));
     tttBuild(); tttReset(false);
     doodleInit();
+
+    // Same sky / weather
+    $("weather-btn").addEventListener("click", shareWeather);
+    // Rock paper scissors
+    document.querySelectorAll(".rps-opt").forEach((b) => b.addEventListener("click", () => rpsPick(b.dataset.rps)));
+    $("rps-reset").addEventListener("click", () => rpsReset(true));
+    // Connect 4
+    c4Build(); c4Reset(false);
+    $("c4-reset").addEventListener("click", () => c4Reset(true));
+    // Emoji movie
+    $("emoji-new").addEventListener("click", emojiNew);
+    $("emoji-reveal").addEventListener("click", () => emojiReveal(true));
+    $("emoji-send").addEventListener("click", emojiSendGuess);
+    $("emoji-guess").addEventListener("keydown", (e) => { if (e.key === "Enter") emojiSendGuess(); });
+    // Reaction timeline
+    document.querySelectorAll(".mark-btn").forEach((b) => b.addEventListener("click", () => bookmarkMoment(b.dataset.mark)));
+    $("btn-bookmark").addEventListener("click", () => bookmarkMoment("❤️"));
+    $("timeline-clear").addEventListener("click", clearTimeline);
 
     // ---- New couple features ----
     // Hold hands (press & hold)
@@ -1590,13 +1878,15 @@
     $("mem-add").addEventListener("click", addMemory);
     $("mem-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addMemory(); });
 
-    chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands"], (r) => {
+    chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands", "wt_weather", "wt_timeline"], (r) => {
       if (Array.isArray(r.wt_watchlist)) { watchlist = r.wt_watchlist; renderWatchlist(); }
       if (r.wt_counts) counts = { kiss: r.wt_counts.kiss || 0, hug: r.wt_counts.hug || 0 };
       if (Array.isArray(r.wt_scrapbook)) scrapbook = r.wt_scrapbook;
       if (Array.isArray(r.wt_scheduled)) scheduled = r.wt_scheduled;
       if (typeof r.wt_hands === "number") handSeconds = r.wt_hands;
-      renderCounts(); renderHands(); renderScheduled(); renderScrapbook();
+      if (r.wt_weather) { myWeather = r.wt_weather; $("weather-btn").textContent = "Update my weather 🔄"; }
+      if (Array.isArray(r.wt_timeline)) timeline = r.wt_timeline;
+      renderCounts(); renderHands(); renderScheduled(); renderScrapbook(); renderMyWeather(); renderTimeline();
     });
 
     // Initial panel is chosen by loadSettings (name gate on first run, else connect).

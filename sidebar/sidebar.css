@@ -369,3 +369,23 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 
 /* Theme color input */
 input[type="color"].theme-color { width: 56px; height: 36px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card-2); cursor: pointer; padding: 3px; }
+
+/* Rock paper scissors + bookmark emoji row */
+.rps-row { display: flex; gap: 10px; }
+.rps-opt, .mark-btn {
+  flex: 1; background: var(--card-2); border: 1.5px solid var(--line); border-radius: 14px;
+  font-size: 24px; padding: 10px; cursor: pointer; transition: transform 0.1s, box-shadow 0.15s;
+}
+.rps-opt:hover, .mark-btn:hover { transform: scale(1.1); }
+.rps-opt:active, .mark-btn:active { transform: scale(0.9); }
+.rps-opt.sel { border-color: var(--accent); background: var(--card-h); box-shadow: var(--glow); }
+
+/* Connect 4 */
+.c4 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; background: var(--card-2); padding: 6px; border-radius: 14px; }
+.c4-cell { aspect-ratio: 1; background: var(--bg); border-radius: 50%; cursor: pointer; transition: transform 0.08s; }
+.c4-cell:hover { transform: scale(1.07); }
+.c4-cell.red { background: radial-gradient(circle at 35% 30%, #ff8aa0, #e23b5a); cursor: default; }
+.c4-cell.yellow { background: radial-gradient(circle at 35% 30%, #ffe79a, #f4c430); cursor: default; }
+
+/* Emoji movie puzzle */
+.emoji-puzzle { font-size: 40px; text-align: center; padding: 8px 0 14px; letter-spacing: 4px; min-height: 30px; }
