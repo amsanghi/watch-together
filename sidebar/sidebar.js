@@ -10,6 +10,11 @@
   const $ = (id) => document.getElementById(id);
   const parentPost = (msg) => window.parent.postMessage({ __wt: true, ...msg }, "*");
 
+  // DIAGNOSTIC: confirms whether clicks actually reach inside the panel iframe.
+  document.addEventListener("pointerdown", (e) => {
+    console.log("[WT-IFRAME] pointerdown reached panel on", e.target && e.target.id ? "#" + e.target.id : e.target && e.target.tagName);
+  }, true);
+
   // Built-in Giphy key so GIFs work out of the box with no setup.
   // (Public repo: this key is intentionally shipped. Regenerate at
   // developers.giphy.com if it ever gets abused.)

@@ -57,7 +57,7 @@
       wrap.classList.toggle("wt-fs-open", fsOpen);
       topLayer(wrap, true); // ensure it's actually in the top layer
     }
-    if (fsTab) fsTab.style.right = fsOpen ? "372px" : "0px";
+    if (fsTab) fsTab.style.setProperty("right", fsOpen ? "372px" : "0px", "important");
     console.log("[WatchTogether] tab clicked → fsOpen=", fsOpen,
       "wrap.classes=", wrap && wrap.className,
       "wrap.popoverOpen=", wrap && wrap.matches && safeMatches(wrap, ":popover-open"));
@@ -160,6 +160,17 @@
   }
   document.addEventListener("fullscreenchange", syncFullscreen, true);
   document.addEventListener("webkitfullscreenchange", syncFullscreen, true);
+
+  // DIAGNOSTIC: in fullscreen, log the element stack under each click so we can
+  // see whether something in the page is covering the panel iframe.
+  document.addEventListener("pointerdown", (e) => {
+    if (!isFullscreen()) return;
+    const stack = (document.elementsFromPoint(e.clientX, e.clientY) || [])
+      .slice(0, 5)
+      .map((el) => "#" + (el.id || el.tagName.toLowerCase()))
+      .join(" > ");
+    console.log("[WT-HIT]", e.clientX + "," + e.clientY, "stack:", stack);
+  }, true);
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.wt === "toggle") togglePanel();
