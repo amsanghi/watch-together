@@ -17,8 +17,8 @@ peer-to-peer over WebRTC.
     PeerJS's free public signaling broker — you don't run or pay for anything.
   - **Manual (no broker):** truly zero third-party. Create an invite, paste it to your
     partner over text/Signal, paste their reply back. Uses Google's public STUN only.
-- **Voice & video call** — webcam tiles docked in the sidebar, or pop out into a draggable
-  floating bubble. Starts muted with camera off; toggle each on when you're ready.
+- **Voice & video call** — webcam tiles in the side panel. Starts muted with camera off;
+  toggle each on when you're ready.
 - **Chat** — messages, a big emoji picker, and **GIF search** (Giphy).
 - **Couple extras:**
   - 💗 **Floating hearts & kisses** drift up over the video on both screens.
@@ -90,22 +90,22 @@ browser's local storage and overrides the built-in key.
 ## How it works
 
 ```
-toolbar click ─▶ background.js ─▶ content.js (injected on every page)
-                                     │
-        ┌────────────────────────────┼─────────────────────────────┐
-        ▼                            ▼                              ▼
-  controls the page <video>   floating-heart / countdown /    injects the sidebar
-  (play/pause/seek sync)      poke overlays on the page        iframe (the app UI)
-                                                                     │
-                                              sidebar.js (PeerJS broker OR raw WebRTC)
-                                              chat · GIFs · webcam · couple features
+toolbar icon / Cmd+Shift+Y ─▶ Chrome Side Panel (sidebar.html + sidebar.js)
+                              · one per window, persists across tabs/navigation
+                              · holds the PeerJS connection (auto-pairing) + UI
+                                     │  chrome messaging
+                                     ▼
+                              content.js (on the video tab)
+                              · controls the page <video> (play/pause/seek sync)
+                              · floating hearts / countdown / poke / "Join" banner
 ```
 
-- The whole UI and all WebRTC live inside an **extension-origin iframe** so `getUserMedia`
-  works regardless of the host site's permissions policy.
-- The content script owns the page's `<video>` and forwards play/pause/seek events to the
-  iframe, which relays them to the partner over the WebRTC data channel (and vice-versa).
-  Remote-applied actions are echo-guarded so they don't loop.
+- The UI + all WebRTC live in Chrome's **side panel** (an extension page), so `getUserMedia`
+  works on any site, the browser **reserves space** for it (no overlap on any site), and the
+  connection **persists across tab switches and navigation** — one connection per window.
+- The content script owns the page's `<video>` and relays play/pause/seek to the side panel
+  over `chrome` messaging; the panel relays to the partner over the WebRTC data channel (and
+  vice-versa). Remote-applied actions are echo-guarded so they don't loop.
 
 ## Limitations
 

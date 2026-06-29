@@ -1,34 +1,17 @@
-// WatchTogether — background service worker (MV3)
-// Toolbar click toggles the in-page panel for the active tab. If the content
-// script isn't there yet (tab was open before the extension loaded/updated),
-// inject it on the fly so the icon always works without reloading the page.
+// WatchTogether — background service worker (MV3).
+// The UI + P2P connection live in the Side Panel (one per window, persists
+// across tab switches/navigation). The toolbar icon and the keyboard shortcut
+// open it.
 
-async function toggle(tabId) {
-  try {
-    await chrome.tabs.sendMessage(tabId, { wt: "toggle" });
-  } catch (_) {
-    // No receiver yet — inject the content script + styles, then toggle.
-    try {
-      await chrome.scripting.insertCSS({ target: { tabId }, files: ["content.css"] });
-      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
-      await chrome.tabs.sendMessage(tabId, { wt: "toggle" });
-    } catch (e) {
-      // Restricted page (chrome://, Web Store, new-tab, PDF viewer) — can't inject.
-      console.warn("WatchTogether can't run on this page:", e?.message || e);
-    }
-  }
-}
+// Clicking the toolbar icon opens the side panel natively.
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch(() => {});
 
-chrome.action.onClicked.addListener((tab) => {
-  if (tab && tab.id != null) toggle(tab.id);
-});
-
-// Keyboard shortcut (Cmd/Ctrl+Shift+Y) — works even when the toolbar icon is
-// hidden, e.g. while a video is fullscreen.
-chrome.commands.onCommand.addListener((command, tab) => {
+// Keyboard shortcut (Cmd/Ctrl+Shift+Y) opens the side panel in the current window.
+chrome.commands.onCommand.addListener((command) => {
   if (command !== "toggle-panel") return;
-  if (tab && tab.id != null) toggle(tab.id);
-  else chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0] && tabs[0].id != null) toggle(tabs[0].id);
+  chrome.windows.getCurrent().then((win) => {
+    if (win && win.id != null) chrome.sidePanel.open({ windowId: win.id }).catch(() => {});
   });
 });

@@ -1,94 +1,6 @@
-/* WatchTogether — styles for the injected wrapper, overlay and effects.
-   The main UI lives inside the iframe (sidebar/sidebar.css). Keep these
-   selectors namespaced and !important to survive hostile host-page CSS. */
+/* WatchTogether — page effects only. The panel lives in Chrome's side panel,
+   so there's no injected wrapper and no page-shift here. */
 
-#wt-root {
-  position: fixed !important;
-  top: 0 !important;
-  right: 0 !important;
-  width: 372px !important;
-  height: 100vh !important;
-  z-index: 2147483646 !important;
-  border: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.45) !important;
-  transition: transform 0.25s ease !important;
-  background: transparent !important;
-}
-
-#wt-root.wt-hidden {
-  transform: translateX(110%) !important;
-  pointer-events: none !important;
-}
-
-#wt-root.wt-float {
-  top: auto !important;
-  right: auto !important;
-  left: 24px !important;
-  bottom: 24px !important;
-  width: 280px !important;
-  height: 360px !important;
-  border-radius: 18px !important;
-  overflow: hidden !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
-}
-
-#wt-frame {
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-  display: block !important;
-  background: #0d0d12 !important;
-  color-scheme: dark !important;
-}
-
-/* Page shift so the docked panel sits beside the video, not over it.
-   Driven by a class (survives SPA inline-style rewrites) and forced with
-   !important to beat host-page rules. */
-html.wt-shifted {
-  margin-right: 372px !important;
-  max-width: calc(100vw - 372px) !important;
-  box-sizing: border-box !important;
-  transition: margin-right 0.2s ease !important;
-  overflow-x: hidden !important;
-}
-
-/* When the video is fullscreen, the panel + effects are promoted to the top
-   layer (popover) so they stay visible above it. These reset the UA popover
-   chrome and re-pin our elements. */
-/* The page shift also needs to hold while the whole page is fullscreen. */
-html.wt-shifted:fullscreen,
-html.wt-shifted:-webkit-full-screen {
-  max-width: calc(100vw - 372px) !important;
-  margin-right: 372px !important;
-  overflow-x: hidden !important;
-}
-
-/* YouTube & Prime size the player to the window, not the page, so the margin
-   alone won't shrink them — constrain their player containers directly. */
-html.wt-shifted.wt-yt #masthead-container,
-html.wt-shifted.wt-yt #movie_player,
-html.wt-shifted.wt-yt #player-container,
-html.wt-shifted.wt-yt #player-container-inner,
-html.wt-shifted.wt-yt ytd-watch-flexy[theater] #player,
-html.wt-shifted.wt-yt video.html5-main-video {
-  max-width: calc(100vw - 372px) !important;
-}
-html.wt-shifted.wt-yt ytd-app { min-width: 0 !important; }
-
-html.wt-shifted.wt-prime video,
-html.wt-shifted.wt-prime .webPlayerSDKContainer,
-html.wt-shifted.wt-prime .dv-player-fullscreen,
-html.wt-shifted.wt-prime .atvwebplayersdk-overlays-container,
-html.wt-shifted.wt-prime .cascadesContainer,
-html.wt-shifted.wt-prime .webPlayerContainer {
-  max-width: calc(100vw - 372px) !important;
-  left: 0 !important;
-  right: auto !important;
-}
-
-/* Full-page overlay for floating hearts / countdown / pokes. */
 #wt-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -105,7 +17,6 @@ html.wt-shifted.wt-prime .webPlayerContainer {
   animation: wt-float-up var(--wt-dur, 3.2s) ease-out forwards;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
 }
-
 @keyframes wt-float-up {
   0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 0; }
   15% { opacity: 1; transform: translateY(-10vh) scale(1.1); }
@@ -121,14 +32,12 @@ html.wt-shifted.wt-prime .webPlayerContainer {
   z-index: 2147483647;
   pointer-events: none;
 }
-
 #wt-countdown .wt-num {
   font: 800 22vh/1 system-ui, -apple-system, sans-serif;
   color: #fff;
   text-shadow: 0 6px 40px rgba(255, 92, 138, 0.8), 0 2px 12px rgba(0, 0, 0, 0.6);
   animation: wt-pop 1s ease-out forwards;
 }
-
 @keyframes wt-pop {
   0% { transform: scale(0.2); opacity: 0; }
   25% { transform: scale(1.15); opacity: 1; }
@@ -152,7 +61,6 @@ html.wt-shifted.wt-prime .webPlayerContainer {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   animation: wt-toast 2.6s ease-out forwards;
 }
-
 @keyframes wt-toast {
   0% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
   12% { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -193,7 +101,6 @@ html.wt-shifted.wt-prime .webPlayerContainer {
 html.wt-shake {
   animation: wt-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
 }
-
 @keyframes wt-shake {
   10%, 90% { transform: translate3d(-1px, 0, 0); }
   20%, 80% { transform: translate3d(2px, 0, 0); }

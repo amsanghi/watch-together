@@ -1,14 +1,21 @@
-/* WatchTogether — sidebar app logic.
-   Lives inside an extension-origin iframe injected into the page so that
-   getUserMedia works on any host site. Talks to the page via window.parent
-   postMessage, and to the partner via PeerJS (broker) or a raw
-   RTCPeerConnection (manual copy-paste). Both paths feed one message handler. */
+/* WatchTogether — side panel app logic.
+   Runs as Chrome's side panel (one per window, persists across tabs and
+   navigation). Talks to the active tab's content script over chrome messaging,
+   and to the partner via PeerJS (auto-pairing) or a raw RTCPeerConnection
+   (manual copy-paste). Both paths feed one message handler. */
 
 (() => {
   "use strict";
 
   const $ = (id) => document.getElementById(id);
-  const parentPost = (msg) => window.parent.postMessage({ __wt: true, ...msg }, "*");
+
+  // Send a message to the active tab's content script (video control / effects).
+  function parentPost(msg) {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const id = tabs && tabs[0] && tabs[0].id;
+      if (id != null) chrome.tabs.sendMessage(id, { __wt: true, ...msg }, () => void chrome.runtime.lastError);
+    });
+  }
 
   // Built-in Giphy key so GIFs work out of the box with no setup.
   // (Public repo: this key is intentionally shipped. Regenerate at
@@ -433,15 +440,19 @@
     }
   }
 
-  // ---- Page state request (from content script) --------------------------
-  let stateReqId = 0;
-  const stateWaiters = {};
+  // ---- Page state request (ask the active tab's content script) ----------
   function getPageState() {
     return new Promise((res) => {
-      const id = ++stateReqId;
-      stateWaiters[id] = res;
-      parentPost({ kind: "request-state", reqId: id });
-      setTimeout(() => { if (stateWaiters[id]) { delete stateWaiters[id]; res(null); } }, 1500);
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const id = tabs && tabs[0] && tabs[0].id;
+        if (id == null) return res(null);
+        let done = false;
+        chrome.tabs.sendMessage(id, { __wt: true, kind: "request-state" }, (resp) => {
+          void chrome.runtime.lastError;
+          if (!done) { done = true; res(resp || null); }
+        });
+        setTimeout(() => { if (!done) { done = true; res(null); } }, 1500);
+      });
     });
   }
 
@@ -632,10 +643,9 @@
     el.classList.toggle("hidden", !msg);
   }
 
-  // ---- Messages from the page (content script) ---------------------------
-  window.addEventListener("message", (e) => {
-    const d = e.data;
-    if (!d || d.__wt !== true || e.source !== window.parent) return;
+  // ---- Messages from content scripts (any tab in this window) ------------
+  chrome.runtime.onMessage.addListener((d, sender) => {
+    if (!d || d.__wt !== true) return;
     switch (d.kind) {
       case "video-event":
         netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title });
@@ -644,8 +654,9 @@
         $("video-warn").classList.add("found");
         $("video-warn").title = "Video detected — controls are synced";
         break;
-      case "state-reply":
-        if (stateWaiters[d.reqId]) { stateWaiters[d.reqId](d.state); delete stateWaiters[d.reqId]; }
+      case "hello":
+        // A tab (re)loaded — if it followed a Join, re-sync it to the partner.
+        if (d.following && connectedOnce) netSend({ t: "sync-req" });
         break;
     }
   });
@@ -705,7 +716,7 @@
     });
 
     // Header buttons
-    $("btn-close").addEventListener("click", () => parentPost({ kind: "close-panel" }));
+    $("btn-close").addEventListener("click", () => { try { window.close(); } catch (_) {} });
     $("btn-settings").addEventListener("click", () => showPanel("settings"));
     $("btn-save-settings").addEventListener("click", saveSettings);
     $("btn-clear-history").addEventListener("click", () => {
