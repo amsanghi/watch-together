@@ -158,15 +158,6 @@
     try { if (room) room.leave(); } catch (_) {}
     room = null; sendData = null; streamAdded = false;
   }
-  // Known-good public Nostr relays (redundant so a slow/down one doesn't stall us).
-  const NOSTR_RELAYS = [
-    "wss://relay.damus.io",
-    "wss://nos.lol",
-    "wss://relay.nostr.band",
-    "wss://relay.primal.net",
-    "wss://nostr.wine",
-    "wss://relay.snort.social",
-  ];
   let connectHint = null;
 
   function connect() {
@@ -177,10 +168,9 @@
     setStatus("connecting");
     const rid = roomId();
     try {
-      room = Trystero.joinRoom(
-        { appId: "watchtogether", relayConfig: { urls: NOSTR_RELAYS, redundancy: 4 } },
-        rid
-      );
+      // BitTorrent WebRTC trackers (Trystero's maintained defaults) — built for
+      // browser P2P signaling, no write-auth/rate-limit walls like Nostr relays.
+      room = Trystero.joinRoom({ appId: "watchtogether" }, rid);
     } catch (e) { showError("Couldn't start: " + (e && e.message)); console.log("[WT] joinRoom error", e); return; }
     console.log("[WT] joined room", rid, "selfId", Trystero.selfId);
     // Trystero 0.25: makeAction returns an object; handlers are assignable props.
