@@ -27,11 +27,9 @@
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
                    anniversary: "", bdayMe: "", bdayPartner: "" };
   let sendData = null;      // sends app data over the active transport
-  let streamAdded = false;  // whether we've shared our mic/cam stream yet
   let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
   let rawDC = null;         // RTCDataChannel (manual mode)
   let localStream = null;
-  let mediaTried = false;
   let mediaDenied = false;
   let micOn = false, camOn = false;
   let connectedOnce = false;
@@ -180,7 +178,7 @@
 
   function leaveRoom() {
     entries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
-    entries = []; primary = null; sendData = null; streamAdded = false;
+    entries = []; primary = null; sendData = null; sharedTracks.clear();
   }
 
   function repointSend() {
@@ -215,7 +213,7 @@
         entry.connected = true;
         amInitiator = String(Trystero.selfId) > String(pid);
         if (!primary) repointSend();
-        if (localStream && !streamAdded && primary) { try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {} }
+        shareAll(); // push any mic/cam tracks we already have to the new peer
         onConnected();
       };
       r.onPeerLeave = (pid) => {
@@ -312,7 +310,7 @@
     setStatus("connecting");
     rawPC = newPC();
     wireDC(rawPC.createDataChannel("wt"));
-    await ensureMedia();
+    await ensureKind("audio"); await ensureKind("video");
     if (localStream) localStream.getTracks().forEach((t) => rawPC.addTrack(t, localStream));
     const offer = await rawPC.createOffer();
     await rawPC.setLocalDescription(offer);
@@ -337,7 +335,7 @@
     } catch (e) {
       return showError("Couldn't read that invite code. Make sure you pasted all of it.");
     }
-    await ensureMedia();
+    await ensureKind("audio"); await ensureKind("video");
     if (localStream) localStream.getTracks().forEach((t) => rawPC.addTrack(t, localStream));
     const ans = await rawPC.createAnswer();
     await rawPC.setLocalDescription(ans);
@@ -346,52 +344,58 @@
   }
 
   // ---- Media (mic / cam) --------------------------------------------------
-  async function ensureMedia() {
-    if (mediaTried) return localStream;
-    mediaTried = true;
+  const sharedTracks = new Set();
+  function hasKind(kind) {
+    if (!localStream) return false;
+    return (kind === "video" ? localStream.getVideoTracks() : localStream.getAudioTracks()).length > 0;
+  }
+  // Push any local tracks we have to the connected peer (Trystero renegotiates).
+  function shareAll() {
+    if (!primary || !localStream) return;
+    localStream.getTracks().forEach((t) => {
+      if (sharedTracks.has(t)) return;
+      try { primary.room.addTrack(t, localStream); sharedTracks.add(t); } catch (_) {}
+    });
+  }
+  // Acquire ONE kind (camera or mic) on demand. Asks only for what was clicked,
+  // is retryable if the prompt was dismissed, and survives one device missing.
+  async function ensureKind(kind) {
+    if (hasKind(kind)) return true;
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      localStream.getAudioTracks().forEach((t) => (t.enabled = false));
-      localStream.getVideoTracks().forEach((t) => (t.enabled = false));
-      $("local-video").srcObject = localStream;
-      micOn = false; camOn = false;
-      updateMediaButtons();
+      const s = await navigator.mediaDevices.getUserMedia(kind === "video" ? { video: true } : { audio: true });
+      if (!localStream) { localStream = new MediaStream(); $("local-video").srcObject = localStream; }
+      s.getTracks().forEach((t) => { t.enabled = false; localStream.addTrack(t); });
+      mediaDenied = false;
+      shareAll();
+      return true;
     } catch (e) {
       mediaDenied = true;
-      addSys("Mic/cam unavailable — chat & sync still work. (" + (e.name || "blocked") + ")");
+      updateMediaButtons();
+      addSys(`Couldn't turn on the ${kind === "video" ? "camera" : "microphone"} — allow it (🎥 icon near the address bar, or chrome://settings) then tap again.`);
+      return false;
     }
-    return localStream;
   }
 
   async function toggleMic() {
-    await ensureMedia();
-    if (!localStream) return;
+    if (!micOn) { if (!(await ensureKind("audio"))) return; }
     micOn = !micOn;
     localStream.getAudioTracks().forEach((t) => (t.enabled = micOn));
     updateMediaButtons();
-    ensureStreamShared();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   async function toggleCam() {
-    await ensureMedia();
-    if (!localStream) return;
+    if (!camOn) { if (!(await ensureKind("video"))) return; }
     camOn = !camOn;
     localStream.getVideoTracks().forEach((t) => (t.enabled = camOn));
     $("local-video").parentElement.classList.toggle("live", camOn);
     updateMediaButtons();
-    ensureStreamShared();
     netSend({ t: "media-state", mic: micOn, cam: camOn });
   }
   function updateMediaButtons() {
     $("btn-mic").className = "media-btn " + (micOn ? "on" : "off");
     $("btn-cam").className = "media-btn " + (camOn ? "on" : "off");
-    $("local-off").textContent = mediaDenied ? "blocked" : "cam off";
+    $("local-off").textContent = mediaDenied ? "allow access" : "cam off";
     $("local-off").style.display = camOn ? "none" : "flex";
-  }
-  // Add our mic/cam stream to the active transport once (Trystero renegotiates).
-  function ensureStreamShared() {
-    if (streamAdded || !primary || !localStream) return;
-    try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {}
   }
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");
