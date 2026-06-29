@@ -393,16 +393,23 @@
         </div>
       </div>
 
-      <!-- Emoji movie guessing -->
+      <!-- Guess the emoji (movies + spicy decks) -->
       <div class="fun-card">
-        <div class="fun-title">Guess the movie 🎬</div>
+        <div class="fun-title">Guess the emoji 🎬🔥</div>
+        <div class="card-grid">
+          <button class="ghost card-btn emoji-deck-btn" data-deck="movie">🎬 Movies</button>
+          <button class="ghost card-btn emoji-deck-btn" data-deck="spicy">🔥 Sexy acts</button>
+          <button class="ghost card-btn emoji-deck-btn" data-deck="position">🛏️ Positions</button>
+          <button class="ghost card-btn emoji-deck-btn" data-deck="phrase">🗯️ Dirty phrase</button>
+          <button class="ghost card-btn emoji-deck-btn" data-deck="sext">💌 Decode my sext</button>
+          <button class="ghost card-btn emoji-deck-btn" data-deck="random">🎲 Surprise</button>
+        </div>
         <div id="emoji-puzzle" class="emoji-puzzle"></div>
         <div class="row">
           <input id="emoji-guess" type="text" placeholder="Your guess…" />
           <button id="emoji-send" class="mini">Guess</button>
         </div>
         <div class="row" style="margin-top:7px;">
-          <button id="emoji-new" class="mini">🎲 New puzzle</button>
           <button id="emoji-reveal" class="mini">Reveal</button>
         </div>
         <div id="emoji-answer" class="card-out hidden"></div>

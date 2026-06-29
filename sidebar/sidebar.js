@@ -656,7 +656,7 @@
         else if (typeof d.col === "number") c4Apply(d.col, d.color);
         break;
       case "emoji-q":
-        if (typeof d.i === "number") setEmojiPuzzle(d.i, false);
+        if (typeof d.i === "number") setEmojiPuzzle(d.deck || "movie", d.i, false);
         break;
       case "emoji-a":
         renderEmojiGuess(settings.partner, d.text);
@@ -1756,34 +1756,71 @@
     return c4Board.every(Boolean) ? "draw" : null;
   }
 
-  // --- Emoji movie guessing ---
-  const EMOJI_MOVIES = [
-    { e: "🦁👑", a: "The Lion King" },
-    { e: "🚢🧊💔", a: "Titanic" },
-    { e: "👻🚫", a: "Ghostbusters" },
-    { e: "🧙‍♂️💍🌋", a: "The Lord of the Rings" },
-    { e: "🤡🎈🚸", a: "It" },
-    { e: "🦖🏝️", a: "Jurassic Park" },
-    { e: "🔍🐠", a: "Finding Nemo" },
-    { e: "❄️👭👸", a: "Frozen" },
-    { e: "🕷️🧑", a: "Spider-Man" },
-    { e: "💊🔴🔵🕶️", a: "The Matrix" },
-    { e: "🚗⚡🏁", a: "Cars" },
-    { e: "🤖❤️🌱", a: "WALL-E" },
-    { e: "🎈🏠👴", a: "Up" },
-    { e: "🦇🃏", a: "The Dark Knight" },
-    { e: "👽📞🏠🌕", a: "E.T." },
-    { e: "🐀👨‍🍳🍝", a: "Ratatouille" },
-  ];
-  let emojiIdx = -1;
-  function setEmojiPuzzle(i, broadcast) {
-    emojiIdx = i;
-    $("emoji-puzzle").textContent = EMOJI_MOVIES[i].e;
+  // --- Guess the emoji (multiple decks, incl. explicit ones) ---
+  const EMOJI_DECKS = {
+    movie: [
+      { e: "🦁👑", a: "The Lion King" }, { e: "🚢🧊💔", a: "Titanic" }, { e: "👻🚫", a: "Ghostbusters" },
+      { e: "🧙‍♂️💍🌋", a: "The Lord of the Rings" }, { e: "🤡🎈🚸", a: "It" }, { e: "🦖🏝️", a: "Jurassic Park" },
+      { e: "🔍🐠", a: "Finding Nemo" }, { e: "❄️👭👸", a: "Frozen" }, { e: "🕷️🧑", a: "Spider-Man" },
+      { e: "💊🔴🔵🕶️", a: "The Matrix" }, { e: "🚗⚡🏁", a: "Cars" }, { e: "🤖❤️🌱", a: "WALL-E" },
+      { e: "🎈🏠👴", a: "Up" }, { e: "🦇🃏", a: "The Dark Knight" }, { e: "👽📞🏠🌕", a: "E.T." },
+      { e: "🐀👨‍🍳🍝", a: "Ratatouille" }, { e: "👧🐉🏯", a: "Spirited Away" }, { e: "🐠🔍👨‍👦", a: "Finding Nemo" },
+      { e: "🧸🤠🚀", a: "Toy Story" }, { e: "🦈🌊🩸", a: "Jaws" },
+    ],
+    spicy: [
+      { e: "👅🍆", a: "Blowjob" }, { e: "👅🌮", a: "Eating out / oral" }, { e: "👅🍑", a: "Rimming" },
+      { e: "✊🍆💦", a: "Handjob" }, { e: "🍆🍑", a: "Anal" }, { e: "6️⃣9️⃣", a: "Sixty-nine" },
+      { e: "🍆👄💦", a: "Deepthroat" }, { e: "💦😮", a: "Facial" }, { e: "⛓️🙇", a: "Bondage" },
+      { e: "✋🍑👏", a: "Spanking" }, { e: "🔥💬", a: "Dirty talk" }, { e: "📱🍆💦", a: "Sexting" },
+      { e: "🎥🛏️", a: "Sex tape" }, { e: "👀🪟", a: "Voyeurism" }, { e: "3️⃣🛏️", a: "Threesome" },
+      { e: "🧊🛏️", a: "Ice play" }, { e: "🕯️🔥💧", a: "Wax play" }, { e: "👠🦶👅", a: "Foot fetish" },
+      { e: "🪶😏", a: "Teasing" }, { e: "🙈⛓️", a: "Blindfold & restraints" }, { e: "💍🔓💞", a: "Open relationship" },
+      { e: "🐆🛏️🔥", a: "Rough sex" }, { e: "🚿💦🛁", a: "Shower sex" }, { e: "🚗🌙🔥", a: "Car sex" },
+      { e: "🎭👫", a: "Role play" }, { e: "👑🙇‍♂️", a: "Dom / sub" }, { e: "🤏🍒🤏", a: "Nipple play" },
+      { e: "😈🔒🔑", a: "Chastity / control" }, { e: "🥵💦😮‍💨", a: "Orgasm" }, { e: "💋⬇️⬇️⬇️", a: "Kissing down the body" },
+      { e: "🛌🌅🍆", a: "Morning sex" }, { e: "👅🔋", a: "Edging" },
+    ],
+    position: [
+      { e: "🐶💨", a: "Doggy style" }, { e: "🤠🐎", a: "Cowgirl" }, { e: "🤠↩️", a: "Reverse cowgirl" },
+      { e: "🥄👤👤", a: "Spooning" }, { e: "😇🛏️", a: "Missionary" }, { e: "6️⃣9️⃣", a: "Sixty-nine" },
+      { e: "🪑🍆", a: "Lap sit" }, { e: "🧎‍♀️🧎", a: "Kneeling" }, { e: "🙆‍♀️⬆️🦵", a: "Legs up" },
+      { e: "🌉", a: "The bridge" }, { e: "🧍🧍🔥", a: "Standing" }, { e: "🐍🤸", a: "The pretzel" },
+      { e: "🚪🧍🍑", a: "Against the wall" }, { e: "🛋️🍑⬆️", a: "Bent over" }, { e: "🌮👇🪑", a: "Face-sitting" },
+      { e: "🦋🛏️", a: "The butterfly" }, { e: "🦵✂️🦵", a: "Scissoring" },
+    ],
+    phrase: [
+      { e: "🛏️🌙🔥", a: "Sex tonight" }, { e: "👅⬇️⬇️", a: "Go down on me" }, { e: "🍑👏👏", a: "Spank me" },
+      { e: "🙏🍆", a: "Beg for it" }, { e: "💦🛏️", a: "Make a mess" }, { e: "🔒💋", a: "Locked-door quickie" },
+      { e: "📞🍆💦", a: "Phone sex" }, { e: "👀📹🔥", a: "Watch me" }, { e: "⛓️🛏️😈", a: "Tie me up" },
+      { e: "🍑📸", a: "Send nudes" }, { e: "🥵👅", a: "Turn me on" }, { e: "🔝🍆", a: "Get on top" },
+      { e: "👅🍑👅", a: "Eat me out" }, { e: "🤲🍒", a: "Touch me" }, { e: "💋🔁🌙", a: "All night long" },
+      { e: "😈🗣️👂", a: "Talk dirty to me" }, { e: "🙇‍♀️🍆💦", a: "On your knees" }, { e: "🛏️🆓❓", a: "You free tonight?" },
+    ],
+    sext: [
+      { e: "🍆➡️🍑", a: "I want you inside me" }, { e: "😩💭🫵🔁", a: "I can't stop thinking about you" },
+      { e: "🙏🛏️🌙", a: "Come to bed" }, { e: "👅👉🫵", a: "I want to taste you" },
+      { e: "🥵🫵🔥", a: "You make me so hot" }, { e: "📸🍑🙏", a: "Send me a pic" },
+      { e: "🤲🫵🔛🙋", a: "I need your hands on me" }, { e: "💦👀🫵", a: "Look what you do to me" },
+      { e: "⏳🚫🙅", a: "I can't wait any longer" }, { e: "🛌🫵🔜", a: "Get over here" },
+      { e: "👀👅🫵", a: "I want to watch you" }, { e: "🔥💬👂", a: "Talk dirty to me" },
+      { e: "🙈⛓️🙏", a: "Tie me up" }, { e: "💋🔝➡️⬇️", a: "Kiss me everywhere" },
+      { e: "🫵🔛🙏", a: "I want you on top" }, { e: "🌙🆓🛏️❓", a: "Are you free tonight?" },
+    ],
+  };
+  const EMOJI_DECK_LABELS = { movie: "🎬 Movie", spicy: "🔥 Sexy act", position: "🛏️ Position", phrase: "🗯️ Dirty phrase", sext: "💌 Sext" };
+  let emojiDeck = "movie", emojiIdx = -1;
+  function setEmojiPuzzle(deck, i, broadcast) {
+    if (!EMOJI_DECKS[deck]) deck = "movie";
+    emojiDeck = deck; emojiIdx = i;
+    $("emoji-puzzle").textContent = EMOJI_DECKS[deck][i].e;
     $("emoji-answer").textContent = ""; $("emoji-answer").classList.add("hidden");
     $("emoji-guesses").innerHTML = ""; $("emoji-guess").value = "";
-    if (broadcast) netSend({ t: "emoji-q", i });
+    if (broadcast) netSend({ t: "emoji-q", deck, i });
   }
-  function emojiNew() { setEmojiPuzzle(Math.floor(Math.random() * EMOJI_MOVIES.length), true); }
+  function emojiNew(deck) {
+    if (deck === "random" || !deck) { const ks = Object.keys(EMOJI_DECKS); deck = ks[Math.floor(Math.random() * ks.length)]; }
+    setEmojiPuzzle(deck, Math.floor(Math.random() * EMOJI_DECKS[deck].length), true);
+  }
   function renderEmojiGuess(who, text) {
     const el = document.createElement("div");
     el.className = "ans"; el.innerHTML = "<b></b> <span></span>";
@@ -1791,7 +1828,7 @@
     $("emoji-guesses").appendChild(el);
   }
   function emojiSendGuess() {
-    if (emojiIdx < 0) emojiNew();
+    if (emojiIdx < 0) emojiNew("random");
     const t = $("emoji-guess").value.trim(); if (!t) return;
     renderEmojiGuess(settings.me, t);
     netSend({ t: "emoji-a", text: t });
@@ -1799,7 +1836,9 @@
   }
   function emojiReveal(broadcast) {
     if (emojiIdx < 0) return;
-    const el = $("emoji-answer"); el.textContent = "🎬 " + EMOJI_MOVIES[emojiIdx].a; el.classList.remove("hidden");
+    const el = $("emoji-answer");
+    el.textContent = (EMOJI_DECK_LABELS[emojiDeck] || "🎬") + ": " + EMOJI_DECKS[emojiDeck][emojiIdx].a;
+    el.classList.remove("hidden");
     if (broadcast) netSend({ t: "emoji-r" });
   }
 
@@ -1991,8 +2030,8 @@
     // Connect 4
     c4Build(); c4Reset(false);
     $("c4-reset").addEventListener("click", () => c4Reset(true));
-    // Emoji movie
-    $("emoji-new").addEventListener("click", emojiNew);
+    // Guess the emoji (multi-deck)
+    document.querySelectorAll(".emoji-deck-btn").forEach((b) => b.addEventListener("click", () => emojiNew(b.dataset.deck)));
     $("emoji-reveal").addEventListener("click", () => emojiReveal(true));
     $("emoji-send").addEventListener("click", emojiSendGuess);
     $("emoji-guess").addEventListener("keydown", (e) => { if (e.key === "Enter") emojiSendGuess(); });
