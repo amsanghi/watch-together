@@ -95,6 +95,14 @@
 
   function togglePanel(forceShow) {
     ensureUI();
+    // In fullscreen the panel is controlled by the fs-open state, so route the
+    // toolbar click / keyboard shortcut to that (otherwise the tuck rule keeps
+    // it hidden).
+    if (isFullscreen() && !wrap.classList.contains("wt-float")) {
+      toggleFsOpen();
+      if (fsOpen) frame.contentWindow?.postMessage({ __wt: true, kind: "panel-shown" }, "*");
+      return;
+    }
     const hidden = wrap.classList.contains("wt-hidden");
     const show = forceShow != null ? forceShow : hidden;
     wrap.classList.toggle("wt-hidden", !show);
@@ -145,7 +153,8 @@
     }
     topLayer(fsTab, dockFs); // tab visibility is driven by its popover state
     console.log("[WatchTogether] fullscreen=", fs, "dockFs=", dockFs,
-      "tab.display=", fsTab && fsTab.style.display,
+      "tab.popoverOpen=", fsTab && safeMatches(fsTab, ":popover-open"),
+      "tab.display=", fsTab && getComputedStyle(fsTab).display,
       "overlay.popoverOpen=", overlay && safeMatches(overlay, ":popover-open"),
       "wrap.popoverOpen=", wrap && safeMatches(wrap, ":popover-open"));
   }
