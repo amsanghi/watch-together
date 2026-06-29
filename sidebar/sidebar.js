@@ -1180,13 +1180,10 @@
     $("btn-invite").addEventListener("click", sendInvite);
     $("invite-join").addEventListener("click", acceptInvite);
     $("invite-no").addEventListener("click", hideInviteBanner);
-    $("btn-countdown").addEventListener("click", () => runCountdown(true));
     $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
     $("btn-heartbeat").addEventListener("click", sendHeartbeat);
     $("btn-snap").addEventListener("click", sendSnap);
     $("btn-kiss-pause").addEventListener("click", sendKissPause);
-    $("btn-gm").addEventListener("click", () => sendGreet("gm"));
-    $("btn-gn").addEventListener("click", () => sendGreet("gn"));
 
     // Composer
     $("btn-send").addEventListener("click", sendChat);

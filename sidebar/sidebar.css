@@ -246,6 +246,35 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 .doodle-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .doodle-row input[type="color"] { width: 38px; height: 30px; border: none; background: none; cursor: pointer; }
 
+/* ---- Compact layout: maximize the chat area ---- */
+#header { padding: 8px 13px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+#presence-heart { font-size: 16px; }
+.brand .title { font-size: 13px; }
+.header-actions .icon-btn { padding: 4px 7px; font-size: 14px; }
+
+#cam-area { padding: 8px; gap: 7px; }
+.cam-tile { aspect-ratio: 16 / 10; border-width: 2px; border-radius: 16px; }
+.cam-label { font-size: 10px; padding: 2px 8px; }
+
+#media-controls { padding: 0 8px 7px; gap: 7px; }
+.media-btn { padding: 5px 12px; font-size: 15px; border-radius: 13px; }
+.media-btn span { font-size: 9px; }
+.leave-btn { padding: 6px 12px; font-size: 12px; }
+
+#couple-bar { padding: 8px; gap: 6px; }
+.cute-btn { padding: 6px 11px; font-size: 16px; box-shadow: var(--shadow-sm); }
+
+#chat { padding: 12px; }
+
+#composer { padding: 8px; gap: 6px; }
+#msg-input { padding: 9px 13px; }
+.send-btn { width: 38px; height: 38px; font-size: 15px; }
+#composer .icon-btn { padding: 6px 8px; font-size: 14px; }
+
+/* Stats moved into the "Just us" panel */
+#us-stats { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 10px; font-size: 11px; font-weight: 700; color: var(--accent2); flex-wrap: wrap; }
+#us-stats .link-btn { color: var(--accent2); }
+
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--card-h); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
