@@ -25,9 +25,8 @@
 
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false };
-  let room = null;          // Trystero room (serverless rendezvous)
-  let sendData = null;      // Trystero data sender
-  let streamAdded = false;  // whether we've added our mic/cam stream to the room
+  let sendData = null;      // sends app data over the active transport
+  let streamAdded = false;  // whether we've shared our mic/cam stream yet
   let rawPC = null;         // RTCPeerConnection (manual copy-paste mode)
   let rawDC = null;         // RTCDataChannel (manual mode)
   let localStream = null;
@@ -154,11 +153,24 @@
   }
   function roomId() { return "wt" + hashStr((settings.pairCode || "").trim().toLowerCase()); }
 
-  function leaveRoom() {
-    try { if (room) room.leave(); } catch (_) {}
-    room = null; sendData = null; streamAdded = false;
-  }
+  // We race multiple transports (torrent + MQTT) so we connect via whichever
+  // network finds the peer first. Both partners join both rooms, so we can send
+  // on any transport we're connected on and the partner receives it once (no
+  // duplicates, since we send on a single transport at a time).
+  let entries = [];      // [{ name, room, action, connected }]
+  let primary = null;    // the entry we currently send on
   let connectHint = null;
+
+  function leaveRoom() {
+    entries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
+    entries = []; primary = null; sendData = null; streamAdded = false;
+  }
+
+  function repointSend() {
+    const live = entries.find((e) => e.connected);
+    primary = live || null;
+    sendData = live ? (obj) => live.action.send(obj) : null;
+  }
 
   function connect() {
     if (!settings.pairCode) return;
@@ -167,25 +179,43 @@
     connectedOnce = false;
     setStatus("connecting");
     const rid = roomId();
-    try {
-      // BitTorrent WebRTC trackers (built for browser P2P signaling, no Nostr
-      // write-auth/rate-limit walls). Announce to several trackers at once so the
-      // fastest one wins — cuts the time-to-connect when some trackers are slow.
-      room = Trystero.joinRoom({ appId: "watchtogether", relayConfig: { redundancy: 6 } }, rid);
-    } catch (e) { showError("Couldn't start: " + (e && e.message)); console.log("[WT] joinRoom error", e); return; }
-    console.log("[WT] joined room", rid, "selfId", Trystero.selfId);
-    // Trystero 0.25: makeAction returns an object; handlers are assignable props.
-    const action = room.makeAction("m");
-    sendData = (obj) => action.send(obj);
-    action.onMessage = (data) => handleData(data);
-    room.onPeerJoin = (pid) => {
-      console.log("[WT] peer joined", pid);
-      amInitiator = String(Trystero.selfId) > String(pid); // deterministic sync leader
-      if (localStream && room && !streamAdded) { try { room.addStream(localStream); streamAdded = true; } catch (_) {} }
-      onConnected();
-    };
-    room.onPeerLeave = (pid) => { console.log("[WT] peer left", pid); onDisconnected(); };
-    room.onPeerStream = (stream, pid) => remoteStreamHandler(stream);
+    const cfg = { appId: "watchtogether", relayConfig: { redundancy: 6 } };
+    const strategies = [
+      { name: "mqtt", join: Trystero.mqtt && Trystero.mqtt.joinRoom },     // usually fastest
+      { name: "torrent", join: Trystero.torrent && Trystero.torrent.joinRoom }, // reliable fallback
+    ];
+    console.log("[WT] joining room", rid, "selfId", Trystero.selfId);
+
+    strategies.forEach((s) => {
+      if (typeof s.join !== "function") return;
+      let r;
+      try { r = s.join(cfg, rid); } catch (e) { console.log("[WT]", s.name, "join error", e); return; }
+      const action = r.makeAction("m");
+      const entry = { name: s.name, room: r, action, connected: false };
+      action.onMessage = (data) => handleData(data);
+      r.onPeerJoin = (pid) => {
+        console.log("[WT] peer joined via", s.name, pid);
+        entry.connected = true;
+        amInitiator = String(Trystero.selfId) > String(pid);
+        if (!primary) repointSend();
+        if (localStream && !streamAdded && primary) { try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {} }
+        onConnected();
+      };
+      r.onPeerLeave = (pid) => {
+        console.log("[WT] peer left via", s.name, pid);
+        entry.connected = false;
+        if (entries.some((e) => e.connected)) {
+          if (primary === entry) repointSend(); // failover to the other transport
+        } else {
+          primary = null; sendData = null;
+          onDisconnected();
+        }
+      };
+      r.onPeerStream = (stream) => remoteStreamHandler(stream);
+      entries.push(entry);
+    });
+
+    if (!entries.length) { showError("Networking failed to start."); return; }
 
     clearTimeout(connectHint);
     connectHint = setTimeout(() => {
@@ -341,10 +371,10 @@
     $("local-off").textContent = mediaDenied ? "blocked" : "cam off";
     $("local-off").style.display = camOn ? "none" : "flex";
   }
-  // Add our mic/cam stream to the room once (Trystero renegotiates as needed).
+  // Add our mic/cam stream to the active transport once (Trystero renegotiates).
   function ensureStreamShared() {
-    if (streamAdded || !room || !localStream) return;
-    try { room.addStream(localStream); streamAdded = true; } catch (_) {}
+    if (streamAdded || !primary || !localStream) return;
+    try { primary.room.addStream(localStream); streamAdded = true; } catch (_) {}
   }
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");
