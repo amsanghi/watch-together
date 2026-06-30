@@ -81,6 +81,7 @@
             // screen, and go straight back to the live view while we re-link.
             try { sessionStorage.removeItem("wt_reconnecting"); } catch (_) {}
             everConnected = true;
+            pendingPartnerReload = true; // heal the partner's media once we relink
             restoreChat();
             showPanel("live");
             setStatus("connecting");
@@ -159,6 +160,7 @@
   }
 
   let everConnected = false;
+  let pendingPartnerReload = false;
 
   function onConnected() {
     clearTimeout(connectHint);
@@ -178,6 +180,10 @@
     if (myWeather) netSend({ t: "weather", ...myWeather });
     if (watchlist.length) netSend({ t: "watchlist", items: watchlist });
     if (amInitiator) netSend({ t: "sync-req" });
+    // If WE just did a clean-reload reconnect, nudge the partner to do the same
+    // (once the link is healthy) so their stale media tracks refresh too. The
+    // recentlyReloaded guard on their side keeps this from ping-ponging.
+    if (pendingPartnerReload) { pendingPartnerReload = false; setTimeout(() => netSend({ t: "please-reload" }), 1200); }
     recordSession();
   }
   function onDisconnected() {
@@ -251,7 +257,14 @@
     if (Date.now() - last < 12000) { connect(); return; } // reloaded too recently → in-place, avoid a loop
     try { sessionStorage.setItem("wt_reload_at", String(Date.now())); } catch (_) {}
     saveChatState();
-    location.reload();
+    // Ask the partner to do the same clean reload, so BOTH sides come back with
+    // fresh peer connections and re-add their media — otherwise the side that
+    // didn't reload keeps stale track state and the streams never re-negotiate.
+    try { netSend({ t: "please-reload" }); } catch (_) {}
+    setTimeout(() => location.reload(), 300); // let that message flush first
+  }
+  function recentlyReloaded() {
+    try { return Date.now() - (Number(sessionStorage.getItem("wt_reload_at")) || 0) < 12000; } catch (_) { return false; }
   }
 
   // Raw RTCDataChannel wiring (manual copy-paste mode — no broker at all).
@@ -625,6 +638,7 @@
     lastRx = Date.now(); // any traffic counts as "the link is alive"
     if (d.t === "ping") { netSend({ t: "pong" }); return; }
     if (d.t === "pong") return;
+    if (d.t === "please-reload") { if (!recentlyReloaded()) hardReconnect(); return; } // partner wants a clean re-link
     switch (d.t) {
       case "name":
         partnerReal = d.name || partnerReal;
