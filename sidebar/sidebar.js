@@ -153,6 +153,8 @@
     clearTimeout(reconnectTimer);
     if (connectedOnce) return;
     connectedOnce = true;
+    reconnectAttempts = 0;
+    startHeartbeat();
     setStatus("on");
     showPanel("live");
     addSys(everConnected ? "Reconnected 💞" : `Connected 💞 Say hi to ${settings.partner}!`);
@@ -178,12 +180,38 @@
   // again. Covers the "closed the panel and reopened" case where the first
   // handshake can stall on a stale peer.
   let reconnectTimer = null;
+  let reconnectAttempts = 0;
   function scheduleReconnect() {
     clearTimeout(reconnectTimer);
+    // Retry fast at first (3.5s), backing off to 8s only if it keeps failing.
+    const delay = Math.min(8000, 3500 + reconnectAttempts * 1500);
     reconnectTimer = setTimeout(() => {
-      if (!connectedOnce && settings.pairCode) connect();
-    }, 9000 + Math.floor(Math.random() * 3000));
+      if (!connectedOnce && settings.pairCode) { reconnectAttempts++; connect(); }
+    }, delay);
   }
+
+  // App-level heartbeat: a steady ping both ways. If we stop hearing ANYTHING
+  // from the partner for a few seconds — a silent Wi-Fi drop that Trystero
+  // hasn't reported yet — we proactively rejoin. This is what keeps a movie
+  // night from quietly freezing.
+  let lastRx = 0;
+  let heartbeatTimer = null;
+  function startHeartbeat() {
+    stopHeartbeat();
+    lastRx = Date.now();
+    heartbeatTimer = setInterval(() => {
+      if (!connectedOnce) return;
+      netSend({ t: "ping" });
+      if (Date.now() - lastRx > 8000) {
+        console.log("[WT] heartbeat: link went silent — rejoining");
+        connectedOnce = false;
+        setStatus("connecting");
+        addSys("Connection hiccup — reconnecting…");
+        connect();
+      }
+    }, 2500);
+  }
+  function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
 
   // Raw RTCDataChannel wiring (manual copy-paste mode — no broker at all).
   function wireDC(dc) {
@@ -213,6 +241,7 @@
   let connectHint = null;
 
   function leaveRoom() {
+    stopHeartbeat();
     entries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
     entries = []; primary = null; sendData = null; sharedTracks.clear();
   }
@@ -230,7 +259,18 @@
     connectedOnce = false;
     setStatus("connecting");
     const rid = roomId();
-    const cfg = { appId: "watchtogether", relayConfig: { redundancy: 6 } };
+    const cfg = {
+      appId: "watchtogether",
+      relayConfig: { redundancy: 6 },
+      // STUN helps ICE find the direct LAN/P2P path faster and more reliably.
+      rtcConfig: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun.cloudflare.com:3478" },
+        ],
+      },
+    };
     const strategies = [
       { name: "mqtt", join: Trystero.mqtt && Trystero.mqtt.joinRoom },     // usually fastest
       { name: "torrent", join: Trystero.torrent && Trystero.torrent.joinRoom }, // reliable fallback
@@ -542,6 +582,9 @@
   // ---- Incoming data handler ---------------------------------------------
   async function handleData(d) {
     if (!d || !d.t) return;
+    lastRx = Date.now(); // any traffic counts as "the link is alive"
+    if (d.t === "ping") { netSend({ t: "pong" }); return; }
+    if (d.t === "pong") return;
     switch (d.t) {
       case "name":
         partnerReal = d.name || partnerReal;
