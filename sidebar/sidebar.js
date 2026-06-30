@@ -74,7 +74,19 @@
         showPanel("connect");
         // Already paired → connect automatically, no codes or buttons.
         if (settings.pairCode) {
-          showPairStatus();
+          let reconnecting = false;
+          try { reconnecting = sessionStorage.getItem("wt_reconnecting") === "1"; } catch (_) {}
+          if (reconnecting) {
+            // Auto-reload reconnect: keep the conversation, skip the pairing
+            // screen, and go straight back to the live view while we re-link.
+            try { sessionStorage.removeItem("wt_reconnecting"); } catch (_) {}
+            everConnected = true;
+            restoreChat();
+            showPanel("live");
+            setStatus("connecting");
+          } else {
+            showPairStatus();
+          }
           connect();
         }
         // Restore mic/cam to their last state (if permission's already granted).
@@ -203,15 +215,44 @@
       if (!connectedOnce) return;
       netSend({ t: "ping" });
       if (Date.now() - lastRx > 8000) {
-        console.log("[WT] heartbeat: link went silent — rejoining");
+        console.log("[WT] heartbeat: link went silent — clean reconnect");
         connectedOnce = false;
         setStatus("connecting");
-        addSys("Connection hiccup — reconnecting…");
-        connect();
+        hardReconnect();
       }
     }, 2500);
   }
   function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+
+  // A clean reconnect = a fresh panel (exactly like the manual Leave+rejoin that
+  // works reliably). Re-joining in place reuses stale WebRTC/relay state and
+  // comes back erratic, so for a real mid-session drop we reload the panel —
+  // preserving the chat and auto-reconnecting on load. Rate-limited so it can
+  // never loop; if we just reloaded, fall back to an in-place rejoin instead.
+  function saveChatState() {
+    try {
+      sessionStorage.setItem("wt_reconnecting", "1");
+      sessionStorage.setItem("wt_chat", $("chat").innerHTML);
+      sessionStorage.setItem("wt_partner", settings.partner || "");
+    } catch (_) {}
+  }
+  function restoreChat() {
+    try {
+      const html = sessionStorage.getItem("wt_chat");
+      if (html != null) $("chat").innerHTML = html;
+      sessionStorage.removeItem("wt_chat");
+      const p = sessionStorage.getItem("wt_partner");
+      if (p && p !== "Partner") { partnerReal = p; settings.partner = p; $("remote-label").textContent = p; }
+    } catch (_) {}
+  }
+  function hardReconnect() {
+    let last = 0;
+    try { last = Number(sessionStorage.getItem("wt_reload_at")) || 0; } catch (_) {}
+    if (Date.now() - last < 12000) { connect(); return; } // reloaded too recently → in-place, avoid a loop
+    try { sessionStorage.setItem("wt_reload_at", String(Date.now())); } catch (_) {}
+    saveChatState();
+    location.reload();
+  }
 
   // Raw RTCDataChannel wiring (manual copy-paste mode — no broker at all).
   function wireDC(dc) {
@@ -337,8 +378,7 @@
   // Manual escape hatch: rejoin the room now.
   function forceReconnect() {
     if (!settings.pairCode) { addSys("Not paired yet."); return; }
-    addSys("Reconnecting…");
-    connect();
+    hardReconnect();
   }
   function unpair() {
     settings.pairCode = "";
