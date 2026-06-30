@@ -25,7 +25,7 @@
 
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
-                   anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "" };
+                   anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "", volume: 100 };
   let partnerReal = "Partner";   // partner's actual name; settings.partner = petName || partnerReal
   let counts = { kiss: 0, hug: 0 };
   let scrapbook = [];            // [{text, date}]
@@ -60,6 +60,7 @@
       $("set-bday-partner").value = settings.bdayPartner || "";
       $("local-label").textContent = settings.me;
       $("remote-label").textContent = settings.partner;
+      applyRemoteVolume();
       if (settings.themeColor) applyTheme(settings.themeColor);
       refreshStats();
       refreshDates();
@@ -489,7 +490,24 @@
   function remoteStreamHandler(stream) {
     const rv = $("remote-video");
     rv.srcObject = stream;
+    applyRemoteVolume();
     updateRemoteTile();
+  }
+  // Volume of the partner's audio (only #remote-video carries it; the mirror
+  // tiles are muted). 0–100, persisted.
+  function applyRemoteVolume() {
+    const v = Math.max(0, Math.min(100, settings.volume == null ? 100 : settings.volume));
+    const rv = $("remote-video");
+    rv.muted = v === 0;
+    rv.volume = v / 100;
+    const icon = $("vol-icon");
+    if (icon) icon.textContent = v === 0 ? "🔇" : v < 50 ? "🔈" : "🔊";
+    if ($("vol-slider") && Number($("vol-slider").value) !== v) $("vol-slider").value = v;
+  }
+  function setRemoteVolume(v) {
+    settings.volume = Math.max(0, Math.min(100, Math.round(v)));
+    chrome.storage.local.set({ wt_settings: settings });
+    applyRemoteVolume();
   }
   function updateRemoteTile() {
     const tile = $("remote-video").parentElement;
@@ -2370,6 +2388,14 @@
     $("btn-mic").addEventListener("click", toggleMic);
     $("btn-cam").addEventListener("click", toggleCam);
     $("btn-leave").addEventListener("click", () => location.reload());
+
+    // Partner volume
+    $("vol-slider").addEventListener("input", (e) => setRemoteVolume(Number(e.target.value)));
+    let lastVol = 100;
+    $("vol-icon").addEventListener("click", () => {
+      if ((settings.volume || 0) > 0) { lastVol = settings.volume; setRemoteVolume(0); }
+      else setRemoteVolume(lastVol || 100);
+    });
 
     // Couple bar
     document.querySelectorAll(".cute-btn[data-react]").forEach((b) =>

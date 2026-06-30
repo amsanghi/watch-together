@@ -113,6 +113,10 @@
         <button id="btn-mic" class="media-btn off" title="Toggle microphone">🎙️<span>Mic</span></button>
         <button id="btn-cam" class="media-btn off" title="Toggle camera">📷<span>Cam</span></button>
         <span id="video-warn" class="video-warn" title="No video detected on this page">🎬</span>
+        <div id="vol-wrap" title="Partner's volume">
+          <button id="vol-icon" class="vol-icon" title="Mute/unmute partner">🔊</button>
+          <input id="vol-slider" type="range" min="0" max="100" value="100" />
+        </div>
         <button id="btn-leave" class="leave-btn" title="Leave session">Leave</button>
       </div>
 
@@ -205,7 +209,7 @@
           <div class="cam-off-badge" id="fun-local-off">cam off</div>
         </div>
         <div class="cam-tile">
-          <video id="fun-remote-video" autoplay playsinline></video>
+          <video id="fun-remote-video" autoplay playsinline muted></video>
           <span class="cam-label" id="fun-remote-label">Partner</span>
           <div class="cam-off-badge" id="fun-remote-off">waiting…</div>
         </div>
@@ -471,7 +475,7 @@
       <div id="pb-live">
         <div class="pb-stage" id="pb-stage">
           <video id="pb-local" autoplay muted playsinline></video>
-          <video id="pb-remote" autoplay playsinline class="hidden"></video>
+          <video id="pb-remote" autoplay playsinline muted class="hidden"></video>
           <span class="pb-stk tl"></span>
           <span class="pb-stk br"></span>
           <div id="pb-count" class="pb-count hidden"></div>
