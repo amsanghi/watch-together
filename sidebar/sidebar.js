@@ -24,7 +24,7 @@
   const DEFAULT_GIPHY_KEY = "4AV58X7gVu01rrXsHmbiuxsJ9kIBeZIw";
 
   // ---- State --------------------------------------------------------------
-  let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
+  let settings = { me: "You", partner: "Partner", partnerName: "", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
                    anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "", volume: 100,
                    relayUrl: "", turnUrl: "", turnUser: "", turnPass: "" };
   let partnerReal = "Partner";   // partner's actual name; settings.partner = petName || partnerReal
@@ -63,7 +63,10 @@
       if (r.wt_settings) settings = { ...settings, ...r.wt_settings };
       if (r.wt_media) { wantMic = !!r.wt_media.mic; wantCam = !!r.wt_media.cam; }
       if (!settings.giphyKey) settings.giphyKey = DEFAULT_GIPHY_KEY; // fall back to built-in key
-      if (settings.petName) settings.partner = settings.petName;
+      // Restore the partner's remembered name so it shows immediately on reopen,
+      // before they reconnect and re-send it.
+      if (settings.partnerName) partnerReal = settings.partnerName;
+      settings.partner = settings.petName || partnerReal || "Partner";
       $("me-name").textContent = settings.me;
       $("set-me").value = settings.me;
       $("set-giphy").value = settings.giphyKey;
@@ -92,7 +95,9 @@
       } else {
         showPanel("connect");
         // Already paired → connect automatically, no codes or buttons.
-        if (settings.pairCode || settings.relayUrl) {
+        // (settings.paired is false only after an explicit Unpair; legacy settings
+        // without the flag are treated as paired so existing users still auto-connect.)
+        if (settings.paired !== false && (settings.pairCode || settings.relayUrl)) {
           let reconnecting = false;
           try { reconnecting = sessionStorage.getItem("wt_reconnecting") === "1"; } catch (_) {}
           if (reconnecting) {
@@ -138,6 +143,7 @@
     settings.anniversary = $("set-anniversary").value || "";
     settings.bdayMe = $("set-bday-me").value || "";
     settings.bdayPartner = $("set-bday-partner").value || "";
+    if (partnerReal && partnerReal !== "Partner") settings.partnerName = partnerReal;
     settings.partner = settings.petName || partnerReal || "Partner";
     chrome.storage.local.set({ wt_settings: settings });
     applyTheme(settings.themeColor);
@@ -415,6 +421,7 @@
     showError("");
     settings.pairCode = code;
     settings.relayUrl = relay;
+    settings.paired = true;
     if ($("turn-url")) {
       settings.turnUrl = $("turn-url").value.trim();
       settings.turnUser = $("turn-user").value.trim();
@@ -431,14 +438,17 @@
     hardReconnect();
   }
   function unpair() {
-    settings.pairCode = "";
-    settings.relayUrl = "";
+    // Stop connecting but REMEMBER the room + relay (and TURN) so re-pairing is one
+    // click and nothing has to be re-typed. Only the "paired" flag is cleared — that's
+    // what suppresses auto-connect on next open; the values stay persisted + prefilled.
+    settings.paired = false;
     chrome.storage.local.set({ wt_settings: settings });
     leaveRoom();
     connectedOnce = false;
     everConnected = false;
     setStatus("off");
-    if ($("relay-url")) $("relay-url").value = "";
+    if ($("pair-code")) $("pair-code").value = settings.pairCode || "";
+    if ($("relay-url")) $("relay-url").value = settings.relayUrl || "";
     $("pair-status").classList.add("hidden");
     $("pair-setup").classList.remove("hidden");
     showPanel("connect");
@@ -844,7 +854,9 @@
     switch (d.t) {
       case "name":
         partnerReal = d.name || partnerReal;
+        settings.partnerName = partnerReal;                 // remember across restarts
         settings.partner = settings.petName || partnerReal;
+        chrome.storage.local.set({ wt_settings: settings });
         $("remote-label").textContent = settings.partner;
         if (connectedOnce && $("header-status")) $("header-status").textContent = settings.partner;
         break;
