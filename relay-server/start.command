@@ -33,10 +33,23 @@ if ! command -v ngrok >/dev/null 2>&1; then
   read -r -p "Press Return to close. " _ ; exit 1
 fi
 
-# 4. Optional config from .env -----------------------------------------------
-if [ -f .env ]; then set -a; . ./.env; set +a; fi
+# 4. Config — kept durable so an installer update can't wipe it --------------
+# install.command overwrites this folder with `rsync --delete`, which deletes a
+# local .env (it's gitignored). So we ALSO remember settings in a HOME-dir file
+# that survives updates, and self-heal a missing .env from it.
+DURABLE="$HOME/.watchtogether-relay.env"
+[ -f "$DURABLE" ] && { set -a; . "$DURABLE"; set +a; }   # remembered settings
+[ -f .env ]       && { set -a; . ./.env;   set +a; }     # local .env overrides
 PORT="${PORT:-8787}"
 export PORT
+# Remember the domain durably, and recreate .env if an update wiped it.
+if [ -n "$NGROK_DOMAIN" ]; then
+  printf 'PORT=%s\nNGROK_DOMAIN=%s\n' "$PORT" "$NGROK_DOMAIN" > "$DURABLE"
+  if [ ! -f .env ]; then
+    printf 'PORT=%s\nNGROK_DOMAIN=%s\n' "$PORT" "$NGROK_DOMAIN" > .env
+    echo "♻️   Restored relay-server/.env from $DURABLE (NGROK_DOMAIN=$NGROK_DOMAIN)"
+  fi
+fi
 
 SERVER_PID=""
 NGROK_PID=""
