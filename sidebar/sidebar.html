@@ -43,6 +43,15 @@
       <div id="pair-setup" class="mode-ui">
         <p class="muted small">Pair with your partner <b>once</b>: you both type the <b>same secret word</b>. After that you auto-connect every time — no codes, no rejoining, even after refreshing or switching pages.</p>
         <input id="pair-code" type="text" placeholder="Shared secret word (e.g. usforever)" autocomplete="off" />
+        <input id="relay-url" type="text" placeholder="Relay server link (optional, e.g. wss://you.ngrok-free.app)" autocomplete="off" spellcheck="false" />
+        <p class="muted small">Got your own relay running? Paste its link on <b>both</b> computers for a rock-solid connection — all sync, chat &amp; calls go through it instead of public relays. (See <code>relay-server/</code>.) Leave blank to use the default public relays.</p>
+        <details class="advanced" id="relay-adv">
+          <summary>Relay: force calls through it too (TURN)</summary>
+          <p class="muted small">Optional. Only if your video/voice call itself won't connect. Requires a TURN server (see relay-server/README).</p>
+          <input id="turn-url" type="text" placeholder="turn:your-host:3478" autocomplete="off" spellcheck="false" />
+          <input id="turn-user" type="text" placeholder="TURN username" autocomplete="off" spellcheck="false" />
+          <input id="turn-pass" type="text" placeholder="TURN password" autocomplete="off" spellcheck="false" />
+        </details>
         <button id="btn-pair" class="primary">Pair &amp; connect 💞</button>
         <details class="advanced">
           <summary>Advanced: connect without the broker</summary>

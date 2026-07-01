@@ -2,3 +2,5 @@
 *.log
 node_modules/
 *.zip
+.env
+relay-server/.env
