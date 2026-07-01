@@ -80,6 +80,32 @@ switching pages.
 There's also an **Advanced** option under the pairing box for a fully broker-free,
 copy-paste connection if you ever want it.
 
+## Rock-solid mode: your own relay (recommended if it keeps dropping)
+
+The default pairing finds your partner over **public** relays, which can be flaky —
+that's usually what's behind a connection that drops or won't reconnect. You can
+instead run **your own tiny relay** on one computer and point both extensions at it.
+Then **everything** — play/pause/seek sync, chat, reactions, and the voice/video
+call setup — goes through that one link. No public relays, no "find each other".
+
+1. On one computer, start the relay and tunnel it with a fixed link:
+   ```bash
+   cd relay-server
+   ./start.command
+   ```
+   (First-time setup — Node + a free ngrok account — is in **[`relay-server/README.md`](relay-server/README.md)**.)
+   It prints a `wss://…` link.
+2. In the extension on **both** computers, paste that `wss://…` link into the new
+   **Relay server** box, type the same secret word (or leave it blank), and
+   **Pair & connect**.
+
+To switch back to the public relays, clear the Relay server box and unpair.
+
+> The call's audio/video flows peer-to-peer by default (only its *setup* uses the
+> relay — which is what fixes the drops). To route the call's media through a
+> server too, run a TURN server and fill in the optional TURN fields; details in
+> [`relay-server/README.md`](relay-server/README.md).
+
 ## GIFs
 
 GIF search works out of the box — a Giphy API key is built in, so there's nothing to set up.
@@ -143,6 +169,7 @@ watch-together/
 │   ├── sidebar.css      # dark/cinematic theme
 │   └── sidebar.js       # connection, chat, media, couple features
 ├── lib/trystero-nostr.js # vendored Trystero (serverless P2P, MV3-safe)
+├── relay-server/        # optional: your own WebSocket relay + one-click ngrok launcher
 └── icons/               # generated heart icons
 ```
 

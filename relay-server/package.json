@@ -1,0 +1,17 @@
+{
+  "name": "watchtogether-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private WebSocket relay for the WatchTogether extension — carries all sync, chat, reactions and call signaling between two people over one fixed link.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

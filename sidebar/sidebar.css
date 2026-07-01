@@ -105,6 +105,9 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 
 /* Pairing */
 #pair-code { width: 100%; }
+#relay-url { width: 100%; margin-top: 8px; }
+#relay-adv { margin-top: 8px; }
+#relay-adv input { margin-top: 6px; }
 #pair-status { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding-top: 26px; }
 .pair-spinner { font-size: 52px; animation: beat 1.1s ease-in-out infinite; filter: drop-shadow(var(--glow)); }
 .advanced { margin-top: 6px; }

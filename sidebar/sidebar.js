@@ -25,7 +25,8 @@
 
   // ---- State --------------------------------------------------------------
   let settings = { me: "You", partner: "Partner", giphyKey: DEFAULT_GIPHY_KEY, autocam: true, named: false,
-                   anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "", volume: 100 };
+                   anniversary: "", bdayMe: "", bdayPartner: "", petName: "", themeColor: "", volume: 100,
+                   relayUrl: "", turnUrl: "", turnUser: "", turnPass: "" };
   let partnerReal = "Partner";   // partner's actual name; settings.partner = petName || partnerReal
   let counts = { kiss: 0, hug: 0 };
   let scrapbook = [];            // [{text, date}]
@@ -41,6 +42,20 @@
   let amInitiator = false;
   let sessionRecorded = false;
   const remoteState = { mic: false, cam: false };
+
+  // ---- Relay transport state (your own server; see relay-server/) ---------
+  // When settings.relayUrl is set we ignore the public Trystero relays entirely
+  // and run everything (data + call signaling) over one WebSocket to your relay.
+  let relayMode = false;          // true while the relay transport is the active one
+  let relayWs = null;             // the WebSocket to your relay server
+  let relayWantOpen = false;      // we intend to stay connected (drives auto-reconnect)
+  let relayReconnectTimer = null;
+  let relaySelfId = null;         // our id in the room (assigned by the server)
+  let relayPeerId = null;         // the partner's id, if present
+  let relayPC = null;             // RTCPeerConnection carrying the voice/video call
+  let relayMakingOffer = false;   // perfect-negotiation guards
+  let relayIgnoreOffer = false;
+  const relayShared = new Set();  // local tracks already added to relayPC
 
   // ---- Settings -----------------------------------------------------------
   function loadSettings() {
@@ -65,6 +80,10 @@
       refreshStats();
       refreshDates();
       if ($("pair-code")) $("pair-code").value = settings.pairCode || "";
+      if ($("relay-url")) $("relay-url").value = settings.relayUrl || "";
+      if ($("turn-url")) $("turn-url").value = settings.turnUrl || "";
+      if ($("turn-user")) $("turn-user").value = settings.turnUser || "";
+      if ($("turn-pass")) $("turn-pass").value = settings.turnPass || "";
       // First open: ask for a name before anything else, then remember it.
       if (!settings.named) {
         $("set-me-first").value = settings.me === "You" ? "" : settings.me;
@@ -73,7 +92,7 @@
       } else {
         showPanel("connect");
         // Already paired → connect automatically, no codes or buttons.
-        if (settings.pairCode) {
+        if (settings.pairCode || settings.relayUrl) {
           let reconnecting = false;
           try { reconnecting = sessionStorage.getItem("wt_reconnecting") === "1"; } catch (_) {}
           if (reconnecting) {
@@ -191,6 +210,7 @@
     // reconnects automatically when they come back.
     connectedOnce = false;
     setStatus("connecting");
+    if (relayMode) return; // relay handles its own reconnection (socket close / roster)
     scheduleReconnect();
   }
 
@@ -204,7 +224,7 @@
     // Retry fast at first (3.5s), backing off to 8s only if it keeps failing.
     const delay = Math.min(8000, 3500 + reconnectAttempts * 1500);
     reconnectTimer = setTimeout(() => {
-      if (!connectedOnce && settings.pairCode) { reconnectAttempts++; connect(); }
+      if (!connectedOnce && (settings.pairCode || settings.relayUrl)) { reconnectAttempts++; connect(); }
     }, delay);
   }
 
@@ -224,6 +244,11 @@
         console.log("[WT] heartbeat: link went silent — clean reconnect");
         connectedOnce = false;
         setStatus("connecting");
+        // Relay mode: a half-open socket is cheap to rebuild — no full page reload.
+        if (relayMode) {
+          if (!relayWs || relayWs.readyState !== WebSocket.OPEN) connectRelay();
+          return;
+        }
         hardReconnect();
       }
     }, 2500);
@@ -296,6 +321,7 @@
 
   function leaveRoom() {
     stopHeartbeat();
+    teardownRelay(true); // close the relay socket + call PC, clear the "stay open" intent
     entries.forEach((e) => { try { e.room.leave(); } catch (_) {} });
     entries = []; primary = null; sendData = null; sharedTracks.clear();
   }
@@ -307,11 +333,13 @@
   }
 
   function connect() {
-    if (!settings.pairCode) return;
-    if (typeof Trystero === "undefined") { showError("Networking failed to load — use Advanced (manual) below."); return; }
+    if (!settings.pairCode && !settings.relayUrl) return;
     leaveRoom();
     connectedOnce = false;
     setStatus("connecting");
+    // If a relay link is set, use it exclusively (no public relays).
+    if (settings.relayUrl) { connectRelay(); return; }
+    if (typeof Trystero === "undefined") { showError("Networking failed to load — use Advanced (manual) below."); return; }
     const rid = roomId();
     const cfg = {
       appId: "watchtogether",
@@ -381,28 +409,197 @@
   }
   function startPairing() {
     const code = $("pair-code").value.trim();
-    if (!code) { $("pair-code").focus(); return; }
+    const relay = $("relay-url") ? $("relay-url").value.trim() : "";
+    // Need at least a secret word (Trystero room) OR a relay link to connect.
+    if (!code && !relay) { $("pair-code").focus(); return; }
     showError("");
     settings.pairCode = code;
+    settings.relayUrl = relay;
+    if ($("turn-url")) {
+      settings.turnUrl = $("turn-url").value.trim();
+      settings.turnUser = $("turn-user").value.trim();
+      settings.turnPass = $("turn-pass").value.trim();
+    }
     chrome.storage.local.set({ wt_settings: settings });
     showPairStatus();
     connect();
   }
   // Manual escape hatch: rejoin the room now.
   function forceReconnect() {
-    if (!settings.pairCode) { addSys("Not paired yet."); return; }
+    if (!settings.pairCode && !settings.relayUrl) { addSys("Not paired yet."); return; }
+    if (relayMode) { connectRelay(); return; } // relay: just re-open the socket
     hardReconnect();
   }
   function unpair() {
     settings.pairCode = "";
+    settings.relayUrl = "";
     chrome.storage.local.set({ wt_settings: settings });
     leaveRoom();
     connectedOnce = false;
     everConnected = false;
     setStatus("off");
+    if ($("relay-url")) $("relay-url").value = "";
     $("pair-status").classList.add("hidden");
     $("pair-setup").classList.remove("hidden");
     showPanel("connect");
+  }
+
+  // ---- Relay transport (your own server) ----------------------------------
+  // A single WebSocket to your relay carries EVERYTHING: all app data (sync,
+  // chat, reactions, presence…) and the voice/video call's WebRTC signaling.
+  // No public relays, no peer discovery — same relay link + same room = paired.
+  // See relay-server/ for the server and its one-click ngrok launcher.
+
+  // Accept whatever the user pasted: wss://host, https://host, or a bare host.
+  function normalizeRelayUrl(raw) {
+    let u = (raw || "").trim();
+    if (!u) return "";
+    u = u.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
+    if (!/^wss?:\/\//i.test(u)) u = "wss://" + u; // bare host → secure ws
+    return u.replace(/\/+$/, "");
+  }
+
+  function relayIceServers() {
+    const list = [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+    // Optional TURN → forces the CALL's media through a server too (data always
+    // goes over the relay regardless).
+    if (settings.turnUrl) {
+      list.push({ urls: settings.turnUrl, username: settings.turnUser || "", credential: settings.turnPass || "" });
+    }
+    return list;
+  }
+
+  function connectRelay() {
+    const base = normalizeRelayUrl(settings.relayUrl);
+    if (!base) { showError("Enter a valid relay server link."); return; }
+    relayMode = true;
+    relayWantOpen = true;
+    teardownRelay(false); // drop any previous socket/PC but keep the intent to be open
+    setStatus("connecting");
+    const rid = roomId();
+    console.log("[WT] relay connecting", base, "room", rid);
+    let ws;
+    try { ws = new WebSocket(base + "/?room=" + encodeURIComponent(rid)); }
+    catch (e) { showError("Couldn't open that relay link — check the address."); scheduleRelayReconnect(); return; }
+    relayWs = ws;
+
+    // Everything the app sends now goes over the relay.
+    sendData = (obj) => { try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); } catch (_) {} };
+
+    ws.onopen = () => { console.log("[WT] relay socket open"); }; // wait for the roster before we call ourselves "connected"
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
+      lastRx = Date.now();
+      if (m && m.t === "__relay") return relayControl(m);
+      if (m && m.t === "__rtc") return relayOnSignal(m);
+      handleData(m);
+    };
+    ws.onclose = () => {
+      if (ws !== relayWs) return; // stale socket we already replaced
+      console.log("[WT] relay socket closed");
+      if (sendData && relayWs === ws) sendData = null;
+      relayPeerId = null;
+      teardownRelayPC();
+      if (relayMode && relayWantOpen) { onDisconnected(); scheduleRelayReconnect(); }
+    };
+    ws.onerror = (e) => { console.log("[WT] relay socket error", e && e.message); };
+  }
+
+  // Server roster: tells us our id, whether the partner is here, and who starts
+  // the call. This is our connected / disconnected signal in relay mode.
+  function relayControl(m) {
+    if (m.event !== "roster") return;
+    relaySelfId = m.self;
+    const peers = m.peers || [];
+    if (peers.length) {
+      relayPeerId = peers[0];
+      // Deterministic, symmetric: higher id initiates (and is "impolite").
+      amInitiator = String(relaySelfId) > String(relayPeerId);
+      onConnected();
+      relayEnsurePC(); // (re)build the call and (re)share our mic/cam to the (re)joined peer
+    } else {
+      relayPeerId = null;
+      teardownRelayPC();
+      if (connectedOnce) onDisconnected(); // partner left; we stay, server tells us when they're back
+      else setStatus("connecting");
+    }
+  }
+
+  function scheduleRelayReconnect() {
+    clearTimeout(relayReconnectTimer);
+    relayReconnectTimer = setTimeout(() => {
+      if (!relayMode || !relayWantOpen) return;
+      const st = relayWs ? relayWs.readyState : WebSocket.CLOSED;
+      if (st === WebSocket.CLOSED || st === WebSocket.CLOSING) connectRelay();
+    }, 2500);
+  }
+
+  function teardownRelay(clearIntent) {
+    if (clearIntent) { relayWantOpen = false; relayMode = false; }
+    clearTimeout(relayReconnectTimer);
+    teardownRelayPC();
+    if (relayWs) {
+      try { relayWs.onopen = relayWs.onmessage = relayWs.onclose = relayWs.onerror = null; relayWs.close(); } catch (_) {}
+      relayWs = null;
+    }
+    relaySelfId = null; relayPeerId = null;
+  }
+
+  // ---- The voice/video call over the relay (WebRTC, perfect negotiation) ---
+  function relayEnsurePC() {
+    if (!relayPC) relayPC = relayNewPC();
+    relayShareLocalTracks();
+  }
+  function relayNewPC() {
+    const pc = new RTCPeerConnection({ iceServers: relayIceServers() });
+    pc.onicecandidate = ({ candidate }) => { if (candidate) relaySignal({ kind: "ice", cand: candidate }); };
+    pc.ontrack = (e) => remoteStreamHandler(e.streams[0]);
+    pc.onnegotiationneeded = async () => {
+      try {
+        relayMakingOffer = true;
+        await pc.setLocalDescription();
+        relaySignal({ kind: "sdp", sdp: pc.localDescription });
+      } catch (err) { console.log("[WT] relay negotiation error", err); }
+      finally { relayMakingOffer = false; }
+    };
+    return pc;
+  }
+  function relayShareLocalTracks() {
+    if (!relayPC || !localStream) return;
+    localStream.getTracks().forEach((t) => {
+      if (relayShared.has(t)) return;
+      try { relayPC.addTrack(t, localStream); relayShared.add(t); } catch (_) {}
+    });
+  }
+  function relaySignal(payload) { netSend({ t: "__rtc", ...payload }); }
+  async function relayOnSignal(m) {
+    if (!relayPC) relayPC = relayNewPC();
+    const pc = relayPC;
+    const polite = !amInitiator;
+    try {
+      if (m.kind === "sdp" && m.sdp) {
+        const desc = m.sdp;
+        const collision = desc.type === "offer" && (relayMakingOffer || pc.signalingState !== "stable");
+        relayIgnoreOffer = !polite && collision;
+        if (relayIgnoreOffer) return;
+        await pc.setRemoteDescription(desc);
+        if (desc.type === "offer") {
+          await pc.setLocalDescription();
+          relaySignal({ kind: "sdp", sdp: pc.localDescription });
+        }
+      } else if (m.kind === "ice" && m.cand) {
+        try { await pc.addIceCandidate(m.cand); } catch (err) { if (!relayIgnoreOffer) console.log("[WT] relay ICE error", err); }
+      }
+    } catch (err) { console.log("[WT] relay signal error", err); }
+  }
+  function teardownRelayPC() {
+    if (relayPC) { try { relayPC.close(); } catch (_) {} relayPC = null; }
+    relayShared.clear();
+    relayMakingOffer = false;
+    relayIgnoreOffer = false;
   }
 
   // ---- Manual mode (raw WebRTC, copy-paste) -------------------------------
@@ -509,6 +706,7 @@
       s.getTracks().forEach((t) => { t.enabled = false; localStream.addTrack(t); });
       mediaDenied = false;
       shareAll();
+      if (relayMode) relayShareLocalTracks(); // push new track into the relay call
       return true;
     } catch (e) {
       mediaDenied = true;
@@ -638,7 +836,11 @@
     lastRx = Date.now(); // any traffic counts as "the link is alive"
     if (d.t === "ping") { netSend({ t: "pong" }); return; }
     if (d.t === "pong") return;
-    if (d.t === "please-reload") { if (!recentlyReloaded()) hardReconnect(); return; } // partner wants a clean re-link
+    if (d.t === "please-reload") { // partner wants a clean re-link
+      if (relayMode) connectRelay();        // relay: rebuild the socket, don't reload the page
+      else if (!recentlyReloaded()) hardReconnect();
+      return;
+    }
     switch (d.t) {
       case "name":
         partnerReal = d.name || partnerReal;
@@ -2471,6 +2673,7 @@
     // Pairing
     $("btn-pair").addEventListener("click", startPairing);
     $("pair-code").addEventListener("keydown", (e) => { if (e.key === "Enter") startPairing(); });
+    if ($("relay-url")) $("relay-url").addEventListener("keydown", (e) => { if (e.key === "Enter") startPairing(); });
     $("btn-unpair").addEventListener("click", unpair);
 
     // Manual mode (advanced fallback)
