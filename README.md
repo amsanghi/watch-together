@@ -120,7 +120,7 @@ browser's local storage and overrides the built-in key.
 ## How it works
 
 ```
-toolbar icon / Cmd+Shift+Y ─▶ Chrome Side Panel (sidebar.html + sidebar.js)
+toolbar icon / Cmd+Shift+Y ─▶ Chrome Side Panel (sidebar.html + main.js modules)
                               · one per window, persists across tabs/navigation
                               · holds the Trystero connection (auto-pairing) + UI
                                      │  chrome messaging
@@ -160,17 +160,25 @@ watch history and settings never leave your own browser.
 
 ```
 watch-together/
-├── manifest.json        # MV3 manifest (side_panel + content scripts)
+├── manifest.json        # MV3 manifest (side panel + content scripts)
 ├── background.js        # opens the side panel on icon click / shortcut
-├── content.js           # video control + page effects (talks to the panel)
+├── content.js           # controls the page <video> + page effects (talks to the panel)
+├── netflix-inject.js    # MAIN-world bridge to Netflix's player API
 ├── content.css          # page-effect styles
-├── sidebar/
-│   ├── sidebar.html     # the side-panel UI
-│   ├── sidebar.css      # dark/cinematic theme
-│   └── sidebar.js       # connection, chat, media, couple features
-├── lib/trystero-nostr.js # vendored Trystero (serverless P2P, MV3-safe)
+├── sidebar/             # the side-panel app — native ES modules, no build step
+│   ├── sidebar.html     #   markup; loads main.js as a module
+│   ├── sidebar.css      #   dark/cinematic theme
+│   ├── main.js          #   entry point: wires the UI to the modules
+│   ├── core/            #   state, networking, connection, media, settings, panels
+│   ├── transports/      #   trystero (P2P) · relay (your server) · manual (copy-paste)
+│   └── features/        #   chat, reactions, games, photobooth & the couple extras
+├── lib/trystero.js      # vendored Trystero (serverless P2P, MV3-safe) — do not edit
 ├── relay-server/        # optional: your own WebSocket relay + one-click ngrok launcher
 └── icons/               # generated heart icons
 ```
+
+**Contributing?** See **[CLAUDE.md](CLAUDE.md)** for the module map and coding conventions,
+and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the transports, the
+connection/reconnection logic, and the full wire protocol.
 
 Made with 💗
