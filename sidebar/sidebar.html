@@ -571,7 +571,9 @@
     </div>
   </div>
 
+  <!-- Trystero is a classic script that sets window.Trystero; it must load
+       before the module (which reads window.Trystero). -->
   <script src="../lib/trystero.js"></script>
-  <script src="sidebar.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
