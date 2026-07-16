@@ -20,6 +20,7 @@ import { startAudioLoop, resumeAudioCtx } from "./core/audioproc.js";
 import { manualHost, manualHostFinish, manualGuestGen } from "./transports/manual.js";
 import { sendChat, buildEmoji, searchGifs, searchGifsDebounced } from "./features/chat.js";
 import { sendReaction, sendSnap, beatFast } from "./features/reactions.js";
+import { sendSfx } from "./features/soundboard.js";
 import { sendInvite, acceptInvite, hideInviteBanner } from "./features/invite.js";
 import {
   openPhotobooth, closePhotobooth, pbStart, pbSend, pbSave, pbDownload, pbRetake,
@@ -97,6 +98,7 @@ function init() {
   $("invite-join").addEventListener("click", acceptInvite);
   $("invite-no").addEventListener("click", hideInviteBanner);
   $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
+  document.querySelectorAll("[data-sfx]").forEach((b) => b.addEventListener("click", () => sendSfx(b.dataset.sfx)));
   let annotateOn = false;
   $("btn-annotate").addEventListener("click", () => {
     annotateOn = !annotateOn;

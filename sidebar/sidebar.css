@@ -205,6 +205,7 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 .audio-tune-box summary { cursor: pointer; margin-bottom: 8px; color: var(--accent2); font-weight: 700; }
 .audio-tune-box label.rng { margin-bottom: 10px; }
 .audio-tune { width: 100%; }
+#soundboard { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 2px; }
 .audio-tune-box span[id$="-val"] { color: var(--accent2); font-weight: 800; }
 .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 #history-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
