@@ -174,6 +174,7 @@ where the handler lives.
 | `gif` | `url` | chat |
 | `typing` | `on` | chat |
 | `reaction` | `reaction` | reactions |
+| `sfx` | `name` | soundboard (synth sound played on both speakers) |
 | `countdown` | — | reactions |
 | `poke` | — | reactions |
 | `heartbeat` | — | reactions |
