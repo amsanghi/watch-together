@@ -13,7 +13,7 @@ import { S } from "./core/state.js";
 import { showPanel } from "./core/ui.js";
 import { netSend } from "./core/net.js";
 import { loadSettings, saveName, saveSettings, applyTheme } from "./core/settings.js";
-import { startPairing, unpair, forceReconnect, leaveRoom } from "./core/connection.js";
+import { startPairing, unpair, forceReconnect, leaveRoom, onNetworkWake } from "./core/connection.js";
 import { registerTabListener } from "./core/tab.js";
 import { toggleMic, toggleCam, setRemoteVolume, syncFunCams } from "./core/media.js";
 import { startAudioLoop, resumeAudioCtx } from "./core/audioproc.js";
@@ -233,6 +233,8 @@ function init() {
   registerTabListener();                          // content-script → panel messages
   startAudioLoop();                               // mic-gate / auto-duck / auto-level loop
   document.addEventListener("pointerdown", resumeAudioCtx); // unlock the AudioContext on first click
+  window.addEventListener("online", onNetworkWake);         // proactive reconnect on network return
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) onNetworkWake(); });
 
   // Live call-audio tuning sliders: apply to S.settings on input (the audio loop
   // reads them every tick), show the value, and persist on release.

@@ -55,6 +55,8 @@ export const S = {
   // Relay transport (your own WebSocket server)
   relayMode: false,             // true while the relay transport is the active one
   relayWs: null,                // the WebSocket to your relay server
+  relayIce: [],                 // TURN creds the relay minted (shared to both transports)
+  relayFellBack: false,         // true after we gave up on the relay and switched to Trystero
 
   // ---- Media (mic / cam / call) ------------------------------------------
   localStream: null,

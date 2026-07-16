@@ -30,10 +30,14 @@ export function connectTrystero() {
     relayConfig: { redundancy: 6 },
     // STUN helps ICE find the direct LAN/P2P path faster and more reliably.
     rtcConfig: {
+      // STUN + any manual TURN + TURN creds the relay minted earlier this session,
+      // so even the serverless fallback gets a media relay on hard NATs.
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
         { urls: "stun:stun.cloudflare.com:3478" },
+        ...(S.settings.turnUrl ? [{ urls: S.settings.turnUrl, username: S.settings.turnUser || "", credential: S.settings.turnPass || "" }] : []),
+        ...(Array.isArray(S.relayIce) ? S.relayIce : []),
       ],
     },
   };
