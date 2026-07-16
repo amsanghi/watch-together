@@ -27,6 +27,7 @@ export const S = {
     autocam: true, named: false, anniversary: "", bdayMe: "", bdayPartner: "",
     petName: "", themeColor: "", volume: 100,
     micGate: true, autoDuck: true, autoLevel: true,
+    micGateSens: 65, micGateHold: 700, remoteSens: 75, duckLevel: 25, duckHold: 700, levelStrength: 12,
     relayUrl: "", turnUrl: "", turnUser: "", turnPass: "",
   },
   partnerReal: "Partner",       // partner's actual name; settings.partner = petName || partnerReal

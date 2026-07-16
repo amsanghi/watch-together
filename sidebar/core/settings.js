@@ -30,6 +30,11 @@ export function loadSettings() {
     if ($("set-micgate")) $("set-micgate").checked = S.settings.micGate !== false;
     if ($("set-autoduck")) $("set-autoduck").checked = S.settings.autoDuck !== false;
     if ($("set-autolevel")) $("set-autolevel").checked = S.settings.autoLevel !== false;
+    document.querySelectorAll(".audio-tune").forEach((el) => {
+      const v = S.settings[el.dataset.key];
+      if (typeof v === "number") el.value = v;
+      const out = document.getElementById(el.id + "-val"); if (out) out.textContent = el.value;
+    });
     $("set-petname").value = S.settings.petName || "";
     $("set-theme").value = S.settings.themeColor || "#ff7ec0";
     $("set-anniversary").value = S.settings.anniversary || "";
@@ -99,6 +104,7 @@ export function saveSettings() {
   if ($("set-micgate")) S.settings.micGate = $("set-micgate").checked;
   if ($("set-autoduck")) S.settings.autoDuck = $("set-autoduck").checked;
   if ($("set-autolevel")) S.settings.autoLevel = $("set-autolevel").checked;
+  document.querySelectorAll(".audio-tune").forEach((el) => { S.settings[el.dataset.key] = Number(el.value); });
   S.settings.petName = $("set-petname").value.trim();
   const newColor = $("set-theme").value;
   const colorChanged = newColor !== S.settings.themeColor;

@@ -18,12 +18,14 @@ import { $ } from "./dom.js";
 import { S } from "./state.js";
 import { parentPost } from "./tab.js";
 
-// Tunables — reasonable starting points; safe to adjust after a real call.
-const MIC_OPEN_RMS = 0.05;   // mic level above this = "talking" → gate opens
-const MIC_HANG_MS = 700;     // keep transmitting this long after the last speech
-const REMOTE_RMS = 0.035;    // partner level above this = "talking" → duck the movie
-const DUCK_HANG_MS = 700;
+// Everything the user can tune lives in Settings (S.settings.*), read live via
+// num()/sensToThresh() below. Only the loop cadence stays a constant here.
 const LOOP_MS = 90;
+
+function num(key, def) { const v = S.settings[key]; return typeof v === "number" ? v : def; }
+function clampN(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+// A 0–100 "sensitivity" slider → an RMS threshold (higher slider = opens to quieter sound).
+function sensToThresh(sens) { return 0.15 * (1 - clampN(sens, 0, 100) / 100); }
 
 let audioCtx = null;
 // local mic (analysed via a clone; the clone stays enabled so gating the real
@@ -96,7 +98,8 @@ export function attachRemoteAudio(stream) {
   try {
     remoteSource = c.createMediaStreamSource(stream);
     remoteComp = c.createDynamicsCompressor();
-    remoteComp.threshold.value = -50; remoteComp.knee.value = 40; remoteComp.ratio.value = 12;
+    remoteComp.threshold.value = -50; remoteComp.knee.value = 40;
+    remoteComp.ratio.value = clampN(num("levelStrength", 12), 1, 20);
     remoteComp.attack.value = 0.003; remoteComp.release.value = 0.25;
     remoteGain = c.createGain();
     remoteAnalyser = c.createAnalyser(); remoteAnalyser.fftSize = 512;
@@ -147,19 +150,23 @@ export function startAudioLoop() {
 function tick() {
   const now = Date.now();
   if (micAnalyser) {
-    if (rms(micAnalyser, micBuf) > MIC_OPEN_RMS) micSpeechUntil = now + MIC_HANG_MS;
+    if (rms(micAnalyser, micBuf) > sensToThresh(num("micGateSens", 65))) micSpeechUntil = now + num("micGateHold", 700);
     const open = now < micSpeechUntil;
     if (open !== gateOpen) { gateOpen = open; applyMicEnabled(); }
   }
   let remoteSpeaking = false;
   if (remoteAnalyser) {
-    if (rms(remoteAnalyser, remoteBuf) > REMOTE_RMS) remoteSpeechUntil = now + DUCK_HANG_MS;
+    if (rms(remoteAnalyser, remoteBuf) > sensToThresh(num("remoteSens", 75))) remoteSpeechUntil = now + num("duckHold", 700);
     remoteSpeaking = now < remoteSpeechUntil;
   }
+  if (remoteComp) remoteComp.ratio.value = clampN(num("levelStrength", 12), 1, 20); // live auto-level strength
   if (S.settings.autoDuck) {
     const localSpeaking = S.micOn && now < micSpeechUntil;   // my speech only counts while my mic is on
     const shouldDuck = localSpeaking || remoteSpeaking;
-    if (shouldDuck !== duckOn) { duckOn = shouldDuck; parentPost({ kind: "duck", on: shouldDuck }); }
+    if (shouldDuck !== duckOn) {
+      duckOn = shouldDuck;
+      parentPost({ kind: "duck", on: shouldDuck, level: clampN(num("duckLevel", 25), 0, 100) / 100 });
+    }
   }
   applyRemoteOutput(remoteVol());
 }

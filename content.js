@@ -132,13 +132,14 @@
   }
 
   // Auto-duck: quiet the page video while someone is talking, restore afterward.
-  function setDuck(on) {
+  function setDuck(on, level) {
     if (!video) attach(pickVideo());
     if (!video) return;
     try {
       if (on) {
         if (duckBase == null) duckBase = video.volume;
-        video.volume = Math.max(0, duckBase * 0.25);
+        const f = typeof level === "number" ? Math.max(0, Math.min(1, level)) : 0.25;
+        video.volume = Math.max(0, duckBase * f);
       } else if (duckBase != null) {
         video.volume = duckBase;
         duckBase = null;
@@ -220,7 +221,7 @@
       case "countdown": showCountdown(msg.n); break;
       case "poke": shake(); toast(msg.text || "💗 misses you!"); break;
       case "toast": toast(msg.text); break;
-      case "duck": setDuck(msg.on); break;
+      case "duck": setDuck(msg.on, msg.level); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.
