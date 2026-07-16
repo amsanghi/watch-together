@@ -33,6 +33,7 @@
 
   // ---- Video detection & control -----------------------------------------
   let video = null;
+  let duckBase = null; // page-video volume saved while auto-duck lowers it
   let suppress = false;
   let suppressTimer = null;
   let seeking = false;
@@ -130,6 +131,21 @@
     } catch (_) {}
   }
 
+  // Auto-duck: quiet the page video while someone is talking, restore afterward.
+  function setDuck(on) {
+    if (!video) attach(pickVideo());
+    if (!video) return;
+    try {
+      if (on) {
+        if (duckBase == null) duckBase = video.volume;
+        video.volume = Math.max(0, duckBase * 0.25);
+      } else if (duckBase != null) {
+        video.volume = duckBase;
+        duckBase = null;
+      }
+    } catch (_) {}
+  }
+
   function currentState() {
     if (!video) attach(pickVideo());
     const meta = { title: document.title, url: location.href };
@@ -204,6 +220,7 @@
       case "countdown": showCountdown(msg.n); break;
       case "poke": shake(); toast(msg.text || "💗 misses you!"); break;
       case "toast": toast(msg.text); break;
+      case "duck": setDuck(msg.on); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.

@@ -13,6 +13,7 @@ import { S } from "./state.js";
 import { netSend } from "./net.js";
 import { addSys } from "../features/chat.js";
 import { relayShareLocalTracks } from "../transports/relay.js";
+import { attachLocalAudio, attachRemoteAudio, applyMicEnabled, applyRemoteOutput, resumeAudioCtx } from "./audioproc.js";
 
 // media-local: whether the last getUserMedia was blocked (drives the badge text).
 let mediaDenied = false;
@@ -52,6 +53,7 @@ export async function ensureKind(kind) {
     if (!S.localStream) { S.localStream = new MediaStream(); $("local-video").srcObject = S.localStream; }
     s.getTracks().forEach((t) => { t.enabled = false; S.localStream.addTrack(t); });
     mediaDenied = false;
+    if (kind === "audio") attachLocalAudio(S.localStream); // set up the mic noise-gate analyser
     shareAll();
     if (S.relayMode) relayShareLocalTracks(); // push new track into the relay call
     return true;
@@ -77,15 +79,17 @@ export async function ensureKind(kind) {
 export function saveMedia() { chrome.storage.local.set({ wt_media: { mic: S.micOn, cam: S.camOn } }); }
 
 export async function toggleMic() {
+  resumeAudioCtx();
   if (!S.micOn) { if (!(await ensureKind("audio"))) return; }
   S.micOn = !S.micOn;
-  S.localStream.getAudioTracks().forEach((t) => (t.enabled = S.micOn));
+  applyMicEnabled();
   updateMediaButtons();
   saveMedia();
   netSend({ t: "media-state", mic: S.micOn, cam: S.camOn });
 }
 
 export async function toggleCam() {
+  resumeAudioCtx();
   if (!S.camOn) { if (!(await ensureKind("video"))) return; }
   S.camOn = !S.camOn;
   S.localStream.getVideoTracks().forEach((t) => (t.enabled = S.camOn));
@@ -112,7 +116,7 @@ export async function resumeMedia() {
   if (S.wantMic && !S.micOn && (await permGranted("microphone"))) {
     if (await ensureKind("audio")) {
       S.micOn = true;
-      S.localStream.getAudioTracks().forEach((t) => (t.enabled = true));
+      applyMicEnabled();
     }
   }
   updateMediaButtons();
@@ -130,6 +134,7 @@ export function updateMediaButtons() {
 export function remoteStreamHandler(stream) {
   const rv = $("remote-video");
   rv.srcObject = stream;
+  attachRemoteAudio(stream); // route the partner's audio through the auto-level compressor
   applyRemoteVolume();
   updateRemoteTile();
 }
@@ -138,9 +143,7 @@ export function remoteStreamHandler(stream) {
 // tiles are muted). 0–100, persisted.
 export function applyRemoteVolume() {
   const v = Math.max(0, Math.min(100, S.settings.volume == null ? 100 : S.settings.volume));
-  const rv = $("remote-video");
-  rv.muted = v === 0;
-  rv.volume = v / 100;
+  applyRemoteOutput(v / 100); // audioproc sets mute/volume (element) or the compressor gain
   const icon = $("vol-icon");
   if (icon) icon.textContent = v === 0 ? "🔇" : v < 50 ? "🔈" : "🔊";
   if ($("vol-slider") && Number($("vol-slider").value) !== v) $("vol-slider").value = v;
