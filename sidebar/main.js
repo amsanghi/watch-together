@@ -14,8 +14,8 @@ import { showPanel } from "./core/ui.js";
 import { netSend } from "./core/net.js";
 import { loadSettings, saveName, saveSettings, applyTheme } from "./core/settings.js";
 import { startPairing, unpair, forceReconnect, leaveRoom, onNetworkWake } from "./core/connection.js";
-import { registerTabListener } from "./core/tab.js";
-import { toggleMic, toggleCam, setRemoteVolume, syncFunCams } from "./core/media.js";
+import { registerTabListener, getPageState } from "./core/tab.js";
+import { toggleMic, toggleCam, setRemoteVolume, syncFunCams, initDeviceRecovery } from "./core/media.js";
 import { startAudioLoop, resumeAudioCtx } from "./core/audioproc.js";
 import { manualHost, manualHostFinish, manualGuestGen } from "./transports/manual.js";
 import { sendChat, buildEmoji, searchGifs, searchGifsDebounced } from "./features/chat.js";
@@ -250,6 +250,12 @@ function init() {
   window.addEventListener("beforeunload", leaveRoom);
   setInterval(refreshDates, 60000);               // keep the partner clock fresh
   setInterval(checkScheduled, 20000);             // deliver due surprise notes
+  initDeviceRecovery();                           // re-acquire mic/cam if a device is unplugged mid-call
+  setInterval(async () => {                       // broadcast position so the follower can correct drift
+    if (!S.connectedOnce || !S.amInitiator) return;
+    const s = await getPageState();
+    if (s && typeof s.time === "number" && !s.paused) netSend({ t: "pos", time: s.time, paused: s.paused });
+  }, 5000);
 
   // Initial storage load for the persisted couple collections.
   chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands", "wt_weather", "wt_timeline", "wt_gallery"], (r) => {

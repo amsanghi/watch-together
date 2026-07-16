@@ -34,6 +34,9 @@
   // ---- Video detection & control -----------------------------------------
   let video = null;
   let duckBase = null; // page-video volume saved while auto-duck lowers it
+  let stalling = false;      // we're buffering and have asked the partner to wait
+  let stalledByPeer = false; // we paused because the partner is buffering
+  let stallTimer = null;
   let suppress = false;
   let suppressTimer = null;
   let seeking = false;
@@ -67,6 +70,8 @@
   const onSeeking = () => { seeking = true; clearTimeout(seekingTimer); seekingTimer = setTimeout(() => { seeking = false; }, 2000); };
   const onSeeked = () => { clearTimeout(seekingTimer); seeking = false; if (!suppress) send("seek"); };
   const onRate = () => { if (!suppress) send("rate"); };
+  const onWaiting = () => { if (!stalling && !suppress) { stalling = true; toPanel({ kind: "video-stall", on: true }); } };
+  const onPlaying = () => { if (stalling) { stalling = false; toPanel({ kind: "video-stall", on: false }); } };
 
   function attach(v) {
     if (v === video) return;
@@ -78,6 +83,8 @@
     video.addEventListener("seeking", onSeeking);
     video.addEventListener("seeked", onSeeked);
     video.addEventListener("ratechange", onRate);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("playing", onPlaying);
     toPanel({ kind: "video-found" });
   }
   function detach() {
@@ -87,6 +94,8 @@
     video.removeEventListener("seeking", onSeeking);
     video.removeEventListener("seeked", onSeeked);
     video.removeEventListener("ratechange", onRate);
+    video.removeEventListener("waiting", onWaiting);
+    video.removeEventListener("playing", onPlaying);
     video = null;
   }
   function guard() {
@@ -143,6 +152,39 @@
       } else if (duckBase != null) {
         video.volume = duckBase;
         duckBase = null;
+      }
+    } catch (_) {}
+  }
+
+  // Drift correction: the follower nudges its time toward the initiator's when they
+  // slip out of sync (small gaps only — a big gap is a real seek, already synced).
+  function applyDrift(d) {
+    if (!video) attach(pickVideo());
+    if (!video || video.paused || seeking || typeof d.time !== "number") return;
+    const drift = Math.abs(video.currentTime - d.time);
+    if (drift > 1.2 && drift < 60) {
+      guard();
+      try { if (IS_NETFLIX) nfx("seek", d.time); else video.currentTime = d.time; } catch (_) {}
+    }
+  }
+
+  // Pause-on-buffer: pause while the partner is buffering, resume when they recover.
+  // guard() stops it echoing back as a sync event; a 15s failsafe avoids a deadlock
+  // if both sides buffer at once.
+  function setStall(on) {
+    if (!video) attach(pickVideo());
+    if (!video) return;
+    clearTimeout(stallTimer);
+    try {
+      if (on && !video.paused) {
+        stalledByPeer = true;
+        guard();
+        video.pause();
+        stallTimer = setTimeout(() => { if (stalledByPeer) { stalledByPeer = false; guard(); video.play().catch(() => {}); } }, 15000);
+      } else if (!on && stalledByPeer) {
+        stalledByPeer = false;
+        guard();
+        video.play().catch(() => {});
       }
     } catch (_) {}
   }
@@ -222,6 +264,8 @@
       case "poke": shake(); toast(msg.text || "💗 misses you!"); break;
       case "toast": toast(msg.text); break;
       case "duck": setDuck(msg.on, msg.level); break;
+      case "drift": applyDrift(msg); break;
+      case "stall": setStall(msg.on); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.
