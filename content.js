@@ -162,7 +162,8 @@
     if (!video) attach(pickVideo());
     if (!video || video.paused || seeking || typeof d.time !== "number") return;
     const drift = Math.abs(video.currentTime - d.time);
-    if (drift > 1.2 && drift < 60) {
+    const thresh = typeof d.thresh === "number" ? d.thresh : 1.2;
+    if (drift > thresh && drift < 60) {
       guard();
       try { if (IS_NETFLIX) nfx("seek", d.time); else video.currentTime = d.time; } catch (_) {}
     }
@@ -171,7 +172,7 @@
   // Pause-on-buffer: pause while the partner is buffering, resume when they recover.
   // guard() stops it echoing back as a sync event; a 15s failsafe avoids a deadlock
   // if both sides buffer at once.
-  function setStall(on) {
+  function setStall(on, maxWait) {
     if (!video) attach(pickVideo());
     if (!video) return;
     clearTimeout(stallTimer);
@@ -180,7 +181,8 @@
         stalledByPeer = true;
         guard();
         video.pause();
-        stallTimer = setTimeout(() => { if (stalledByPeer) { stalledByPeer = false; guard(); video.play().catch(() => {}); } }, 15000);
+        const ms = (typeof maxWait === "number" ? maxWait : 15) * 1000;
+        stallTimer = setTimeout(() => { if (stalledByPeer) { stalledByPeer = false; guard(); video.play().catch(() => {}); } }, ms);
       } else if (!on && stalledByPeer) {
         stalledByPeer = false;
         guard();
@@ -265,7 +267,7 @@
       case "toast": toast(msg.text); break;
       case "duck": setDuck(msg.on, msg.level); break;
       case "drift": applyDrift(msg); break;
-      case "stall": setStall(msg.on); break;
+      case "stall": setStall(msg.on, msg.maxWait); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.

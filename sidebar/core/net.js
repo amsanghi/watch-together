@@ -91,10 +91,10 @@ export async function handleData(d) {
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
       break;
     case "pos": // initiator's periodic playback position → follower nudges out drift
-      if (!S.amInitiator && typeof d.time === "number") parentPost({ kind: "drift", time: d.time, paused: d.paused });
+      if (!S.amInitiator && typeof d.time === "number") parentPost({ kind: "drift", time: d.time, paused: d.paused, thresh: S.settings.driftThresh });
       break;
     case "stall": // partner is buffering — pause and wait for them
-      parentPost({ kind: "stall", on: !!d.on });
+      parentPost({ kind: "stall", on: !!d.on, maxWait: S.settings.maxBufferWait });
       break;
     case "sync-req": {
       const s = await getPageState();

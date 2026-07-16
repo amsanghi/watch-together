@@ -28,6 +28,7 @@ export const S = {
     petName: "", themeColor: "", volume: 100,
     micGate: true, autoDuck: true, autoLevel: true,
     micGateSens: 65, micGateHold: 700, remoteSens: 75, duckLevel: 25, duckHold: 700, levelStrength: 12,
+    reconnectSilence: 8, relayFallbackTries: 2, driftThresh: 1.2, syncInterval: 5, maxBufferWait: 15, videoLossDrop: 10,
     relayUrl: "", turnUrl: "", turnUser: "", turnPass: "",
   },
   partnerReal: "Partner",       // partner's actual name; settings.partner = petName || partnerReal

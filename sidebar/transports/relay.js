@@ -84,7 +84,7 @@ export function connectRelay() {
     if (!(S.relayMode && relayWantOpen)) return;
     // Never opened this attempt → the relay/tunnel is unreachable. After a couple of
     // failed attempts, fall back to the serverless path so we still connect.
-    if (!relayEverOpened && ++relayOpenFails >= 2) return fallbackToTrystero();
+    if (!relayEverOpened && ++relayOpenFails >= (S.settings.relayFallbackTries || 2)) return fallbackToTrystero();
     onDisconnected();
     scheduleRelayReconnect();
   };
@@ -220,7 +220,7 @@ function startStatsMonitor() {
       const stats = await relayPC.getStats();
       stats.forEach((r) => { if (r.type === "remote-inbound-rtp" && r.kind === "video" && typeof r.fractionLost === "number") frac = Math.max(frac, r.fractionLost); });
     } catch (_) { return; }
-    if (frac > 0.1) lossStreak++; else lossStreak = 0;
+    if (frac > (S.settings.videoLossDrop || 10) / 100) lossStreak++; else lossStreak = 0;
     if (lossStreak >= 3 && !videoDegraded) setVideoActive(false);
     else if (lossStreak === 0 && videoDegraded) setVideoActive(true);
   }, 2000);
