@@ -14,7 +14,7 @@ import { showPanel } from "./core/ui.js";
 import { netSend } from "./core/net.js";
 import { loadSettings, saveName, saveSettings, applyTheme } from "./core/settings.js";
 import { startPairing, unpair, forceReconnect, leaveRoom, onNetworkWake } from "./core/connection.js";
-import { registerTabListener, getPageState } from "./core/tab.js";
+import { registerTabListener, getPageState, parentPost } from "./core/tab.js";
 import { toggleMic, toggleCam, setRemoteVolume, syncFunCams, initDeviceRecovery } from "./core/media.js";
 import { startAudioLoop, resumeAudioCtx } from "./core/audioproc.js";
 import { manualHost, manualHostFinish, manualGuestGen } from "./transports/manual.js";
@@ -97,6 +97,12 @@ function init() {
   $("invite-join").addEventListener("click", acceptInvite);
   $("invite-no").addEventListener("click", hideInviteBanner);
   $("btn-poke").addEventListener("click", () => { netSend({ t: "poke" }); beatFast(); });
+  let annotateOn = false;
+  $("btn-annotate").addEventListener("click", () => {
+    annotateOn = !annotateOn;
+    $("btn-annotate").classList.toggle("on", annotateOn);
+    parentPost({ kind: "annotate", on: annotateOn, color: S.settings.themeColor || "#ff7ec0" });
+  });
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 
