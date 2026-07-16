@@ -131,7 +131,14 @@ function relayEnsurePC() {
   relayShareLocalTracks();
 }
 function relayNewPC() {
-  const pc = new RTCPeerConnection({ iceServers: relayIceServers() });
+  // Force ALL call media through TURN (never a direct P2P path) whenever we actually
+  // have TURN — trades a little latency for a connection that doesn't depend on NAT
+  // hole-punching. Only when TURN exists, or 'relay' would leave zero candidates.
+  const hasTurn = serverIceServers.length > 0 || !!S.settings.turnUrl;
+  const pc = new RTCPeerConnection({
+    iceServers: relayIceServers(),
+    iceTransportPolicy: hasTurn ? "relay" : "all",
+  });
   pc.onicecandidate = ({ candidate }) => { if (candidate) relaySignal({ kind: "ice", cand: candidate }); };
   pc.ontrack = (e) => remoteStreamHandler(e.streams[0]);
   pc.onnegotiationneeded = async () => {
