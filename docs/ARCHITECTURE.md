@@ -81,6 +81,12 @@ Wi-Fi drops.
   reloaded too recently we rejoin in place instead.
 - **`onDisconnected()`:** partner left — we stay in the room. Relay mode lets the server
   tell us when they're back; Trystero schedules a `connect()` retry with light backoff.
+- **Relay fallback & wake recovery:** if the relay socket never opens after a couple of
+  tries (host asleep / tunnel down) we switch to the serverless Trystero path
+  (`fallbackToTrystero`), reusing any TURN creds the relay already minted (`S.relayIce`) —
+  the room seed falls back to the relay URL so relay-only pairs still land together
+  privately. And on a network return, tab re-show, or wake-from-sleep (a >12s gap between
+  heartbeats) we reconnect immediately (`onNetworkWake`) instead of waiting out the silence.
 - **`leaveRoom()`** (on `pagehide`/`beforeunload`, re-pair, or transport switch) tears down
   the relay socket+PC, leaves all Trystero rooms, and clears the send pointer.
 

@@ -10,7 +10,7 @@ import { S } from "../core/state.js";
 import { netSend, handleData } from "../core/net.js";
 import { showError, setStatus } from "../core/ui.js";
 import { remoteStreamHandler } from "../core/media.js";
-import { roomId, onConnected, onDisconnected } from "../core/connection.js";
+import { roomId, onConnected, onDisconnected, fallbackToTrystero } from "../core/connection.js";
 
 // relay-local state (only S.relayMode / S.relayWs leak out — the rest is private)
 let relayWantOpen = false;      // we intend to stay connected (drives auto-reconnect)
@@ -21,7 +21,8 @@ let relayPC = null;             // RTCPeerConnection carrying the voice/video ca
 let relayMakingOffer = false;   // perfect-negotiation guards
 let relayIgnoreOffer = false;
 const relayShared = new Set();  // local tracks already added to relayPC
-let serverIceServers = [];      // TURN creds the relay server minted for us (delivered in its roster)
+let relayEverOpened = false;    // did the socket open this attempt (vs. never reached the relay)
+let relayOpenFails = 0;         // consecutive attempts that never opened → relay is unreachable
 
 // Accept whatever the user pasted: wss://host, https://host, or a bare host.
 function normalizeRelayUrl(raw) {
@@ -44,7 +45,7 @@ function relayIceServers() {
   if (S.settings.turnUrl) {
     list.push({ urls: S.settings.turnUrl, username: S.settings.turnUser || "", credential: S.settings.turnPass || "" });
   }
-  if (serverIceServers.length) list.push(...serverIceServers);
+  if (S.relayIce.length) list.push(...S.relayIce);
   return list;
 }
 
@@ -54,6 +55,7 @@ export function connectRelay() {
   S.relayMode = true;
   relayWantOpen = true;
   teardownRelay(false); // drop any previous socket/PC but keep the intent to be open
+  relayEverOpened = false;
   setStatus("connecting");
   const rid = roomId();
   console.log("[WT] relay connecting", base, "room", rid);
@@ -65,7 +67,7 @@ export function connectRelay() {
   // Everything the app sends now goes over the relay.
   S.sendData = (obj) => { try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); } catch (_) {} };
 
-  ws.onopen = () => { console.log("[WT] relay socket open"); }; // wait for the roster before we call ourselves "connected"
+  ws.onopen = () => { relayEverOpened = true; relayOpenFails = 0; console.log("[WT] relay socket open"); }; // wait for the roster before "connected"
   ws.onmessage = (ev) => {
     let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
     S.lastRx = Date.now();
@@ -79,7 +81,12 @@ export function connectRelay() {
     if (S.sendData && S.relayWs === ws) S.sendData = null;
     relayPeerId = null;
     teardownRelayPC();
-    if (S.relayMode && relayWantOpen) { onDisconnected(); scheduleRelayReconnect(); }
+    if (!(S.relayMode && relayWantOpen)) return;
+    // Never opened this attempt → the relay/tunnel is unreachable. After a couple of
+    // failed attempts, fall back to the serverless path so we still connect.
+    if (!relayEverOpened && ++relayOpenFails >= 2) return fallbackToTrystero();
+    onDisconnected();
+    scheduleRelayReconnect();
   };
   ws.onerror = (e) => { console.log("[WT] relay socket error", e && e.message); };
 }
@@ -89,7 +96,7 @@ export function connectRelay() {
 function relayControl(m) {
   if (m.event !== "roster") return;
   relaySelfId = m.self;
-  if (Array.isArray(m.iceServers)) serverIceServers = m.iceServers; // TURN creds minted by the relay
+  if (Array.isArray(m.iceServers)) S.relayIce = m.iceServers; // TURN creds minted by the relay
   const peers = m.peers || [];
   if (peers.length) {
     relayPeerId = peers[0];
@@ -134,7 +141,7 @@ function relayNewPC() {
   // Force ALL call media through TURN (never a direct P2P path) whenever we actually
   // have TURN — trades a little latency for a connection that doesn't depend on NAT
   // hole-punching. Only when TURN exists, or 'relay' would leave zero candidates.
-  const hasTurn = serverIceServers.length > 0 || !!S.settings.turnUrl;
+  const hasTurn = S.relayIce.length > 0 || !!S.settings.turnUrl;
   const pc = new RTCPeerConnection({
     iceServers: relayIceServers(),
     iceTransportPolicy: hasTurn ? "relay" : "all",

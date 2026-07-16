@@ -26,7 +26,12 @@ function hashStr(s) {
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
   return h.toString(36);
 }
-export function roomId() { return "wt" + hashStr((S.settings.pairCode || "").trim().toLowerCase()); }
+// Room seed: the shared secret if set, else the relay link (both sides share it) —
+// so relay-only pairs still land in the same, and private, Trystero fallback room.
+export function roomId() {
+  const seed = (S.settings.pairCode || "").trim().toLowerCase() || (S.settings.relayUrl || "").trim().toLowerCase();
+  return "wt" + hashStr(seed);
+}
 
 // ---- Connect (chooses the transport) ------------------------------------
 export function connect() {
@@ -34,8 +39,9 @@ export function connect() {
   leaveRoom();
   S.connectedOnce = false;
   setStatus("connecting");
-  // If a relay link is set, use it exclusively (no public relays).
-  if (S.settings.relayUrl) { connectRelay(); return; }
+  // If a relay link is set, use it exclusively — unless we already gave up on it
+  // this session and fell back to the serverless path.
+  if (S.settings.relayUrl && !S.relayFellBack) { connectRelay(); return; }
   connectTrystero();
 }
 
@@ -108,13 +114,20 @@ export function scheduleReconnect() {
 // hasn't reported yet — we proactively rejoin. This is what keeps a movie
 // night from quietly freezing.
 let heartbeatTimer = null;
+let lastBeatAt = 0;
 export function startHeartbeat() {
   stopHeartbeat();
   S.lastRx = Date.now();
+  lastBeatAt = Date.now();
   heartbeatTimer = setInterval(() => {
+    const now = Date.now();
+    // Far more than one interval elapsed → the device was asleep/frozen and every
+    // socket is likely stale. Recover now instead of waiting out the silence window.
+    if (now - lastBeatAt > 12000) { lastBeatAt = now; onNetworkWake(); return; }
+    lastBeatAt = now;
     if (!S.connectedOnce) return;
     netSend({ t: "ping" });
-    if (Date.now() - S.lastRx > 8000) {
+    if (now - S.lastRx > 8000) {
       console.log("[WT] heartbeat: link went silent — clean reconnect");
       S.connectedOnce = false;
       setStatus("connecting");
@@ -126,6 +139,34 @@ export function startHeartbeat() {
       hardReconnect();
     }
   }, 2500);
+}
+
+// Proactively re-check / rebuild the link after a wake, network change, or tab
+// re-show — instead of waiting for the heartbeat's 8s silence window.
+export function onNetworkWake() {
+  if (S.settings.paired === false) return;
+  if (!S.settings.pairCode && !S.settings.relayUrl) return;
+  if (S.relayMode && !S.relayFellBack) {
+    if (!S.relayWs || S.relayWs.readyState !== WebSocket.OPEN) connectRelay();
+    else netSend({ t: "ping" });
+  } else if (!S.connectedOnce) {
+    connect();
+  } else {
+    netSend({ t: "ping" });
+  }
+}
+
+// The relay is unreachable (host asleep / tunnel down) — switch to the serverless
+// Trystero path so we still connect (P2P; reuses cached relay TURN creds if any).
+export function fallbackToTrystero() {
+  if (S.relayFellBack) return;
+  if (!S.settings.pairCode && !S.settings.relayUrl) return;
+  S.relayFellBack = true;
+  addSys("Relay unreachable — connecting over public relays instead 🌐");
+  teardownRelay(true);
+  S.relayMode = false;
+  connectTrystero();
+  scheduleReconnect();
 }
 export function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
 
@@ -178,6 +219,7 @@ export function startPairing() {
   // Need at least a secret word (Trystero room) OR a relay link to connect.
   if (!code && !relay) { $("pair-code").focus(); return; }
   showError("");
+  S.relayFellBack = false; // a fresh pair should try the relay again before falling back
   S.settings.pairCode = code;
   S.settings.relayUrl = relay;
   S.settings.paired = true;
@@ -205,6 +247,7 @@ export function unpair() {
   leaveRoom();
   S.connectedOnce = false;
   S.everConnected = false;
+  S.relayFellBack = false;
   setStatus("off");
   if ($("pair-code")) $("pair-code").value = S.settings.pairCode || "";
   if ($("relay-url")) $("relay-url").value = S.settings.relayUrl || "";
