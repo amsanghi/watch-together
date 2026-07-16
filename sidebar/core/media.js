@@ -47,7 +47,7 @@ export async function ensureKind(kind) {
   if (hasKind(kind)) return true;
   try {
     const s = await navigator.mediaDevices.getUserMedia(kind === "video"
-      ? { video: { width: { ideal: 1280 }, height: { ideal: 720 } } }
+      ? { video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 24 } } }
       : { audio: true });
     if (!S.localStream) { S.localStream = new MediaStream(); $("local-video").srcObject = S.localStream; }
     s.getTracks().forEach((t) => { t.enabled = false; S.localStream.addTrack(t); });

@@ -30,6 +30,35 @@ const { WebSocketServer } = require('ws');
 const PORT = Number(process.env.PORT) || 8787;
 const RESERVED = '__relay'; // our own control-message type; clients never send this
 
+// Optional Cloudflare Realtime TURN. If configured, the relay mints short-lived TURN
+// credentials and hands them to both clients in the roster, so the call has a media
+// relay when a direct P2P path can't be found (hard NAT / CGNAT). The token lives
+// ONLY here (env, e.g. ~/.watchtogether-relay.env) — never in the public extension.
+// Blank = STUN-only (unchanged behavior).
+const CF_TURN_KEY_ID = process.env.CF_TURN_KEY_ID || '';
+const CF_TURN_API_TOKEN = process.env.CF_TURN_API_TOKEN || '';
+let turnIceServers = null; // last minted [{ urls, username, credential }, …]
+
+async function mintTurn() {
+  if (!CF_TURN_KEY_ID || !CF_TURN_API_TOKEN) return;
+  try {
+    const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_KEY_ID}/credentials/generate-ice-servers`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + CF_TURN_API_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl: 86400 }),
+    });
+    const j = await res.json();
+    if (j && Array.isArray(j.iceServers)) {
+      turnIceServers = j.iceServers;
+      console.log(`[relay] minted Cloudflare TURN creds (${turnIceServers.length} entries)`);
+    } else {
+      console.log('[relay] Cloudflare TURN: unexpected response', JSON.stringify(j).slice(0, 200));
+    }
+  } catch (e) {
+    console.log('[relay] Cloudflare TURN mint failed:', e && e.message);
+  }
+}
+
 // room id -> Map<socketId, ws>
 const rooms = new Map();
 
@@ -55,6 +84,7 @@ function broadcastRoster(room) {
       self: id,
       peers: ids.filter((x) => x !== id),
       count: ids.length,
+      ...(turnIceServers ? { iceServers: turnIceServers } : {}),
     });
   }
 }
@@ -148,4 +178,10 @@ wss.on('close', () => clearInterval(keepalive));
 server.listen(PORT, () => {
   console.log(`[relay] WatchTogether relay listening on :${PORT}`);
   console.log(`[relay] local health check: http://localhost:${PORT}/health`);
+  if (CF_TURN_KEY_ID && CF_TURN_API_TOKEN) {
+    mintTurn();                                  // mint now…
+    setInterval(mintTurn, 12 * 60 * 60 * 1000);  // …and refresh well before the 24h TTL
+  } else {
+    console.log('[relay] no CF_TURN_* env set — calls use STUN only (set them in ~/.watchtogether-relay.env for a TURN relay)');
+  }
 });

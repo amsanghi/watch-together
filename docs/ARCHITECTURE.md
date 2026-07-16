@@ -94,8 +94,19 @@ partner's stream into `remoteStreamHandler`. Partner volume lives on `#remote-vi
 (the Fun-panel tiles are muted mirrors). The relay call uses **perfect negotiation**
 (`relayMakingOffer`/`relayIgnoreOffer`, politeness from `!S.amInitiator`).
 
-By default only the call's *setup* uses the relay; the audio/video flows P2P. Filling in
-the optional TURN fields routes the media through a server too.
+The call sends **low-res video** (480×360 @ 24 fps, ~300 kbps sender cap — the tile is
+small) which also keeps a free TURN quota comfortable. By default the audio/video flows
+**P2P** and only its *signaling* rides the relay, so a restrictive NAT (symmetric/CGNAT)
+can break the call while data over the WebSocket stays fine — the usual cause of a
+"chat works but the call is flaky" report. TURN fixes it: either paste TURN creds into the
+Advanced fields, or — on the self-hosted relay — set `CF_TURN_KEY_ID`/`CF_TURN_API_TOKEN`
+in the relay server's env (`~/.watchtogether-relay.env`). The **relay** then mints
+short-lived Cloudflare TURN creds (free 1000 GB/mo) and ships them to both clients in its
+`roster`; `relayIceServers` (`transports/relay.js`) just reads them off the roster. So the
+TURN secret lives only on the relay — never in this public extension — and nothing is
+entered per call. If the media path dies mid-call, the app heartbeat can't tell (it only watches
+the *data* socket, which stays up), so the relay PC recovers in place via an **ICE restart**
+on `iceConnectionState === "failed"`.
 
 ## Shared state
 
@@ -176,7 +187,7 @@ where the handler lives.
 | `pb-photo` | `shots,total,sticker,caption` | photobooth |
 | `pb-go` | `mode,layout,filter,sticker,timer` | photobooth |
 | `__rtc` | `kind` (`sdp`/`ice`), `sdp`/`cand` | relay call signaling |
-| `__relay` | `event:"roster",self,peers,count` | **server → client only** (relay-server) |
+| `__relay` | `event:"roster",self,peers,count,iceServers?` | **server → client only** (relay-server; `iceServers` = relay-minted TURN) |
 
 Because the relay forwards everything verbatim and never inspects payloads (except its own
 `__relay` roster), new message types work with **no server change** — just add a `case` to

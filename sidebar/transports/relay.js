@@ -21,6 +21,7 @@ let relayPC = null;             // RTCPeerConnection carrying the voice/video ca
 let relayMakingOffer = false;   // perfect-negotiation guards
 let relayIgnoreOffer = false;
 const relayShared = new Set();  // local tracks already added to relayPC
+let serverIceServers = [];      // TURN creds the relay server minted for us (delivered in its roster)
 
 // Accept whatever the user pasted: wss://host, https://host, or a bare host.
 function normalizeRelayUrl(raw) {
@@ -31,16 +32,19 @@ function normalizeRelayUrl(raw) {
   return u.replace(/\/+$/, "");
 }
 
+// ICE servers for the call: STUN, any manually-pasted TURN, and any TURN creds the
+// relay server minted for us and handed over in its roster (see relay-server/). This
+// lets the media relay through a server when a direct P2P path can't be found — with
+// the TURN secret living only on the relay, never in this (public) extension.
 function relayIceServers() {
   const list = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
   ];
-  // Optional TURN → forces the CALL's media through a server too (data always
-  // goes over the relay regardless).
   if (S.settings.turnUrl) {
     list.push({ urls: S.settings.turnUrl, username: S.settings.turnUser || "", credential: S.settings.turnPass || "" });
   }
+  if (serverIceServers.length) list.push(...serverIceServers);
   return list;
 }
 
@@ -85,6 +89,7 @@ export function connectRelay() {
 function relayControl(m) {
   if (m.event !== "roster") return;
   relaySelfId = m.self;
+  if (Array.isArray(m.iceServers)) serverIceServers = m.iceServers; // TURN creds minted by the relay
   const peers = m.peers || [];
   if (peers.length) {
     relayPeerId = peers[0];
@@ -137,14 +142,35 @@ function relayNewPC() {
     } catch (err) { console.log("[WT] relay negotiation error", err); }
     finally { relayMakingOffer = false; }
   };
+  // The data socket staying up masks a dead media path, so the app heartbeat won't
+  // catch it — recover the call in place with an ICE restart. Perfect negotiation
+  // sorts out the re-offer if both sides restart at once.
+  pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState === "failed") { try { pc.restartIce(); } catch (_) {} }
+  };
   return pc;
 }
 export function relayShareLocalTracks() {
   if (!relayPC || !S.localStream) return;
   S.localStream.getTracks().forEach((t) => {
     if (relayShared.has(t)) return;
-    try { relayPC.addTrack(t, S.localStream); relayShared.add(t); } catch (_) {}
+    try {
+      const sender = relayPC.addTrack(t, S.localStream);
+      relayShared.add(t);
+      if (t.kind === "video") capVideoBitrate(sender);
+    } catch (_) {}
   });
+}
+// Cap outbound video: the call tile is tiny, so a low ceiling keeps it smooth on
+// weak uplinks and well inside a free TURN quota. Best-effort (params vary by UA).
+async function capVideoBitrate(sender) {
+  try {
+    const p = sender.getParameters();
+    if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+    p.encodings[0].maxBitrate = 300000;
+    p.encodings[0].maxFramerate = 24;
+    await sender.setParameters(p);
+  } catch (_) {}
 }
 function relaySignal(payload) { netSend({ t: "__rtc", ...payload }); }
 async function relayOnSignal(m) {
