@@ -26,6 +26,7 @@ export const S = {
     me: "You", partner: "Partner", partnerName: "", giphyKey: DEFAULT_GIPHY_KEY,
     autocam: true, named: false, anniversary: "", bdayMe: "", bdayPartner: "",
     petName: "", themeColor: "", volume: 100,
+    micGate: true, autoDuck: true, autoLevel: true,
     relayUrl: "", turnUrl: "", turnUser: "", turnPass: "",
   },
   partnerReal: "Partner",       // partner's actual name; settings.partner = petName || partnerReal

@@ -10,6 +10,7 @@ import { S, DEFAULT_GIPHY_KEY } from "./state.js";
 import { showPanel, setStatus } from "./ui.js";
 import { netSend } from "./net.js";
 import { applyRemoteVolume, resumeMedia } from "./media.js";
+import { refreshAudioSettings } from "./audioproc.js";
 import { refreshStats, refreshDates } from "../features/stats.js";
 import { showPairStatus, connect, restoreChat } from "./connection.js";
 
@@ -26,6 +27,9 @@ export function loadSettings() {
     $("set-me").value = S.settings.me;
     $("set-giphy").value = S.settings.giphyKey;
     $("set-autocam").checked = S.settings.autocam;
+    if ($("set-micgate")) $("set-micgate").checked = S.settings.micGate !== false;
+    if ($("set-autoduck")) $("set-autoduck").checked = S.settings.autoDuck !== false;
+    if ($("set-autolevel")) $("set-autolevel").checked = S.settings.autoLevel !== false;
     $("set-petname").value = S.settings.petName || "";
     $("set-theme").value = S.settings.themeColor || "#ff7ec0";
     $("set-anniversary").value = S.settings.anniversary || "";
@@ -92,6 +96,9 @@ export function saveSettings() {
   S.settings.named = true;
   S.settings.giphyKey = $("set-giphy").value.trim();
   S.settings.autocam = $("set-autocam").checked;
+  if ($("set-micgate")) S.settings.micGate = $("set-micgate").checked;
+  if ($("set-autoduck")) S.settings.autoDuck = $("set-autoduck").checked;
+  if ($("set-autolevel")) S.settings.autoLevel = $("set-autolevel").checked;
   S.settings.petName = $("set-petname").value.trim();
   const newColor = $("set-theme").value;
   const colorChanged = newColor !== S.settings.themeColor;
@@ -104,6 +111,7 @@ export function saveSettings() {
   chrome.storage.local.set({ wt_settings: S.settings });
   applyTheme(S.settings.themeColor);
   if (colorChanged) netSend({ t: "theme", color: S.settings.themeColor });
+  refreshAudioSettings(); // apply mic-gate / auto-duck / auto-level changes live
   $("me-name").textContent = S.settings.me;
   $("local-label").textContent = S.settings.me;
   $("remote-label").textContent = S.settings.partner;

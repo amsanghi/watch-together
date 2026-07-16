@@ -111,6 +111,14 @@ media path dies mid-call, the app heartbeat can't tell (it only watches
 the *data* socket, which stays up), so the relay PC recovers in place via an **ICE restart**
 on `iceConnectionState === "failed"`.
 
+Call audio has three optional processors in `core/audioproc.js` (toggled in Settings,
+default on, all fail-safe to plain audio): a **mic noise-gate** (VAD on a clone of the mic
+track, so the movie on your speakers doesn't constantly bleed to the partner), **auto-duck**
+(a panel→page `duck` message quiets the page `<video>` while either side talks), and a
+receiver-side **auto-level** compressor (Web Audio `DynamicsCompressorNode`; the `<video>`
+element stays the fallback player whenever the `AudioContext` isn't running, so it can't go
+silent). One `setInterval` loop (`startAudioLoop`, from `init()`) drives the VAD + routing.
+
 ## Shared state
 
 `core/state.js` exports one object **`S`**. It's an import leaf (imports nothing), so it's
@@ -136,6 +144,7 @@ Messages are `{ __wt: true, kind, … }` over `chrome.runtime`/`chrome.tabs`.
 | panel → page | `countdown` | Show the 3·2·1 number `n`. |
 | panel → page | `poke` | Shake the page + toast. |
 | panel → page | `toast` | Show a transient toast. |
+| panel → page | `duck` | Lower (to 25%) or restore the page `<video>` volume while someone's talking (auto-duck). |
 | panel → page | `request-state` | Reply with the current `<video>` state (used by `getPageState`). |
 
 ## Wire protocol (partner ↔ partner)
