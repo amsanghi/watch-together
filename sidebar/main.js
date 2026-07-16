@@ -251,11 +251,13 @@ function init() {
   setInterval(refreshDates, 60000);               // keep the partner clock fresh
   setInterval(checkScheduled, 20000);             // deliver due surprise notes
   initDeviceRecovery();                           // re-acquire mic/cam if a device is unplugged mid-call
-  setInterval(async () => {                       // broadcast position so the follower can correct drift
+  let lastPosAt = 0;                              // broadcast position so the follower can correct drift
+  setInterval(async () => {
     if (!S.connectedOnce || !S.amInitiator) return;
+    if (Date.now() - lastPosAt < (S.settings.syncInterval || 5) * 1000) return;
     const s = await getPageState();
-    if (s && typeof s.time === "number" && !s.paused) netSend({ t: "pos", time: s.time, paused: s.paused });
-  }, 5000);
+    if (s && typeof s.time === "number" && !s.paused) { lastPosAt = Date.now(); netSend({ t: "pos", time: s.time, paused: s.paused }); }
+  }, 1500);
 
   // Initial storage load for the persisted couple collections.
   chrome.storage.local.get(["wt_watchlist", "wt_counts", "wt_scrapbook", "wt_scheduled", "wt_hands", "wt_weather", "wt_timeline", "wt_gallery"], (r) => {

@@ -128,7 +128,7 @@ export function startHeartbeat() {
     lastBeatAt = now;
     if (!S.connectedOnce) return;
     netSend({ t: "ping" });
-    if (now - S.lastRx > 8000) {
+    if (now - S.lastRx > (S.settings.reconnectSilence || 8) * 1000) {
       console.log("[WT] heartbeat: link went silent — clean reconnect");
       S.connectedOnce = false;
       setStatus("connecting");
