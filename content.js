@@ -255,6 +255,106 @@
     setTimeout(() => root.classList.remove("wt-shake"), 600);
   }
 
+  // ---- Point & annotate: laser pings (tap) + fading telestrator ink (drag) ----
+  // A fixed overlay tracked to the video's rect. Coords are normalized (0–1) to that
+  // rect so a point maps to the same scene spot in the partner's differently-sized
+  // window. (Like the other page effects, this is a windowed-video overlay.)
+  let annotOn = false, annotColor = "#ff7ec0";
+  let annotWrap = null, annotCanvas = null, annotCtx = null;
+  let annotRaf = null, annotActiveUntil = 0;
+  let annotDrawing = false, annotMoved = false, annotLast = null;
+
+  function annotEnsure() {
+    if (annotWrap && annotWrap.isConnected) return;
+    annotWrap = document.createElement("div");
+    annotWrap.id = "wt-annot";
+    annotCanvas = document.createElement("canvas");
+    annotWrap.appendChild(annotCanvas);
+    document.documentElement.appendChild(annotWrap);
+    annotCtx = annotCanvas.getContext("2d");
+    annotWrap.addEventListener("pointerdown", annotDown);
+    annotWrap.addEventListener("pointermove", annotMoveEv);
+    window.addEventListener("pointerup", annotUp);
+  }
+  function annotPlace() {
+    const v = video || pickVideo();
+    if (!v || !annotWrap) return null;
+    const r = v.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return null;
+    annotWrap.style.left = r.left + "px"; annotWrap.style.top = r.top + "px";
+    annotWrap.style.width = r.width + "px"; annotWrap.style.height = r.height + "px";
+    const w = Math.round(r.width), h = Math.round(r.height);
+    if (annotCanvas.width !== w || annotCanvas.height !== h) { annotCanvas.width = w; annotCanvas.height = h; }
+    return r;
+  }
+  function annotLoop() {
+    annotPlace();
+    if (annotCtx && annotCanvas.width) { // slowly erase old ink (telestrator fade)
+      annotCtx.globalCompositeOperation = "destination-out";
+      annotCtx.fillStyle = "rgba(0,0,0,0.05)";
+      annotCtx.fillRect(0, 0, annotCanvas.width, annotCanvas.height);
+      annotCtx.globalCompositeOperation = "source-over";
+    }
+    if (annotOn || Date.now() < annotActiveUntil) annotRaf = requestAnimationFrame(annotLoop);
+    else annotRaf = null;
+  }
+  function annotKick() { annotActiveUntil = Date.now() + 4000; if (!annotRaf) annotRaf = requestAnimationFrame(annotLoop); }
+  function setAnnotate(on, color) {
+    if (color) annotColor = color;
+    annotOn = !!on;
+    annotEnsure();
+    annotWrap.style.pointerEvents = annotOn ? "auto" : "none";
+    annotWrap.classList.toggle("on", annotOn);
+    annotKick();
+  }
+  function annotNorm(e, r) { return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }
+  function annotDown(e) {
+    if (!annotOn) return;
+    const r = annotPlace(); if (!r) return;
+    annotDrawing = true; annotMoved = false; annotLast = annotNorm(e, r);
+    e.preventDefault();
+  }
+  function annotMoveEv(e) {
+    if (!annotOn || !annotDrawing) return;
+    const r = annotPlace(); if (!r) return;
+    const p = annotNorm(e, r);
+    if (!annotMoved && Math.hypot((p.x - annotLast.x) * r.width, (p.y - annotLast.y) * r.height) < 5) return;
+    annotMoved = true;
+    annotStroke(annotLast.x, annotLast.y, p.x, p.y, annotColor);
+    toPanel({ kind: "annot", akind: "draw", x: annotLast.x, y: annotLast.y, x2: p.x, y2: p.y, color: annotColor });
+    annotLast = p;
+  }
+  function annotUp(e) {
+    if (!annotDrawing) return;
+    annotDrawing = false;
+    if (annotMoved) return;
+    const r = annotPlace(); if (!r) return;
+    const p = annotNorm(e, r);
+    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
+    annotPing(p.x, p.y, annotColor);
+    toPanel({ kind: "annot", akind: "ping", x: p.x, y: p.y, color: annotColor });
+  }
+  function annotStroke(x1, y1, x2, y2, color) {
+    annotEnsure(); const r = annotPlace(); if (!r || !annotCtx) return;
+    annotCtx.strokeStyle = color; annotCtx.lineWidth = 4; annotCtx.lineCap = "round";
+    annotCtx.beginPath(); annotCtx.moveTo(x1 * r.width, y1 * r.height); annotCtx.lineTo(x2 * r.width, y2 * r.height); annotCtx.stroke();
+    annotKick();
+  }
+  function annotPing(x, y, color) {
+    annotEnsure(); const r = annotPlace(); if (!r) return;
+    const ring = document.createElement("div");
+    ring.className = "wt-annot-ping";
+    ring.style.left = (x * r.width) + "px"; ring.style.top = (y * r.height) + "px";
+    ring.style.color = color; ring.style.borderColor = color;
+    annotWrap.appendChild(ring);
+    setTimeout(() => ring.remove(), 1300);
+    annotKick();
+  }
+  function annotShow(d) {
+    if (d.akind === "ping") annotPing(d.x, d.y, d.color || "#8ecbff");
+    else if (d.akind === "draw") annotStroke(d.x, d.y, d.x2, d.y2, d.color || "#8ecbff");
+  }
+
   // ---- Follow: "Join what my partner is watching" banner ------------------
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -268,6 +368,8 @@
       case "duck": setDuck(msg.on, msg.level); break;
       case "drift": applyDrift(msg); break;
       case "stall": setStall(msg.on, msg.maxWait); break;
+      case "annotate": setAnnotate(msg.on, msg.color); break;
+      case "annot-show": annotShow(msg); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.

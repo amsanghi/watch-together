@@ -96,6 +96,9 @@ export async function handleData(d) {
     case "stall": // partner is buffering — pause and wait for them
       parentPost({ kind: "stall", on: !!d.on, maxWait: S.settings.maxBufferWait });
       break;
+    case "annot": // partner pointed/drew on the video → mirror it on our overlay
+      parentPost({ kind: "annot-show", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color });
+      break;
     case "sync-req": {
       const s = await getPageState();
       netSend({ t: "sync-state", state: s });
