@@ -134,7 +134,7 @@ export function teardownRelay(clearIntent) {
 
 // ---- The voice/video call over the relay (WebRTC, perfect negotiation) ---
 function relayEnsurePC() {
-  if (!relayPC) relayPC = relayNewPC();
+  if (!relayPC) { relayPC = relayNewPC(); startStatsMonitor(); }
   relayShareLocalTracks();
 }
 function relayNewPC() {
@@ -207,8 +207,40 @@ async function relayOnSignal(m) {
     }
   } catch (err) { console.log("[WT] relay signal error", err); }
 }
+// Adaptive degradation: if the partner is losing a lot of our video packets, stop
+// sending video (keep audio) until the link recovers. Reads the RTCP remote-inbound
+// report; conservative (needs sustained loss) and reversible.
+let statsTimer = null, videoDegraded = false, lossStreak = 0;
+function startStatsMonitor() {
+  clearInterval(statsTimer);
+  statsTimer = setInterval(async () => {
+    if (!relayPC) return;
+    let frac = 0;
+    try {
+      const stats = await relayPC.getStats();
+      stats.forEach((r) => { if (r.type === "remote-inbound-rtp" && r.kind === "video" && typeof r.fractionLost === "number") frac = Math.max(frac, r.fractionLost); });
+    } catch (_) { return; }
+    if (frac > 0.1) lossStreak++; else lossStreak = 0;
+    if (lossStreak >= 3 && !videoDegraded) setVideoActive(false);
+    else if (lossStreak === 0 && videoDegraded) setVideoActive(true);
+  }, 2000);
+}
+function setVideoActive(active) {
+  videoDegraded = !active;
+  if (!relayPC) return;
+  const sender = relayPC.getSenders().find((s) => s.track && s.track.kind === "video");
+  if (!sender) return;
+  try {
+    const p = sender.getParameters();
+    if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+    p.encodings[0].active = active;
+    if (active) p.encodings[0].maxBitrate = 300000;
+    sender.setParameters(p);
+  } catch (_) {}
+}
 function teardownRelayPC() {
   if (relayPC) { try { relayPC.close(); } catch (_) {} relayPC = null; }
+  clearInterval(statsTimer); statsTimer = null; videoDegraded = false; lossStreak = 0;
   relayShared.clear();
   relayMakingOffer = false;
   relayIgnoreOffer = false;
