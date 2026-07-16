@@ -44,6 +44,9 @@ export function registerTabListener() {
       case "video-event":
         netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title });
         break;
+      case "video-stall":
+        netSend({ t: "stall", on: !!d.on });
+        break;
       case "video-found":
         $("video-warn").classList.add("found");
         $("video-warn").title = "Video detected — controls are synced";

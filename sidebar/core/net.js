@@ -73,6 +73,12 @@ export async function handleData(d) {
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
       break;
+    case "pos": // initiator's periodic playback position → follower nudges out drift
+      if (!S.amInitiator && typeof d.time === "number") parentPost({ kind: "drift", time: d.time, paused: d.paused });
+      break;
+    case "stall": // partner is buffering — pause and wait for them
+      parentPost({ kind: "stall", on: !!d.on });
+      break;
     case "sync-req": {
       const s = await getPageState();
       netSend({ t: "sync-state", state: s });

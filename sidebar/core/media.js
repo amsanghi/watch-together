@@ -51,7 +51,7 @@ export async function ensureKind(kind) {
       ? { video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 24 } } }
       : { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     if (!S.localStream) { S.localStream = new MediaStream(); $("local-video").srcObject = S.localStream; }
-    s.getTracks().forEach((t) => { t.enabled = false; S.localStream.addTrack(t); });
+    s.getTracks().forEach((t) => { t.enabled = false; t.onended = () => onLocalTrackEnded(t); S.localStream.addTrack(t); });
     mediaDenied = false;
     if (kind === "audio") attachLocalAudio(S.localStream); // set up the mic noise-gate analyser
     shareAll();
@@ -74,6 +74,33 @@ export async function ensureKind(kind) {
     addSys(`Couldn't turn on the ${dev} — ${why}.`);
     return false;
   }
+}
+
+// Device-change recovery: if a mic/cam device is unplugged/switched mid-call its
+// track ends — re-acquire the same kind (permission's already granted, so no prompt)
+// and re-enable/re-share it. Guarded so onended + devicechange can't double-acquire.
+let recovering = { audio: false, video: false };
+async function recoverKind(kind) {
+  if (recovering[kind]) return;
+  const want = kind === "video" ? S.camOn : S.micOn;
+  if (!want || hasKind(kind)) return;
+  recovering[kind] = true;
+  try {
+    if (await ensureKind(kind)) {
+      if (kind === "audio") applyMicEnabled();
+      else S.localStream.getVideoTracks().forEach((t) => (t.enabled = S.camOn));
+    }
+  } finally { recovering[kind] = false; }
+}
+function onLocalTrackEnded(track) {
+  if (S.localStream) { try { S.localStream.removeTrack(track); } catch (_) {} }
+  S.sharedTracks.delete(track);
+  recoverKind(track.kind);
+}
+export function initDeviceRecovery() {
+  try {
+    navigator.mediaDevices.addEventListener("devicechange", () => { recoverKind("audio"); recoverKind("video"); });
+  } catch (_) {}
 }
 
 export function saveMedia() { chrome.storage.local.set({ wt_media: { mic: S.micOn, cam: S.camOn } }); }
