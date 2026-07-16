@@ -7,9 +7,9 @@ call setup — flows through it. No "find each other", no rejoining, far fewer d
 
 > **What goes through the relay:** all data (sync, chat, reactions, presence) and
 > the *setup* of the voice/video call. The call's audio/video then flows
-> peer-to-peer by default. To force the call's media through a server too, run a
-> TURN server and fill in the optional TURN fields in the extension (see
-> [Fully-relayed calls](#optional-fully-relayed-calls-turn) below). For the
+> peer-to-peer by default. If it won't connect on some networks (strict NAT), the
+> relay can also hand both extensions TURN credentials automatically — see
+> [Fully-relayed calls](#optional-fully-relayed-calls-turn) below. For the
 > disconnection problem, relaying the data + call setup is the part that matters.
 
 ---
@@ -85,9 +85,29 @@ To go back to the default public relays, clear the Relay server box and unpair.
 
 By default the **video/audio** of the call flows peer-to-peer (only its setup goes
 through the relay). If either of you is behind a strict/symmetric NAT and the call
-media itself won't connect, run a TURN server and it will relay the media too.
+media itself won't connect, you need a TURN server to relay the media too.
 
-Easiest is [coturn](https://github.com/coturn/coturn):
+### Easiest: let the relay mint TURN creds (Cloudflare, free)
+
+The relay can hand both extensions short-lived TURN credentials automatically — the
+secret stays on your relay and never touches the (public) extension. Free tier is
+**1000 GB/mo** (a card is required to sign up, but the free tier isn't charged).
+
+1. At <https://dash.cloudflare.com> → **Realtime** → **TURN** → **Create** a TURN app.
+2. Put its **Turn Token ID** and **API Token** in `~/.watchtogether-relay.env`
+   (this file survives `install.command`; a local `.env` works too):
+   ```
+   CF_TURN_KEY_ID=your-turn-token-id
+   CF_TURN_API_TOKEN=your-api-token
+   ```
+3. Restart the relay: `./relay.command restart`. On boot it logs
+   `minted Cloudflare TURN creds`, and both sides get a TURN relay automatically —
+   nothing to enter in the extension on either computer.
+
+### Or run your own TURN (coturn)
+
+Prefer self-hosting? [coturn](https://github.com/coturn/coturn) works with the
+extension's manual TURN fields:
 
 ```bash
 brew install coturn
