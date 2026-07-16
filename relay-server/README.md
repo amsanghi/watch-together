@@ -128,6 +128,23 @@ on a small VPS.)
 
 ---
 
+## Keep it always on (optional, macOS)
+
+By default you start the relay by hand (`./relay.command up`) and it stops if the
+machine reboots. To have it **start on login and restart itself if it (or the machine)
+goes down**, install the launchd service once:
+
+```bash
+cd relay-server
+./install-service.command
+```
+
+That runs a tiny supervisor (`relay-supervisor.command`) under launchd which keeps
+`relay.command up` asserted every ~30s (it's idempotent, so this also recovers the
+relay after a crash). Logs go to `relay-server/service.log`. Remove it with
+`./install-service.command uninstall`. (Free ngrok still allows only one tunnel at a
+time, so make sure no other ngrok session is running.)
+
 ## How it works
 
 ```
@@ -149,6 +166,8 @@ on a small VPS.)
 | `start.command` | One-click: installs deps, starts server, opens ngrok tunnel.|
 | `.env.example`  | Copy to `.env` to set `PORT` / your fixed `NGROK_DOMAIN`.   |
 | `package.json`  | One dependency (`ws`).                                       |
+| `relay.command` | Non-blocking up / down / status / restart for the server + tunnel. |
+| `install-service.command` | Install/remove a launchd agent so the relay auto-starts on login. |
 
 ## Notes
 
