@@ -201,6 +201,11 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 #settings-panel label, #history-panel label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 13px; font-size: 12px; color: var(--muted); font-weight: 700; }
 #settings-panel h3, #history-panel h3 { margin: 0 0 14px; color: var(--accent2); }
 .check { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.audio-tune-box { margin: 0 0 13px; }
+.audio-tune-box summary { cursor: pointer; margin-bottom: 8px; color: var(--accent2); font-weight: 700; }
+.audio-tune-box label.rng { margin-bottom: 10px; }
+.audio-tune { width: 100%; }
+.audio-tune-box span[id$="-val"] { color: var(--accent2); font-weight: 800; }
 .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 #history-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .hist-item { background: var(--card); border: 1.5px solid var(--line); border-radius: 14px; padding: 11px; font-size: 12px; box-shadow: var(--shadow-sm); }

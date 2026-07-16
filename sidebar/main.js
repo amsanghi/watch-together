@@ -233,6 +233,17 @@ function init() {
   registerTabListener();                          // content-script → panel messages
   startAudioLoop();                               // mic-gate / auto-duck / auto-level loop
   document.addEventListener("pointerdown", resumeAudioCtx); // unlock the AudioContext on first click
+
+  // Live call-audio tuning sliders: apply to S.settings on input (the audio loop
+  // reads them every tick), show the value, and persist on release.
+  document.querySelectorAll(".audio-tune").forEach((el) => {
+    const out = document.getElementById(el.id + "-val");
+    el.addEventListener("input", () => {
+      S.settings[el.dataset.key] = Number(el.value);
+      if (out) out.textContent = el.value;
+    });
+    el.addEventListener("change", () => chrome.storage.local.set({ wt_settings: S.settings }));
+  });
   window.addEventListener("pagehide", leaveRoom); // leave the room cleanly on close
   window.addEventListener("beforeunload", leaveRoom);
   setInterval(refreshDates, 60000);               // keep the partner clock fresh
