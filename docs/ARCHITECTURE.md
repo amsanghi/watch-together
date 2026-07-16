@@ -104,7 +104,10 @@ in the relay server's env (`~/.watchtogether-relay.env`). The **relay** then min
 short-lived Cloudflare TURN creds (free 1000 GB/mo) and ships them to both clients in its
 `roster`; `relayIceServers` (`transports/relay.js`) just reads them off the roster. So the
 TURN secret lives only on the relay — never in this public extension — and nothing is
-entered per call. If the media path dies mid-call, the app heartbeat can't tell (it only watches
+entered per call. When TURN is present the call is **forced through it**
+(`iceTransportPolicy: "relay"` in `relayNewPC`), not tried as a direct P2P path first —
+trading a little latency for a connection that doesn't hinge on NAT traversal. If the
+media path dies mid-call, the app heartbeat can't tell (it only watches
 the *data* socket, which stays up), so the relay PC recovers in place via an **ICE restart**
 on `iceConnectionState === "failed"`.
 
