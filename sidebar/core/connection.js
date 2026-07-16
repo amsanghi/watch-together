@@ -12,7 +12,7 @@
 import { $ } from "./dom.js";
 import { S } from "./state.js";
 import { setStatus, showError, showPanel } from "./ui.js";
-import { netSend } from "./net.js";
+import { netSend, flushOutbox } from "./net.js";
 import { addSys } from "../features/chat.js";
 import { recordSession } from "../features/stats.js";
 import { connectTrystero } from "../transports/trystero.js";
@@ -83,6 +83,7 @@ export function onConnected() {
   // (once the link is healthy) so their stale media tracks refresh too. The
   // recentlyReloaded guard on their side keeps this from ping-ponging.
   if (S.pendingPartnerReload) { S.pendingPartnerReload = false; setTimeout(() => netSend({ t: "please-reload" }), 1200); }
+  flushOutbox(); // re-send any chat/photos queued while we were disconnected
   recordSession();
 }
 export function onDisconnected() {

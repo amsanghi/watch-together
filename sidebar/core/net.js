@@ -38,11 +38,28 @@ import { addToGallery, receivePbOpen, applyPbSettings, pbApplyIncomingShots, rec
 
 // Send over the active transport. Trystero/relay set S.sendData; manual mode
 // falls back to the raw data channel.
-export function netSend(obj) {
+// Content messages we don't want to lose to a blip — queued if the link is down
+// and re-sent on reconnect (flushOutbox, from onConnected). Ephemeral types
+// (typing, reactions, game moves, position) are intentionally not queued.
+const RELIABLE = new Set(["chat", "gif", "snap", "clip", "letter", "memory"]);
+const outbox = [];
+function trySend(obj) {
   try {
-    if (S.sendData) S.sendData(obj);
-    else if (S.rawDC && S.rawDC.readyState === "open") S.rawDC.send(JSON.stringify(obj));
+    if (S.sendData) { S.sendData(obj); return true; }
+    if (S.rawDC && S.rawDC.readyState === "open") { S.rawDC.send(JSON.stringify(obj)); return true; }
   } catch (_) {}
+  return false;
+}
+export function netSend(obj) {
+  if (!trySend(obj) && obj && RELIABLE.has(obj.t)) {
+    outbox.push(obj);
+    if (outbox.length > 200) outbox.shift(); // bound the queue
+  }
+}
+export function flushOutbox() {
+  if (!outbox.length) return;
+  const pending = outbox.splice(0, outbox.length);
+  for (const obj of pending) if (!trySend(obj)) outbox.push(obj); // still down → keep it queued
 }
 
 // Decode one message from the partner. `lastRx` (liveness) is stamped first, and

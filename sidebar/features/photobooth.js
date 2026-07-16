@@ -15,6 +15,7 @@ import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { netSend } from "../core/net.js";
 import { toggleCam } from "../core/media.js";
+import { saveWithQuota } from "../core/storage.js";
 import { addMsg, addSys } from "./chat.js";
 import { spawnPanelHearts, burst } from "./reactions.js";
 import { todayStr } from "./stats.js";
@@ -365,7 +366,7 @@ export function pbRetake() {
 function addPhotoToScrapbook(img) {
   S.scrapbook.unshift({ img, date: todayStr() });
   S.scrapbook = S.scrapbook.slice(0, 100);
-  chrome.storage.local.set({ wt_scrapbook: S.scrapbook });
+  saveWithQuota("wt_scrapbook", () => S.scrapbook, () => { S.scrapbook = S.scrapbook.slice(0, Math.max(8, S.scrapbook.length >> 1)); });
   renderScrapbook();
 }
 
@@ -392,7 +393,7 @@ export function addToGallery(type, data) {
   if (!data) return;
   gallery.unshift({ type, data, date: todayStr() });
   gallery = gallery.slice(0, 60);
-  chrome.storage.local.set({ wt_gallery: gallery });
+  saveWithQuota("wt_gallery", () => gallery, () => { gallery = gallery.slice(0, Math.max(8, gallery.length >> 1)); renderGallery(); });
   renderGallery();
 }
 export function renderGallery() {
