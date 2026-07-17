@@ -384,6 +384,25 @@
     } catch (_) { return null; } // tainted canvas (DRM) → null
   }
 
+  // Redub subtitles, cover-my-eyes, instant-replay wipe — quick overlay toys.
+  let subEl = null, subTimer = null;
+  function showSubtitle(text) {
+    if (!text) return;
+    if (!subEl) { subEl = document.createElement("div"); subEl.id = "wt-subtitle"; document.documentElement.appendChild(subEl); }
+    subEl.textContent = text; subEl.style.opacity = "1";
+    clearTimeout(subTimer); subTimer = setTimeout(() => { if (subEl) subEl.style.opacity = "0"; }, 5000);
+  }
+  let coverEl = null;
+  function setCover(on) {
+    if (on) {
+      if (!coverEl) { coverEl = document.createElement("div"); coverEl.id = "wt-cover"; coverEl.innerHTML = "<div>🙈</div><div class='wt-cover-t'>covering your eyes…</div>"; document.documentElement.appendChild(coverEl); }
+    } else if (coverEl) { coverEl.remove(); coverEl = null; }
+  }
+  function replayWipe() {
+    const w = document.createElement("div"); w.id = "wt-replay"; w.textContent = "🔁 INSTANT REPLAY";
+    document.documentElement.appendChild(w); setTimeout(() => w.remove(), 1300);
+  }
+
   // ---- Follow: "Join what my partner is watching" banner ------------------
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -401,6 +420,9 @@
       case "annot-show": annotShow(msg); break;
       case "cinema": setCinema(msg.on); break;
       case "grab-frame": toPanel({ kind: "frame", img: grabFrame() }); break;
+      case "subtitle": showSubtitle(msg.text); break;
+      case "cover": setCover(msg.on); break;
+      case "replay": replayWipe(); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.

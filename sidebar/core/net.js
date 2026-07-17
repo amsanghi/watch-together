@@ -116,6 +116,15 @@ export async function handleData(d) {
     case "cinema":
       parentPost({ kind: "cinema", on: !!d.on });
       break;
+    case "subtitle":
+      parentPost({ kind: "subtitle", text: d.text });
+      break;
+    case "cover":
+      parentPost({ kind: "cover", on: !!d.on });
+      break;
+    case "replay":
+      parentPost({ kind: "replay" });
+      break;
     case "sync-req": {
       const s = await getPageState();
       netSend({ t: "sync-state", state: s });

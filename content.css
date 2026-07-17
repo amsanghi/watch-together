@@ -117,3 +117,12 @@ html.wt-shake {
 
 /* Cinema mode: a spotlight on the video, everything around it dimmed */
 #wt-cinema { position: fixed; z-index: 2147483645; pointer-events: none; border-radius: 6px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78); transition: box-shadow 0.4s ease; }
+
+/* Redub subtitle bar */
+#wt-subtitle { position: fixed; left: 50%; bottom: 12%; transform: translateX(-50%); z-index: 2147483646; background: rgba(0, 0, 0, 0.72); color: #fff; font: 600 20px/1.3 system-ui, sans-serif; padding: 6px 16px; border-radius: 8px; max-width: 80vw; text-align: center; pointer-events: none; transition: opacity 0.3s; text-shadow: 0 1px 3px #000; }
+/* Cover-my-eyes */
+#wt-cover { position: fixed; inset: 0; z-index: 2147483647; background: rgba(10, 5, 20, 0.92); backdrop-filter: blur(22px); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 84px; }
+#wt-cover .wt-cover-t { font-size: 16px; margin-top: 10px; opacity: 0.85; }
+/* Instant replay wipe */
+#wt-replay { position: fixed; inset: 0; z-index: 2147483646; display: flex; align-items: center; justify-content: center; color: #fff; font: 800 32px system-ui, sans-serif; letter-spacing: 2px; background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.85), transparent); pointer-events: none; animation: wt-replay-sweep 1.2s ease-out forwards; }
+@keyframes wt-replay-sweep { 0% { opacity: 0; transform: scale(1.3); } 20% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
