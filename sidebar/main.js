@@ -29,6 +29,7 @@ import {
 import { renderHistory, refreshStats, refreshDates } from "./features/stats.js";
 import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
+import { newBingo, renderBingo } from "./features/bingo.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
   renderScheduled, renderScrapbook, setLocalHold, bumpCount, sendLetter, openLetter,
@@ -54,6 +55,7 @@ function openFun() {
   renderPartnerWeather();
   renderTimeline();
   renderGallery();
+  renderBingo();
   syncFunCams();
   showPanel("fun");
 }
@@ -188,6 +190,7 @@ function init() {
   $("wl-input").addEventListener("keydown", (e) => { if (e.key === "Enter") addWatchItem(); });
   document.querySelectorAll(".card-btn[data-card]").forEach((b) => b.addEventListener("click", () => drawCard(b.dataset.card)));
   $("ttt-reset").addEventListener("click", () => tttReset(true));
+  $("bingo-new").addEventListener("click", newBingo);
   $("doodle-clear").addEventListener("click", () => doodleClear(true));
   tttBuild(); tttReset(false);
   doodleInit();
