@@ -371,6 +371,19 @@
     } else if (cinemaEl) { cinemaEl.remove(); cinemaEl = null; }
   }
 
+  // Frame-freeze: capture the current movie frame (fails on DRM/cross-origin video).
+  function grabFrame() {
+    const v = video || pickVideo();
+    if (!v || !v.videoWidth) return null;
+    try {
+      const c = document.createElement("canvas");
+      c.width = Math.min(640, v.videoWidth);
+      c.height = Math.round((c.width * v.videoHeight) / v.videoWidth);
+      c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL("image/jpeg", 0.7);
+    } catch (_) { return null; } // tainted canvas (DRM) → null
+  }
+
   // ---- Follow: "Join what my partner is watching" banner ------------------
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -387,6 +400,7 @@
       case "annotate": setAnnotate(msg.on, msg.color); break;
       case "annot-show": annotShow(msg); break;
       case "cinema": setCinema(msg.on); break;
+      case "grab-frame": toPanel({ kind: "frame", img: grabFrame() }); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.
