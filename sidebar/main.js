@@ -106,8 +106,12 @@ function init() {
   $("btn-annotate").addEventListener("click", () => {
     annotateOn = !annotateOn;
     $("btn-annotate").classList.toggle("on", annotateOn);
-    parentPost({ kind: "annotate", on: annotateOn, color: S.settings.themeColor || "#ff7ec0" });
+    parentPost({ kind: "annotate", on: annotateOn, color: S.settings.themeColor || "#ff7ec0", sticker: null });
   });
+  document.querySelectorAll("[data-prop]").forEach((b) => b.addEventListener("click", () => {
+    annotateOn = true; $("btn-annotate").classList.add("on");
+    parentPost({ kind: "annotate", on: true, color: S.settings.themeColor || "#ff7ec0", sticker: b.dataset.prop });
+  }));
   let cinemaOn = false;
   $("btn-cinema").addEventListener("click", () => {
     cinemaOn = !cinemaOn;

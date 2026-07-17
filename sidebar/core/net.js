@@ -111,7 +111,7 @@ export async function handleData(d) {
       parentPost({ kind: "stall", on: !!d.on, maxWait: S.settings.maxBufferWait });
       break;
     case "annot": // partner pointed/drew on the video → mirror it on our overlay
-      parentPost({ kind: "annot-show", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color });
+      parentPost({ kind: "annot-show", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color, emoji: d.emoji });
       break;
     case "cinema":
       parentPost({ kind: "cinema", on: !!d.on });
