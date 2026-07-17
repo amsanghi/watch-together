@@ -125,6 +125,9 @@ export async function handleData(d) {
     case "replay":
       parentPost({ kind: "replay" });
       break;
+    case "cursor":
+      parentPost({ kind: "cursor-show", x: d.x, y: d.y, name: S.settings.partner });
+      break;
     case "sync-req": {
       const s = await getPageState();
       netSend({ t: "sync-state", state: s });
