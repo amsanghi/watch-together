@@ -26,7 +26,7 @@ export const S = {
     me: "You", partner: "Partner", partnerName: "", giphyKey: DEFAULT_GIPHY_KEY,
     autocam: true, named: false, anniversary: "", bdayMe: "", bdayPartner: "",
     petName: "", themeColor: "", volume: 100,
-    micGate: true, autoDuck: true, autoLevel: true,
+    micGate: true, autoDuck: true, autoLevel: true, clapReact: true,
     micGateSens: 65, micGateHold: 700, remoteSens: 75, duckLevel: 25, duckHold: 700, levelStrength: 12,
     reconnectSilence: 8, relayFallbackTries: 2, driftThresh: 1.2, syncInterval: 5, maxBufferWait: 15, videoLossDrop: 10,
     relayUrl: "", turnUrl: "", turnUser: "", turnPass: "",

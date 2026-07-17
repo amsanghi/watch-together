@@ -32,6 +32,7 @@ let audioCtx = null;
 // outgoing track doesn't stop us from noticing when speech resumes)
 let micClone = null, micSource = null, micAnalyser = null, micBuf = null;
 let gateOpen = false, micSpeechUntil = 0;
+let micEventCb = null, prevMicLvl = 0, micEvtCooldown = 0;
 // remote (partner): compressor chain + a level analyser for the duck
 let remoteStream = null;
 let remoteSource = null, remoteComp = null, remoteGain = null, remoteAnalyser = null, remoteBuf = null;
@@ -51,6 +52,8 @@ export function resumeAudioCtx() {
   const c = ctx();
   if (c && c.state === "suspended") c.resume().catch(() => {});
 }
+// Register a handler for mic "events" (currently a clap / loud transient).
+export function onMicEvent(cb) { micEventCb = cb; }
 
 function rms(analyser, buf) {
   if (!analyser || !buf) return 0;
@@ -150,10 +153,16 @@ export function startAudioLoop() {
 function tick() {
   const now = Date.now();
   if (micAnalyser) {
-    if (rms(micAnalyser, micBuf) > sensToThresh(num("micGateSens", 65))) micSpeechUntil = now + num("micGateHold", 700);
+    const lvl = rms(micAnalyser, micBuf);
+    if (lvl > sensToThresh(num("micGateSens", 65))) micSpeechUntil = now + num("micGateHold", 700);
     const open = now < micSpeechUntil;
     if (open !== gateOpen) { gateOpen = open; applyMicEnabled(); }
-  }
+    // Clap / loud transient (a sharp jump in level) → a fun reaction. Rate-limited.
+    if (micEventCb && S.settings.clapReact !== false && S.micOn && lvl > 0.22 && lvl - prevMicLvl > 0.13 && now > micEvtCooldown) {
+      micEvtCooldown = now + 900; micEventCb("clap", lvl);
+    }
+    prevMicLvl = lvl;
+  } else prevMicLvl = 0;
   let remoteSpeaking = false;
   if (remoteAnalyser) {
     if (rms(remoteAnalyser, remoteBuf) > sensToThresh(num("remoteSens", 75))) remoteSpeechUntil = now + num("duckHold", 700);
