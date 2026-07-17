@@ -115,6 +115,7 @@ function init() {
     netSend({ t: "cinema", on: cinemaOn }); parentPost({ kind: "cinema", on: cinemaOn });
   });
   $("btn-hr").addEventListener("click", toggleHeartbeat);
+  $("btn-frame").addEventListener("click", () => parentPost({ kind: "grab-frame" }));
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 

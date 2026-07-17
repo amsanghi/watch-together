@@ -9,6 +9,8 @@
 import { $ } from "./dom.js";
 import { S } from "./state.js";
 import { netSend } from "./net.js";
+import { addMsg, addSys } from "../features/chat.js";
+import { addToGallery } from "../features/photobooth.js";
 
 // Send a message to the active tab's content script (video control / effects).
 export function parentPost(msg) {
@@ -49,6 +51,10 @@ export function registerTabListener() {
         break;
       case "annot":
         netSend({ t: "annot", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color });
+        break;
+      case "frame": // a captured movie frame → into the shared gallery + to the partner
+        if (d.img) { addMsg({ mine: true, who: S.settings.me, gif: d.img }); addToGallery("img", d.img); netSend({ t: "snap", img: d.img }); }
+        else addSys("Couldn't grab this video (DRM-protected 🔒)");
         break;
       case "video-found":
         $("video-warn").classList.add("found");
