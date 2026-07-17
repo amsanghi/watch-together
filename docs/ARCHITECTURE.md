@@ -205,6 +205,7 @@ where the handler lives.
 | `quiz-q` / `quiz-a` | `q` / `text` | prompts |
 | `card` | `kind,text` | prompts |
 | `ttt` | `reset` \| `cell,mark` | games |
+| `bingo` | `reset`(card) \| `cell` | bingo (shared movie-bingo card) |
 | `c4` | `reset` \| `col,color` | games |
 | `rps` | `reset` \| `pick` | games |
 | `doodle` | `clear` \| `x0,y0,x1,y1,color` | games |
