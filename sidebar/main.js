@@ -105,6 +105,12 @@ function init() {
     $("btn-annotate").classList.toggle("on", annotateOn);
     parentPost({ kind: "annotate", on: annotateOn, color: S.settings.themeColor || "#ff7ec0" });
   });
+  let cinemaOn = false;
+  $("btn-cinema").addEventListener("click", () => {
+    cinemaOn = !cinemaOn;
+    $("btn-cinema").classList.toggle("on", cinemaOn);
+    netSend({ t: "cinema", on: cinemaOn }); parentPost({ kind: "cinema", on: cinemaOn });
+  });
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 
