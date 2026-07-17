@@ -205,7 +205,7 @@
   }, 2500);
 
   // ---- Page effects -------------------------------------------------------
-  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿" };
+  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿", confetti: "🎊" };
   function spawnHearts(kind, count = 14) {
     const cont = ensureOverlay();
     const emoji = HEARTS[kind] || "❤️";
@@ -490,7 +490,7 @@
       case "annotate": setAnnotate(msg.on, msg.color); break;
       case "annot-show": annotShow(msg); break;
       case "cinema": setCinema(msg.on); break;
-      case "grab-frame": toPanel({ kind: "frame", img: grabFrame() }); break;
+      case "grab-frame": toPanel({ kind: "frame", img: grabFrame(), meme: msg.meme }); break;
       case "subtitle": showSubtitle(msg.text); break;
       case "cover": setCover(msg.on); break;
       case "replay": replayWipe(); break;

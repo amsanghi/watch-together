@@ -116,6 +116,7 @@ function init() {
   });
   $("btn-hr").addEventListener("click", toggleHeartbeat);
   $("btn-frame").addEventListener("click", () => parentPost({ kind: "grab-frame" }));
+  $("btn-meme").addEventListener("click", () => parentPost({ kind: "grab-frame", meme: true }));
   $("btn-subtitle").addEventListener("click", () => { const t = prompt("Subtitle / redub line:"); if (t) { netSend({ t: "subtitle", text: t }); parentPost({ kind: "subtitle", text: t }); } });
   let coverOn = false;
   $("btn-cover").addEventListener("click", () => { coverOn = !coverOn; $("btn-cover").classList.toggle("on", coverOn); netSend({ t: "cover", on: coverOn }); });

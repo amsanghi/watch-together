@@ -39,6 +39,25 @@ export function getPageState() {
 
 // Messages from content scripts (any tab in this window). Registered once from
 // init() so all listener wiring stays visible in main.js.
+// Turn a captured frame into a top/bottom-text meme, then share it.
+function makeMeme(img) {
+  const top = (prompt("Top text (optional):") || "").toUpperCase();
+  const bottom = (prompt("Bottom text (optional):") || "").toUpperCase();
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+    const x = c.getContext("2d"); x.drawImage(im, 0, 0);
+    const fs = Math.round(c.width / 10);
+    x.font = "900 " + fs + "px Impact, system-ui, sans-serif"; x.textAlign = "center";
+    x.lineWidth = Math.max(2, fs / 10); x.strokeStyle = "#000"; x.fillStyle = "#fff";
+    x.textBaseline = "top"; if (top) { x.strokeText(top, c.width / 2, 8); x.fillText(top, c.width / 2, 8); }
+    x.textBaseline = "bottom"; if (bottom) { x.strokeText(bottom, c.width / 2, c.height - 8); x.fillText(bottom, c.width / 2, c.height - 8); }
+    const out = c.toDataURL("image/jpeg", 0.8);
+    addMsg({ mine: true, who: S.settings.me, gif: out }); addToGallery("img", out); netSend({ t: "snap", img: out });
+  };
+  im.src = img;
+}
+
 export function registerTabListener() {
   chrome.runtime.onMessage.addListener((d, sender) => {
     if (!d || d.__wt !== true) return;
@@ -55,9 +74,11 @@ export function registerTabListener() {
       case "cursor":
         netSend({ t: "cursor", x: d.x, y: d.y });
         break;
-      case "frame": // a captured movie frame → into the shared gallery + to the partner
-        if (d.img) { addMsg({ mine: true, who: S.settings.me, gif: d.img }); addToGallery("img", d.img); netSend({ t: "snap", img: d.img }); }
-        else addSys("Couldn't grab this video (DRM-protected 🔒)");
+      case "frame": // a captured movie frame → gallery + partner (optionally meme'd)
+        if (d.img) {
+          if (d.meme) makeMeme(d.img);
+          else { addMsg({ mine: true, who: S.settings.me, gif: d.img }); addToGallery("img", d.img); netSend({ t: "snap", img: d.img }); }
+        } else addSys("Couldn't grab this video (DRM-protected 🔒)");
         break;
       case "video-found":
         $("video-warn").classList.add("found");
