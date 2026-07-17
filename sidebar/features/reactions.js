@@ -16,7 +16,10 @@ const FX_EMOJI = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", w
 
 // Burst emojis BOTH on the page (over the video) and inside the panel, so it's
 // always visible even on pages where content scripts can't run (new-tab etc.).
+const moodTally = {};
+export function getMoodTally() { return moodTally; }
 export function burst(kind) {
+  moodTally[kind] = (moodTally[kind] || 0) + 1;
   parentPost({ kind: "reaction", reaction: kind });
   spawnPanelHearts(kind);
 }

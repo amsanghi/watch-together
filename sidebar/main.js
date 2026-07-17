@@ -33,7 +33,7 @@ import { renderHistory, refreshStats, refreshDates, renderShelf, checkAnniversar
 import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
 import { newBingo, renderBingo } from "./features/bingo.js";
-import { sendFortune, sendGameRule, sendBreak, renderCloseness, sendFinale } from "./features/party.js";
+import { sendFortune, sendGameRule, sendBreak, renderCloseness, sendFinale, renderMoodDiary } from "./features/party.js";
 import { sendMeld, sendPrediction, sendCharades } from "./features/wordgames.js";
 import { initRoom, renderRoom } from "./features/room.js";
 import { loadCapsules, leaveCapsule } from "./features/capsule.js";
@@ -68,6 +68,7 @@ function openFun() {
   renderCloseness();
   renderRoom();
   renderShelf();
+  renderMoodDiary();
   syncFunCams();
   showPanel("fun");
 }

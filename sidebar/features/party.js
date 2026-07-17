@@ -9,6 +9,16 @@ import { netSend } from "../core/net.js";
 import { addSys } from "./chat.js";
 import { parentPost } from "../core/tab.js";
 import { todayStr } from "./stats.js";
+import { getMoodTally } from "./reactions.js";
+
+// Mood diary — a running tally of the reactions flying this movie night.
+export function renderMoodDiary() {
+  const el = document.getElementById("mood-diary"); if (!el) return;
+  const t = getMoodTally();
+  const HE = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿", confetti: "🎊", ghost: "👻" };
+  const parts = Object.keys(t).filter((k) => t[k]).map((k) => (HE[k] || "✨") + "×" + t[k]);
+  el.textContent = parts.length ? parts.join("   ") : "React during the movie to fill your diary 📔";
+}
 
 // Closeness meter — a level computed from the moments you've already racked up
 // (kisses, hugs, hand-holding minutes). Pure display; refreshed when the Fun panel opens.
