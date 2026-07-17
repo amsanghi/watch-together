@@ -21,6 +21,7 @@ import { manualHost, manualHostFinish, manualGuestGen } from "./transports/manua
 import { sendChat, buildEmoji, searchGifs, searchGifsDebounced } from "./features/chat.js";
 import { sendReaction, sendSnap, beatFast } from "./features/reactions.js";
 import { sendSfx } from "./features/soundboard.js";
+import { toggleHeartbeat } from "./features/heartbeat.js";
 import { sendInvite, acceptInvite, hideInviteBanner } from "./features/invite.js";
 import {
   openPhotobooth, closePhotobooth, pbStart, pbSend, pbSave, pbDownload, pbRetake,
@@ -113,6 +114,7 @@ function init() {
     $("btn-cinema").classList.toggle("on", cinemaOn);
     netSend({ t: "cinema", on: cinemaOn }); parentPost({ kind: "cinema", on: cinemaOn });
   });
+  $("btn-hr").addEventListener("click", toggleHeartbeat);
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 
@@ -253,7 +255,7 @@ function init() {
   // ---- Side effects that were module-scope in the original monolith ----
   registerTabListener();                          // content-script → panel messages
   startAudioLoop();                               // mic-gate / auto-duck / auto-level loop
-  onMicEvent(() => { sendSfx("applause"); sendReaction("laugh"); }); // clap → applause + burst on both
+  onMicEvent(() => { sendSfx("applause"); sendReaction("laugh"); if (S.settings.scareCam && S.camOn) sendSnap(); }); // clap → applause + burst (+ scare-cam)
   document.addEventListener("pointerdown", resumeAudioCtx); // unlock the AudioContext on first click
   window.addEventListener("online", onNetworkWake);         // proactive reconnect on network return
   document.addEventListener("visibilitychange", () => { if (!document.hidden) onNetworkWake(); });
