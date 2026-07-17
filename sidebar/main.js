@@ -38,6 +38,7 @@ import { sendMeld, sendPrediction, sendCharades } from "./features/wordgames.js"
 import { initRoom, renderRoom } from "./features/room.js";
 import { loadCapsules, leaveCapsule } from "./features/capsule.js";
 import { toggleVibe } from "./features/visualizer.js";
+import { rhythmClick, startKaraoke } from "./features/beatgames.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
   renderScheduled, renderScrapbook, setLocalHold, bumpCount, sendLetter, openLetter,
@@ -233,6 +234,8 @@ function init() {
   $("btn-finale").addEventListener("click", sendFinale);
   $("btn-capsule").addEventListener("click", async () => leaveCapsule(await getPageState()));
   $("btn-vibe").addEventListener("click", toggleVibe);
+  $("btn-rhythm").addEventListener("click", rhythmClick);
+  $("btn-karaoke").addEventListener("click", startKaraoke);
   $("btn-roulette").addEventListener("click", async () => {
     const s = await getPageState(); const back = 30 + Math.floor(Math.random() * 150);
     const t = Math.max(0, ((s && s.time) || 0) - back);

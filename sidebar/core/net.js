@@ -43,6 +43,7 @@ import { receiveParty } from "../features/party.js";
 import { receiveMeld, receivePrediction, receiveCharades } from "../features/wordgames.js";
 import { receiveRoom } from "../features/room.js";
 import { receiveCapsule } from "../features/capsule.js";
+import { receiveScore } from "../features/beatgames.js";
 
 // Send over the active transport. Trystero/relay set S.sendData; manual mode
 // falls back to the raw data channel.
@@ -136,6 +137,9 @@ export async function handleData(d) {
       break;
     case "capsule":
       receiveCapsule(d.cap);
+      break;
+    case "score":
+      receiveScore(d);
       break;
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
