@@ -11,6 +11,7 @@ import { S } from "./state.js";
 import { netSend } from "./net.js";
 import { addMsg, addSys } from "../features/chat.js";
 import { addToGallery } from "../features/photobooth.js";
+import { checkCapsules } from "../features/capsule.js";
 
 // Send a message to the active tab's content script (video control / effects).
 export function parentPost(msg) {
@@ -64,6 +65,7 @@ export function registerTabListener() {
     switch (d.kind) {
       case "video-event":
         netSend({ t: "video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title });
+        checkCapsules(d);
         break;
       case "video-stall":
         netSend({ t: "stall", on: !!d.on });
