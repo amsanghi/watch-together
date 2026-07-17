@@ -136,6 +136,10 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 .cam-tile.live .cam-off-badge { display: none; }
 
 #media-controls { display: flex; align-items: center; gap: 8px; padding: 0 13px 11px; flex: 0 0 auto; }
+.call-quality { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; cursor: help; }
+.call-quality.good { color: #2ecc71; }
+.call-quality.ok { color: #f1c40f; }
+.call-quality.poor { color: #e74c3c; }
 .media-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   background: var(--card); border: 1.5px solid var(--line); color: var(--text); border-radius: 16px;
