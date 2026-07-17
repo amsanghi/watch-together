@@ -151,7 +151,9 @@ function relayNewPC() {
   pc.onnegotiationneeded = async () => {
     try {
       relayMakingOffer = true;
-      await pc.setLocalDescription();
+      const offer = await pc.createOffer();
+      offer.sdp = tuneSdp(offer.sdp);
+      await pc.setLocalDescription(offer);
       relaySignal({ kind: "sdp", sdp: pc.localDescription });
     } catch (err) { console.log("[WT] relay negotiation error", err); }
     finally { relayMakingOffer = false; }
@@ -171,7 +173,7 @@ export function relayShareLocalTracks() {
     try {
       const sender = relayPC.addTrack(t, S.localStream);
       relayShared.add(t);
-      if (t.kind === "video") capVideoBitrate(sender);
+      if (t.kind === "video") capVideoBitrate(sender); else capAudio(sender);
     } catch (_) {}
   });
 }
@@ -181,10 +183,39 @@ async function capVideoBitrate(sender) {
   try {
     const p = sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
-    p.encodings[0].maxBitrate = 300000;
+    p.encodings[0].maxBitrate = (S.settings.videoMaxKbps || 400) * 1000; // ceiling; the adaptive loop lowers it
     p.encodings[0].maxFramerate = 24;
+    p.degradationPreference = "maintain-framerate";
     await sender.setParameters(p);
   } catch (_) {}
+}
+// Protect the voice: mark audio high-priority so it survives congestion (video drops first).
+function capAudio(sender) {
+  try {
+    const p = sender.getParameters();
+    if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+    p.encodings[0].networkPriority = "high";
+    p.encodings[0].priority = "high";
+    sender.setParameters(p);
+  } catch (_) {}
+}
+// Tune Opus in our SDP for resilience + efficiency: in-band FEC (repairs lost audio
+// without a retransmit) and DTX (stop sending packets during silence).
+function tuneSdp(sdp) {
+  if (!sdp) return sdp;
+  const m = sdp.match(/a=rtpmap:(\d+) opus\/48000/i);
+  if (!m) return sdp;
+  const pt = m[1];
+  const fmtpRe = new RegExp("a=fmtp:" + pt + " ([^\\r\\n]*)");
+  if (fmtpRe.test(sdp)) {
+    return sdp.replace(fmtpRe, (_l, params) => {
+      let p = params;
+      if (!/usedtx=/.test(p)) p += ";usedtx=1";
+      if (!/useinbandfec=/.test(p)) p += ";useinbandfec=1";
+      return "a=fmtp:" + pt + " " + p;
+    });
+  }
+  return sdp.replace(new RegExp("(a=rtpmap:" + pt + " opus/48000/2)"), "$1\r\na=fmtp:" + pt + " usedtx=1;useinbandfec=1");
 }
 function relaySignal(payload) { netSend({ t: "__rtc", ...payload }); }
 async function relayOnSignal(m) {
@@ -199,7 +230,9 @@ async function relayOnSignal(m) {
       if (relayIgnoreOffer) return;
       await pc.setRemoteDescription(desc);
       if (desc.type === "offer") {
-        await pc.setLocalDescription();
+        const answer = await pc.createAnswer();
+        answer.sdp = tuneSdp(answer.sdp);
+        await pc.setLocalDescription(answer);
         relaySignal({ kind: "sdp", sdp: pc.localDescription });
       }
     } else if (m.kind === "ice" && m.cand) {
@@ -215,27 +248,42 @@ function startStatsMonitor() {
   clearInterval(statsTimer);
   statsTimer = setInterval(async () => {
     if (!relayPC) return;
-    let frac = 0;
+    let frac = 0, avail = 0;
     try {
       const stats = await relayPC.getStats();
-      stats.forEach((r) => { if (r.type === "remote-inbound-rtp" && r.kind === "video" && typeof r.fractionLost === "number") frac = Math.max(frac, r.fractionLost); });
+      stats.forEach((r) => {
+        if (r.type === "remote-inbound-rtp" && r.kind === "video" && typeof r.fractionLost === "number") frac = Math.max(frac, r.fractionLost);
+        if (r.type === "candidate-pair" && r.nominated && typeof r.availableOutgoingBitrate === "number") avail = r.availableOutgoingBitrate;
+      });
     } catch (_) { return; }
     if (frac > (S.settings.videoLossDrop || 10) / 100) lossStreak++; else lossStreak = 0;
     if (lossStreak >= 3 && !videoDegraded) setVideoActive(false);
     else if (lossStreak === 0 && videoDegraded) setVideoActive(true);
+    if (!videoDegraded && avail > 0) setVideoBitrate(avail); // adaptive: follow the browser's bandwidth estimate
   }, 2000);
 }
 function setVideoActive(active) {
   videoDegraded = !active;
-  if (!relayPC) return;
-  const sender = relayPC.getSenders().find((s) => s.track && s.track.kind === "video");
+  const sender = relayPC && relayPC.getSenders().find((s) => s.track && s.track.kind === "video");
   if (!sender) return;
   try {
     const p = sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
     p.encodings[0].active = active;
-    if (active) p.encodings[0].maxBitrate = 300000;
     sender.setParameters(p);
+  } catch (_) {}
+}
+// Follow the browser's outgoing-bandwidth estimate: target ~85% of it, clamped, so
+// video rides up and down with the link instead of sitting at a fixed cap.
+function setVideoBitrate(avail) {
+  const ceil = (S.settings.videoMaxKbps || 400) * 1000, floor = 90000;
+  const target = Math.max(floor, Math.min(ceil, Math.round(avail * 0.85)));
+  const sender = relayPC && relayPC.getSenders().find((s) => s.track && s.track.kind === "video");
+  if (!sender) return;
+  try {
+    const p = sender.getParameters();
+    if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+    if (Math.abs((p.encodings[0].maxBitrate || 0) - target) > 20000) { p.encodings[0].maxBitrate = target; sender.setParameters(p); }
   } catch (_) {}
 }
 function teardownRelayPC() {
