@@ -403,6 +403,77 @@
     document.documentElement.appendChild(w); setTimeout(() => w.remove(), 1300);
   }
 
+  // ---- Ghost cursors: share where you're pointing, with a sparkle trail + a
+  // high-five spark when your two cursors meet on the frame. Normalized to the
+  // video rect so it maps to the same spot in both windows.
+  let presenceOn = false, cursorWrap = null, ghostDot = null, ghostLabel = null, onCursorMove = null;
+  let lastLocalCur = null, lastRemoteCur = null, remoteSeenAt = 0, cursorRaf = null, hiFiveAt = 0, presenceName = "Partner";
+  function cursorRect() { const v = video || pickVideo(); return v ? v.getBoundingClientRect() : null; }
+  function cursorEnsure() {
+    if (cursorWrap && cursorWrap.isConnected) return;
+    cursorWrap = document.createElement("div"); cursorWrap.id = "wt-cursors";
+    ghostDot = document.createElement("div"); ghostDot.className = "wt-ghost";
+    ghostLabel = document.createElement("div"); ghostLabel.className = "wt-ghost-label";
+    ghostDot.appendChild(ghostLabel); cursorWrap.appendChild(ghostDot);
+    document.documentElement.appendChild(cursorWrap);
+    if (!cursorRaf) cursorRaf = requestAnimationFrame(cursorLoop);
+  }
+  function cursorPlace() {
+    const r = cursorRect(); if (!r || !cursorWrap) return null;
+    cursorWrap.style.left = r.left + "px"; cursorWrap.style.top = r.top + "px";
+    cursorWrap.style.width = r.width + "px"; cursorWrap.style.height = r.height + "px";
+    return r;
+  }
+  function cursorLoop() {
+    const r = cursorPlace();
+    if (r && lastRemoteCur && ghostDot) {
+      ghostDot.style.opacity = Date.now() - remoteSeenAt < 2500 ? "1" : "0";
+      ghostDot.style.left = lastRemoteCur.x * r.width + "px";
+      ghostDot.style.top = lastRemoteCur.y * r.height + "px";
+      ghostLabel.textContent = presenceName;
+    }
+    cursorRaf = (presenceOn || (lastRemoteCur && Date.now() - remoteSeenAt < 2500)) ? requestAnimationFrame(cursorLoop) : null;
+  }
+  function spawnSparkle(px, py) {
+    if (!cursorWrap) return;
+    const s = document.createElement("div"); s.className = "wt-sparkle"; s.textContent = "✨";
+    s.style.left = px + "px"; s.style.top = py + "px";
+    cursorWrap.appendChild(s); setTimeout(() => s.remove(), 700);
+  }
+  function checkHiFive() {
+    if (!lastLocalCur || !lastRemoteCur || Date.now() - remoteSeenAt > 500) return;
+    if (Math.hypot(lastLocalCur.x - lastRemoteCur.x, lastLocalCur.y - lastRemoteCur.y) < 0.05 && Date.now() - hiFiveAt > 1500) {
+      hiFiveAt = Date.now();
+      const r = cursorRect(); if (!r) return;
+      const px = lastLocalCur.x * r.width, py = lastLocalCur.y * r.height;
+      for (let i = 0; i < 8; i++) setTimeout(() => spawnSparkle(px + (Math.random() * 50 - 25), py + (Math.random() * 50 - 25)), i * 35);
+    }
+  }
+  function setPresence(on) {
+    presenceOn = on;
+    if (on) {
+      cursorEnsure();
+      if (!onCursorMove) {
+        let last = 0;
+        onCursorMove = (e) => {
+          const now = Date.now(); if (now - last < 40) return; last = now;
+          const r = cursorPlace(); if (!r) return;
+          const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+          if (x < -0.05 || x > 1.05 || y < -0.05 || y > 1.05) return;
+          lastLocalCur = { x, y }; toPanel({ kind: "cursor", x, y }); checkHiFive();
+        };
+        window.addEventListener("pointermove", onCursorMove);
+      }
+    } else if (onCursorMove) { window.removeEventListener("pointermove", onCursorMove); onCursorMove = null; }
+  }
+  function showRemoteCursor(x, y, name) {
+    if (name) presenceName = name;
+    lastRemoteCur = { x, y }; remoteSeenAt = Date.now();
+    cursorEnsure();
+    const r = cursorRect(); if (r) spawnSparkle(x * r.width, y * r.height);
+    checkHiFive();
+  }
+
   // ---- Follow: "Join what my partner is watching" banner ------------------
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -423,6 +494,8 @@
       case "subtitle": showSubtitle(msg.text); break;
       case "cover": setCover(msg.on); break;
       case "replay": replayWipe(); break;
+      case "presence": setPresence(msg.on); break;
+      case "cursor-show": showRemoteCursor(msg.x, msg.y, msg.name); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.

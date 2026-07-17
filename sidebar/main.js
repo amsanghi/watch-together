@@ -124,6 +124,8 @@ function init() {
     netSend({ t: "video", action: "seek", time: t, paused: false }); parentPost({ kind: "apply-video", action: "seek", time: t, paused: false });
     netSend({ t: "replay" }); parentPost({ kind: "replay" });
   });
+  let presenceOn = false;
+  $("btn-presence").addEventListener("click", () => { presenceOn = !presenceOn; $("btn-presence").classList.toggle("on", presenceOn); parentPost({ kind: "presence", on: presenceOn }); });
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 
