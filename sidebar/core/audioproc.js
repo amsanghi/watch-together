@@ -32,7 +32,7 @@ let audioCtx = null;
 // outgoing track doesn't stop us from noticing when speech resumes)
 let micClone = null, micSource = null, micAnalyser = null, micBuf = null;
 let gateOpen = false, micSpeechUntil = 0;
-let micEventCb = null, prevMicLvl = 0, micEvtCooldown = 0;
+let micEventCb = null, prevMicLvl = 0, micEvtCooldown = 0, lastLevel = 0;
 // remote (partner): compressor chain + a level analyser for the duck
 let remoteStream = null;
 let remoteSource = null, remoteComp = null, remoteGain = null, remoteAnalyser = null, remoteBuf = null;
@@ -54,6 +54,8 @@ export function resumeAudioCtx() {
 }
 // Register a handler for mic "events" (currently a clap / loud transient).
 export function onMicEvent(cb) { micEventCb = cb; }
+// Current combined audio level (mic + partner), for the vibe visualizer.
+export function getAudioLevel() { return lastLevel; }
 
 function rms(analyser, buf) {
   if (!analyser || !buf) return 0;
@@ -163,11 +165,13 @@ function tick() {
     }
     prevMicLvl = lvl;
   } else prevMicLvl = 0;
-  let remoteSpeaking = false;
+  let remoteSpeaking = false, rlvl = 0;
   if (remoteAnalyser) {
-    if (rms(remoteAnalyser, remoteBuf) > sensToThresh(num("remoteSens", 75))) remoteSpeechUntil = now + num("duckHold", 700);
+    rlvl = rms(remoteAnalyser, remoteBuf);
+    if (rlvl > sensToThresh(num("remoteSens", 75))) remoteSpeechUntil = now + num("duckHold", 700);
     remoteSpeaking = now < remoteSpeechUntil;
   }
+  lastLevel = Math.max(prevMicLvl, rlvl);
   if (remoteComp) remoteComp.ratio.value = clampN(num("levelStrength", 12), 1, 20); // live auto-level strength
   if (S.settings.autoDuck) {
     const localSpeaking = S.micOn && now < micSpeechUntil;   // my speech only counts while my mic is on
