@@ -68,8 +68,10 @@
   const onPlay = () => { if (!suppress) send("play"); };
   const onPause = () => { if (!suppress && !seeking) send("pause"); };
   const onSeeking = () => { seeking = true; clearTimeout(seekingTimer); seekingTimer = setTimeout(() => { seeking = false; }, 2000); };
-  const onSeeked = () => { clearTimeout(seekingTimer); seeking = false; if (!suppress) send("seek"); };
-  const onRate = () => { if (!suppress) send("rate"); };
+  let syncDebounce = null;
+  const debouncedSend = (action) => { clearTimeout(syncDebounce); syncDebounce = setTimeout(() => { if (!suppress) send(action); }, 180); };
+  const onSeeked = () => { clearTimeout(seekingTimer); seeking = false; debouncedSend("seek"); };
+  const onRate = () => { debouncedSend("rate"); };
   const onWaiting = () => { if (!stalling && !suppress) { stalling = true; toPanel({ kind: "video-stall", on: true }); } };
   const onPlaying = () => { if (stalling) { stalling = false; toPanel({ kind: "video-stall", on: false }); } };
 

@@ -161,6 +161,8 @@ export function updateMediaButtons() {
 export function remoteStreamHandler(stream) {
   const rv = $("remote-video");
   rv.srcObject = stream;
+  const vt = stream && stream.getVideoTracks()[0];
+  if (vt) { vt.onmute = updateRemoteTile; vt.onunmute = updateRemoteTile; } // surface network stalls
   attachRemoteAudio(stream); // route the partner's audio through the auto-level compressor
   applyRemoteVolume();
   updateRemoteTile();
@@ -183,11 +185,15 @@ export function setRemoteVolume(v) {
 }
 
 export function updateRemoteTile() {
-  const tile = $("remote-video").parentElement;
-  const hasStream = !!$("remote-video").srcObject;
-  tile.classList.toggle("live", hasStream && S.remoteState.cam);
-  $("remote-off").textContent = !hasStream ? "waiting…" : S.remoteState.cam ? "" : "cam off";
-  $("remote-off").style.display = hasStream && S.remoteState.cam ? "none" : "flex";
+  const rv = $("remote-video");
+  const tile = rv.parentElement;
+  const hasStream = !!rv.srcObject;
+  const vt = hasStream ? rv.srcObject.getVideoTracks()[0] : null;
+  const stalled = !!(vt && vt.muted); // network stalled the incoming video
+  const showVideo = hasStream && S.remoteState.cam && !stalled;
+  tile.classList.toggle("live", showVideo);
+  $("remote-off").textContent = !hasStream ? "waiting…" : stalled ? "reconnecting…" : S.remoteState.cam ? "" : "cam off";
+  $("remote-off").style.display = showVideo ? "none" : "flex";
   syncFunCams();
 }
 
