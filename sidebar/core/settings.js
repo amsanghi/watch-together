@@ -31,6 +31,7 @@ export function loadSettings() {
     if ($("set-autoduck")) $("set-autoduck").checked = S.settings.autoDuck !== false;
     if ($("set-autolevel")) $("set-autolevel").checked = S.settings.autoLevel !== false;
     if ($("set-clapreact")) $("set-clapreact").checked = S.settings.clapReact !== false;
+    if ($("set-scarecam")) $("set-scarecam").checked = !!S.settings.scareCam;
     document.querySelectorAll(".audio-tune").forEach((el) => {
       const v = S.settings[el.dataset.key];
       if (typeof v === "number") el.value = v;
@@ -106,6 +107,7 @@ export function saveSettings() {
   if ($("set-autoduck")) S.settings.autoDuck = $("set-autoduck").checked;
   if ($("set-autolevel")) S.settings.autoLevel = $("set-autolevel").checked;
   if ($("set-clapreact")) S.settings.clapReact = $("set-clapreact").checked;
+  if ($("set-scarecam")) S.settings.scareCam = $("set-scarecam").checked;
   document.querySelectorAll(".audio-tune").forEach((el) => { S.settings[el.dataset.key] = Number(el.value); });
   S.settings.petName = $("set-petname").value.trim();
   const newColor = $("set-theme").value;

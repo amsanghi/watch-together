@@ -37,6 +37,7 @@ import {
 import { addToGallery, receivePbOpen, applyPbSettings, pbApplyIncomingShots, receivePbGo } from "../features/photobooth.js";
 import { playSfx } from "../features/soundboard.js";
 import { setBingoCard, applyCell } from "../features/bingo.js";
+import { receiveHr } from "../features/heartbeat.js";
 
 // Send over the active transport. Trystero/relay set S.sendData; manual mode
 // falls back to the raw data channel.
@@ -96,6 +97,9 @@ export async function handleData(d) {
     case "bingo":
       if (Array.isArray(d.reset)) setBingoCard(d.reset);
       else if (typeof d.cell === "number") applyCell(d.cell);
+      break;
+    case "hr":
+      receiveHr(d.bpm);
       break;
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
