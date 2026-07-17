@@ -16,7 +16,7 @@ import { loadSettings, saveName, saveSettings, applyTheme } from "./core/setting
 import { startPairing, unpair, forceReconnect, leaveRoom, onNetworkWake } from "./core/connection.js";
 import { registerTabListener, getPageState, parentPost } from "./core/tab.js";
 import { toggleMic, toggleCam, setRemoteVolume, syncFunCams, initDeviceRecovery } from "./core/media.js";
-import { startAudioLoop, resumeAudioCtx } from "./core/audioproc.js";
+import { startAudioLoop, resumeAudioCtx, onMicEvent } from "./core/audioproc.js";
 import { manualHost, manualHostFinish, manualGuestGen } from "./transports/manual.js";
 import { sendChat, buildEmoji, searchGifs, searchGifsDebounced } from "./features/chat.js";
 import { sendReaction, sendSnap, beatFast } from "./features/reactions.js";
@@ -240,6 +240,7 @@ function init() {
   // ---- Side effects that were module-scope in the original monolith ----
   registerTabListener();                          // content-script → panel messages
   startAudioLoop();                               // mic-gate / auto-duck / auto-level loop
+  onMicEvent(() => { sendSfx("applause"); sendReaction("laugh"); }); // clap → applause + burst on both
   document.addEventListener("pointerdown", resumeAudioCtx); // unlock the AudioContext on first click
   window.addEventListener("online", onNetworkWake);         // proactive reconnect on network return
   document.addEventListener("visibilitychange", () => { if (!document.hidden) onNetworkWake(); });
