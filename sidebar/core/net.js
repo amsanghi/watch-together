@@ -20,7 +20,7 @@ import { applyPartnerName, applyPartnerTheme } from "./settings.js";
 import { hardReconnect, recentlyReloaded } from "./connection.js";
 import { connectRelay } from "../transports/relay.js";
 import { addMsg, addSys, showTyping } from "../features/chat.js";
-import { burst, beatFast, runCountdown } from "../features/reactions.js";
+import { burst, beatFast, runCountdown, noteRemoteReaction } from "../features/reactions.js";
 import { receiveInvite } from "../features/invite.js";
 import { refreshDates } from "../features/stats.js";
 import { receiveWeather } from "../features/weather.js";
@@ -88,6 +88,7 @@ export async function handleData(d) {
       break;
     case "reaction":
       burst(d.reaction);
+      noteRemoteReaction();
       break;
     case "sfx":
       playSfx(d.name);
