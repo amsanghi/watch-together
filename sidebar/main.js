@@ -116,6 +116,14 @@ function init() {
   });
   $("btn-hr").addEventListener("click", toggleHeartbeat);
   $("btn-frame").addEventListener("click", () => parentPost({ kind: "grab-frame" }));
+  $("btn-subtitle").addEventListener("click", () => { const t = prompt("Subtitle / redub line:"); if (t) { netSend({ t: "subtitle", text: t }); parentPost({ kind: "subtitle", text: t }); } });
+  let coverOn = false;
+  $("btn-cover").addEventListener("click", () => { coverOn = !coverOn; $("btn-cover").classList.toggle("on", coverOn); netSend({ t: "cover", on: coverOn }); });
+  $("btn-replay").addEventListener("click", async () => {
+    const s = await getPageState(); const t = Math.max(0, ((s && s.time) || 0) - 10);
+    netSend({ t: "video", action: "seek", time: t, paused: false }); parentPost({ kind: "apply-video", action: "seek", time: t, paused: false });
+    netSend({ t: "replay" }); parentPost({ kind: "replay" });
+  });
   $("btn-snap").addEventListener("click", sendSnap);
   $("btn-photobooth").addEventListener("click", openPhotobooth);
 
