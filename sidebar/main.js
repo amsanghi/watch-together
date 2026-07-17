@@ -29,7 +29,7 @@ import {
   openPhotobooth, closePhotobooth, pbStart, pbSend, pbSave, pbDownload, pbRetake,
   pbOnControl, pbDrawInit, pbClearDraw, clearGallery, renderGallery, loadGallery,
 } from "./features/photobooth.js";
-import { renderHistory, refreshStats, refreshDates } from "./features/stats.js";
+import { renderHistory, refreshStats, refreshDates, renderShelf, checkAnniversaryWatch } from "./features/stats.js";
 import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
 import { newBingo, renderBingo } from "./features/bingo.js";
@@ -66,6 +66,7 @@ function openFun() {
   renderBingo();
   renderCloseness();
   renderRoom();
+  renderShelf();
   syncFunCams();
   showPanel("fun");
 }
@@ -321,6 +322,7 @@ function init() {
   setInterval(checkScheduled, 20000);             // deliver due surprise notes
   initRoom();                                     // "our couch" drag scene
   loadCapsules();                                 // time-capsule notes pinned to movies
+  checkAnniversaryWatch();                         // "one year ago today you watched…"
   initDeviceRecovery();                           // re-acquire mic/cam if a device is unplugged mid-call
   let lastPosAt = 0;                              // broadcast position so the follower can correct drift
   setInterval(async () => {

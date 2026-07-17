@@ -223,6 +223,10 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 #room-me { cursor: grab; touch-action: none; border: 2px solid var(--accent); }
 #room-them { border: 2px solid #8ecbff; }
 .room-av.reach { transform: translateY(-9px) scale(1.12); }
+#shelf { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.poster { flex: 0 0 68px; height: 96px; border-radius: 8px; padding: 6px; color: #fff; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.poster-t { font-size: 10px; font-weight: 800; line-height: 1.15; overflow: hidden; max-height: 62px; }
+.poster-d { font-size: 8px; opacity: .8; margin-top: 3px; }
 .prog { height: 10px; background: var(--line); border-radius: 6px; overflow: hidden; margin-top: 6px; }
 .prog-in { height: 100%; background: var(--grad); width: 0; transition: width 0.5s; }
 body.mood-lamp::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; box-shadow: inset 0 0 70px 12px var(--accent); animation: moodlamp 6s ease-in-out infinite; opacity: 0.45; }

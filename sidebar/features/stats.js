@@ -9,6 +9,7 @@ import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { getPageState, parentPost } from "../core/tab.js";
 import { burst } from "./reactions.js";
+import { addSys } from "./chat.js";
 
 // ---- Date helpers -------------------------------------------------------
 export function todayStr() {
@@ -58,6 +59,44 @@ export function renderHistory() {
       const d = document.createElement("div"); d.className = "d"; d.textContent = h.date + (h.url ? " · " + new URL(h.url).hostname : "");
       el.appendChild(t); el.appendChild(d);
       list.appendChild(el);
+    });
+  });
+}
+
+// ---- Poster shelf: the movies you've watched, as colored spines ----------
+function hashHue(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 360; }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+export function renderShelf() {
+  const shelf = $("shelf"); if (!shelf) return;
+  chrome.storage.local.get(["wt_stats"], (r) => {
+    const st = r.wt_stats || { history: [] };
+    shelf.innerHTML = "";
+    if (!st.history.length) { shelf.innerHTML = '<div class="muted small">Your shelf fills up as you watch 🎬</div>'; return; }
+    st.history.forEach((h) => {
+      const hue = hashHue(h.title || "");
+      const el = document.createElement("div"); el.className = "poster";
+      el.style.background = "linear-gradient(160deg, hsl(" + hue + ",55%,44%), hsl(" + ((hue + 40) % 360) + ",55%,26%))";
+      el.innerHTML = '<div class="poster-t">' + esc(h.title || "A video") + '</div><div class="poster-d">' + esc(h.date || "") + "</div>";
+      shelf.appendChild(el);
+    });
+  });
+}
+
+// ---- "One year ago" — resurface a watch from this date in a past year -----
+const annShown = new Set();
+export function checkAnniversaryWatch() {
+  chrome.storage.local.get(["wt_stats"], (r) => {
+    const st = r.wt_stats || { history: [] };
+    const now = new Date();
+    st.history.forEach((h) => {
+      if (!h.date) return;
+      const d = new Date(h.date + "T00:00:00");
+      const years = now.getFullYear() - d.getFullYear();
+      const same = d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+      if (years >= 1 && same && !annShown.has(h.date + h.title)) {
+        annShown.add(h.date + h.title);
+        addSys("💞 " + years + " year" + (years > 1 ? "s" : "") + " ago today you watched: " + h.title);
+      }
     });
   });
 }
