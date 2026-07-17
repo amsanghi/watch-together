@@ -23,6 +23,7 @@ let relayIgnoreOffer = false;
 const relayShared = new Set();  // local tracks already added to relayPC
 let relayEverOpened = false;    // did the socket open this attempt (vs. never reached the relay)
 let relayOpenFails = 0;         // consecutive attempts that never opened → relay is unreachable
+let relayBackoff = 0;           // reconnect backoff step (reset on a successful open)
 
 // Accept whatever the user pasted: wss://host, https://host, or a bare host.
 function normalizeRelayUrl(raw) {
@@ -41,6 +42,7 @@ function relayIceServers() {
   const list = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
   ];
   if (S.settings.turnUrl) {
     list.push({ urls: S.settings.turnUrl, username: S.settings.turnUser || "", credential: S.settings.turnPass || "" });
@@ -67,7 +69,7 @@ export function connectRelay() {
   // Everything the app sends now goes over the relay.
   S.sendData = (obj) => { try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj)); } catch (_) {} };
 
-  ws.onopen = () => { relayEverOpened = true; relayOpenFails = 0; console.log("[WT] relay socket open"); }; // wait for the roster before "connected"
+  ws.onopen = () => { relayEverOpened = true; relayOpenFails = 0; relayBackoff = 0; console.log("[WT] relay socket open"); }; // wait for the roster before "connected"
   ws.onmessage = (ev) => {
     let m; try { m = JSON.parse(ev.data); } catch (_) { return; }
     S.lastRx = Date.now();
@@ -114,11 +116,13 @@ function relayControl(m) {
 
 function scheduleRelayReconnect() {
   clearTimeout(relayReconnectTimer);
+  const delay = Math.min(15000, 1500 * Math.pow(1.6, relayBackoff)) + Math.random() * 500; // exponential backoff + jitter
+  relayBackoff++;
   relayReconnectTimer = setTimeout(() => {
     if (!S.relayMode || !relayWantOpen) return;
     const st = S.relayWs ? S.relayWs.readyState : WebSocket.CLOSED;
     if (st === WebSocket.CLOSED || st === WebSocket.CLOSING) connectRelay();
-  }, 2500);
+  }, delay);
 }
 
 export function teardownRelay(clearIntent) {
@@ -161,11 +165,21 @@ function relayNewPC() {
   // The data socket staying up masks a dead media path, so the app heartbeat won't
   // catch it — recover the call in place with an ICE restart. Perfect negotiation
   // sorts out the re-offer if both sides restart at once.
+  let iceGrace = null;
   pc.oniceconnectionstatechange = () => {
-    if (pc.iceConnectionState === "failed") { try { pc.restartIce(); } catch (_) {} }
+    const st = pc.iceConnectionState;
+    if (st === "failed") { clearTimeout(iceGrace); iceGrace = null; try { pc.restartIce(); } catch (_) {} }
+    else if (st === "disconnected") {
+      // 'failed' can take 15–30s; recover a transient blip after a short grace instead.
+      clearTimeout(iceGrace);
+      iceGrace = setTimeout(() => { if (relayPC === pc && (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed")) { try { pc.restartIce(); } catch (_) {} } }, 3000);
+    } else if (st === "connected" || st === "completed") { clearTimeout(iceGrace); iceGrace = null; }
   };
   return pc;
 }
+// Kick an ICE restart on the call PC (used on wake / network change to heal a stale
+// media path even when the data socket looks fine).
+export function relayRestartIce() { if (relayPC) { try { relayPC.restartIce(); } catch (_) {} } }
 export function relayShareLocalTracks() {
   if (!relayPC || !S.localStream) return;
   S.localStream.getTracks().forEach((t) => {
