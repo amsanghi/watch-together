@@ -160,7 +160,10 @@ textarea { resize: vertical; min-height: 56px; font-size: 11px; font-family: ui-
 .invite-actions .primary, .invite-actions .ghost { flex: 1; padding: 10px; }
 
 /* Couple bar */
-#couple-bar { display: flex; gap: 7px; padding: 13px; flex-wrap: wrap; flex: 0 0 auto; border-bottom: 1px solid var(--line); }
+#couple-bar { display: flex; gap: 7px; padding: 13px; flex-wrap: wrap; flex: 0 0 auto; }
+#tools-wrap { max-height: 118px; overflow-y: auto; flex: 0 0 auto; transition: max-height 0.2s ease; border-bottom: 1px solid var(--line); }
+#tools-wrap.collapsed { max-height: 0; overflow: hidden; border-bottom: none; }
+.tools-toggle { width: 100%; text-align: left; background: var(--card); border: none; border-top: 1px solid var(--line); color: var(--accent2); font-weight: 800; font-size: 12px; padding: 7px 13px; cursor: pointer; font-family: inherit; flex: 0 0 auto; }
 .cute-btn { background: var(--card); border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 13px; cursor: pointer; font-size: 18px; transition: transform 0.1s, background 0.15s, box-shadow 0.15s; }
 .cute-btn:hover { transform: scale(1.14) rotate(-4deg); background: var(--card-h); box-shadow: var(--glow); }
 .cute-btn:active { transform: scale(0.85); }

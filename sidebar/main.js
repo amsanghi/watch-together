@@ -136,6 +136,10 @@ function init() {
   $("btn-feelheart").addEventListener("click", () => { netSend({ t: "heartbeat-play", bpm: getMyBpm() || 72 }); addSys("💓 Sent your heartbeat to " + S.settings.partner); });
   $("btn-haunt").addEventListener("click", () => { netSend({ t: "haunt" }); addSys("👻 Boo! (sent to " + S.settings.partner + ")"); });
   $("btn-moodlamp").addEventListener("click", () => document.body.classList.toggle("mood-lamp"));
+  $("tools-toggle").addEventListener("click", (e) => {
+    const collapsed = $("tools-wrap").classList.toggle("collapsed");
+    e.currentTarget.textContent = "🎉 Reactions & tools " + (collapsed ? "▸" : "▾");
+  });
   $("btn-frame").addEventListener("click", () => parentPost({ kind: "grab-frame" }));
   $("btn-meme").addEventListener("click", () => parentPost({ kind: "grab-frame", meme: true }));
   $("btn-subtitle").addEventListener("click", () => { const t = prompt("Subtitle / redub line:"); if (t) { netSend({ t: "subtitle", text: t }); parentPost({ kind: "subtitle", text: t }); } });
