@@ -70,3 +70,4 @@ function setReadout() {
   r.textContent = (lastBpm ? "you ~" + lastBpm : "reading…") + (partnerBpm ? " · them ~" + partnerBpm : "") + " bpm (approx)";
 }
 export function receiveHr(bpm) { if (typeof bpm === "number") { partnerBpm = bpm; if (on) setReadout(); } }
+export function getMyBpm() { return lastBpm; }

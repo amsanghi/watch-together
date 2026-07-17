@@ -35,7 +35,8 @@ import {
   setEmojiPuzzle, renderEmojiGuess, emojiReveal,
 } from "../features/games.js";
 import { addToGallery, receivePbOpen, applyPbSettings, pbApplyIncomingShots, receivePbGo } from "../features/photobooth.js";
-import { playSfx } from "../features/soundboard.js";
+import { playSfx, playHeartbeat } from "../features/soundboard.js";
+import { showKissCam, showBreathe } from "../features/intimacy.js";
 import { setBingoCard, applyCell } from "../features/bingo.js";
 import { receiveHr } from "../features/heartbeat.js";
 import { receiveParty } from "../features/party.js";
@@ -104,6 +105,15 @@ export async function handleData(d) {
       break;
     case "party":
       receiveParty(d);
+      break;
+    case "kisscam":
+      showKissCam();
+      break;
+    case "breathe":
+      showBreathe();
+      break;
+    case "heartbeat-play":
+      playHeartbeat(d.bpm);
       break;
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });

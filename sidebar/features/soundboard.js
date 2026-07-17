@@ -91,3 +91,17 @@ export function sendSfx(name) {
   playSfx(name);
   netSend({ t: "sfx", name });
 }
+
+// A soft "lub-dub" heartbeat played at a given BPM for a few seconds — used by
+// "feel my heartbeat" so your partner literally hears your pulse on their speaker.
+export function playHeartbeat(bpm, secs) {
+  const c = ac(); if (!c) return;
+  const b = Math.max(40, Math.min(180, bpm || 72));
+  const interval = 60 / b, dur = secs || 8;
+  const t = c.currentTime + 0.05;
+  for (let beat = 0; beat * interval < dur; beat++) {
+    const t0 = t + beat * interval;
+    tone(c, "sine", 70, 45, t0, 0.12, 0.35);
+    tone(c, "sine", 60, 40, t0 + 0.16, 0.14, 0.28);
+  }
+}
