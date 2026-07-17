@@ -8,6 +8,7 @@ import { S } from "../core/state.js";
 import { netSend } from "../core/net.js";
 import { addSys } from "./chat.js";
 import { parentPost } from "../core/tab.js";
+import { todayStr } from "./stats.js";
 
 // Closeness meter — a level computed from the moments you've already racked up
 // (kisses, hugs, hand-holding minutes). Pure display; refreshed when the Fun panel opens.
@@ -53,8 +54,20 @@ function doBreak() {
 export function sendFortune() { const f = pick(FORTUNES); netSend({ t: "party", kind: "fortune", text: f }); showFortune(f); }
 export function sendGameRule() { const g = pick(GAME_RULES); netSend({ t: "party", kind: "rule", text: g }); showRule(g); }
 export function sendBreak() { netSend({ t: "party", kind: "break" }); doBreak(); }
+function showFinale(text) {
+  addSys(text); parentPost({ kind: "toast", text });
+  S.scrapbook.unshift({ text, date: todayStr() }); S.scrapbook = S.scrapbook.slice(0, 100);
+  chrome.storage.local.set({ wt_scrapbook: S.scrapbook });
+}
+export function sendFinale() {
+  const score = 60 + Math.floor(Math.random() * 41);
+  const verdict = score > 92 ? "soulmates 💞" : score > 78 ? "adorable 🥰" : score > 65 ? "cozy night 🍿" : "sweet 💛";
+  const text = "🎬 Tonight's love-o-meter: " + score + "% — " + verdict;
+  netSend({ t: "party", kind: "finale", text }); showFinale(text);
+}
 export function receiveParty(d) {
   if (d.kind === "fortune") showFortune(d.text);
   else if (d.kind === "rule") showRule(d.text);
   else if (d.kind === "break") doBreak();
+  else if (d.kind === "finale") showFinale(d.text);
 }

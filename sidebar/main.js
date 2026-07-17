@@ -33,7 +33,7 @@ import { renderHistory, refreshStats, refreshDates } from "./features/stats.js";
 import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
 import { newBingo, renderBingo } from "./features/bingo.js";
-import { sendFortune, sendGameRule, sendBreak, renderCloseness } from "./features/party.js";
+import { sendFortune, sendGameRule, sendBreak, renderCloseness, sendFinale } from "./features/party.js";
 import { sendMeld, sendPrediction, sendCharades } from "./features/wordgames.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
@@ -225,6 +225,7 @@ function init() {
   $("btn-meld").addEventListener("click", sendMeld);
   $("btn-predict").addEventListener("click", sendPrediction);
   $("btn-charades").addEventListener("click", sendCharades);
+  $("btn-finale").addEventListener("click", sendFinale);
   $("btn-roulette").addEventListener("click", async () => {
     const s = await getPageState(); const back = 30 + Math.floor(Math.random() * 150);
     const t = Math.max(0, ((s && s.time) || 0) - back);
