@@ -65,6 +65,22 @@ export function playSfx(name) {
       case "sad": // "awww" — a gentle descending tone
         tone(c, "sine", 520, 300, t, 0.5, 0.2);
         break;
+      case "knock":
+        tone(c, "sine", 120, 90, t, 0.08, 0.32);
+        tone(c, "sine", 120, 90, t + 0.19, 0.08, 0.32);
+        break;
+      case "boo":
+        tone(c, "sawtooth", 200, 110, t, 0.6, 0.2);
+        break;
+      case "ding":
+        tone(c, "sine", 1568, 1568, t, 0.5, 0.2);
+        tone(c, "sine", 2093, 2093, t, 0.5, 0.1);
+        break;
+      case "sadtrombone":
+        tone(c, "sawtooth", 233, 220, t, 0.25, 0.2);
+        tone(c, "sawtooth", 207, 196, t + 0.28, 0.25, 0.2);
+        tone(c, "sawtooth", 185, 138, t + 0.56, 0.55, 0.22);
+        break;
       default:
         tone(c, "sine", 660, 660, t, 0.15, 0.2);
     }
