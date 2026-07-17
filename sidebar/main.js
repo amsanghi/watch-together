@@ -31,6 +31,7 @@ import { renderHistory, refreshStats, refreshDates } from "./features/stats.js";
 import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
 import { newBingo, renderBingo } from "./features/bingo.js";
+import { sendFortune, sendGameRule, sendBreak } from "./features/party.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
   renderScheduled, renderScrapbook, setLocalHold, bumpCount, sendLetter, openLetter,
@@ -209,6 +210,15 @@ function init() {
   document.querySelectorAll(".card-btn[data-card]").forEach((b) => b.addEventListener("click", () => drawCard(b.dataset.card)));
   $("ttt-reset").addEventListener("click", () => tttReset(true));
   $("bingo-new").addEventListener("click", newBingo);
+  $("btn-break").addEventListener("click", sendBreak);
+  $("btn-fortune").addEventListener("click", sendFortune);
+  $("btn-gamerule").addEventListener("click", sendGameRule);
+  $("btn-roulette").addEventListener("click", async () => {
+    const s = await getPageState(); const back = 30 + Math.floor(Math.random() * 150);
+    const t = Math.max(0, ((s && s.time) || 0) - back);
+    netSend({ t: "video", action: "seek", time: t, paused: false }); parentPost({ kind: "apply-video", action: "seek", time: t, paused: false });
+    parentPost({ kind: "toast", text: "🎲 Rewind roulette! −" + back + "s" });
+  });
   document.querySelectorAll("[data-glow]").forEach((b) => b.addEventListener("click", () => {
     const c = b.dataset.glow; S.settings.themeColor = c; applyTheme(c);
     chrome.storage.local.set({ wt_settings: S.settings }); netSend({ t: "theme", color: c });
