@@ -205,7 +205,7 @@
   }, 2500);
 
   // ---- Page effects -------------------------------------------------------
-  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿", confetti: "🎊" };
+  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿", confetti: "🎊", ghost: "👻" };
   function spawnHearts(kind, count = 14) {
     const cont = ensureOverlay();
     const emoji = HEARTS[kind] || "❤️";
@@ -410,6 +410,11 @@
     const w = document.createElement("div"); w.id = "wt-replay"; w.textContent = "🔁 INSTANT REPLAY";
     document.documentElement.appendChild(w); setTimeout(() => w.remove(), 1300);
   }
+  function hauntFx() {
+    shake(); spawnHearts("ghost", 12);
+    const f = document.createElement("div"); f.id = "wt-haunt"; document.documentElement.appendChild(f);
+    setTimeout(() => f.remove(), 700);
+  }
 
   // ---- Ghost cursors: share where you're pointing, with a sparkle trail + a
   // high-five spark when your two cursors meet on the frame. Normalized to the
@@ -502,6 +507,7 @@
       case "subtitle": showSubtitle(msg.text); break;
       case "cover": setCover(msg.on); break;
       case "replay": replayWipe(); break;
+      case "haunt": hauntFx(); break;
       case "presence": setPresence(msg.on); break;
       case "cursor-show": showRemoteCursor(msg.x, msg.y, msg.name); break;
       case "request-state": sendResponse(currentState()); break;

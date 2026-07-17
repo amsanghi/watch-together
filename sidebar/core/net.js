@@ -125,6 +125,10 @@ export async function handleData(d) {
     case "charades":
       receiveCharades();
       break;
+    case "haunt":
+      playSfx("boo");
+      parentPost({ kind: "haunt" });
+      break;
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
       break;

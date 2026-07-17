@@ -4,9 +4,22 @@
 //
 // Exports: sendFortune, sendGameRule, sendBreak, receiveParty.
 
+import { S } from "../core/state.js";
 import { netSend } from "../core/net.js";
 import { addSys } from "./chat.js";
 import { parentPost } from "../core/tab.js";
+
+// Closeness meter — a level computed from the moments you've already racked up
+// (kisses, hugs, hand-holding minutes). Pure display; refreshed when the Fun panel opens.
+export function renderCloseness() {
+  const bar = document.getElementById("closeness-bar"); if (!bar) return;
+  const score = (S.counts.kiss || 0) + (S.counts.hug || 0) + Math.floor((S.handSeconds || 0) / 60);
+  const level = Math.floor(Math.sqrt(score));
+  const into = score - level * level, span = (level + 1) * (level + 1) - level * level;
+  bar.style.width = Math.min(100, Math.round((into / span) * 100)) + "%";
+  const lbl = document.getElementById("closeness-lbl");
+  if (lbl) lbl.textContent = "Level " + level + " 💞 · " + score + " moments together";
+}
 
 const FORTUNES = [
   "You'll both cry at the ending (one of you first) 😢",
