@@ -35,6 +35,7 @@ import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./f
 import { newBingo, renderBingo } from "./features/bingo.js";
 import { sendFortune, sendGameRule, sendBreak, renderCloseness, sendFinale } from "./features/party.js";
 import { sendMeld, sendPrediction, sendCharades } from "./features/wordgames.js";
+import { initRoom, renderRoom } from "./features/room.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
   renderScheduled, renderScrapbook, setLocalHold, bumpCount, sendLetter, openLetter,
@@ -62,6 +63,7 @@ function openFun() {
   renderGallery();
   renderBingo();
   renderCloseness();
+  renderRoom();
   syncFunCams();
   showPanel("fun");
 }
@@ -313,6 +315,7 @@ function init() {
   window.addEventListener("beforeunload", leaveRoom);
   setInterval(refreshDates, 60000);               // keep the partner clock fresh
   setInterval(checkScheduled, 20000);             // deliver due surprise notes
+  initRoom();                                     // "our couch" drag scene
   initDeviceRecovery();                           // re-acquire mic/cam if a device is unplugged mid-call
   let lastPosAt = 0;                              // broadcast position so the follower can correct drift
   setInterval(async () => {
