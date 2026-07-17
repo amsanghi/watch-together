@@ -191,6 +191,10 @@ function init() {
   document.querySelectorAll(".card-btn[data-card]").forEach((b) => b.addEventListener("click", () => drawCard(b.dataset.card)));
   $("ttt-reset").addEventListener("click", () => tttReset(true));
   $("bingo-new").addEventListener("click", newBingo);
+  document.querySelectorAll("[data-glow]").forEach((b) => b.addEventListener("click", () => {
+    const c = b.dataset.glow; S.settings.themeColor = c; applyTheme(c);
+    chrome.storage.local.set({ wt_settings: S.settings }); netSend({ t: "theme", color: c });
+  }));
   $("doodle-clear").addEventListener("click", () => doodleClear(true));
   tttBuild(); tttReset(false);
   doodleInit();
