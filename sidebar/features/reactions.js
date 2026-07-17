@@ -41,6 +41,18 @@ export function spawnPanelHearts(kind, count = 12) {
 export function sendReaction(kind) {
   netSend({ t: "reaction", reaction: kind });
   burst(kind);
+  lastLocalReact = Date.now(); checkSync();
+}
+// "In sync!" — if you both react within ~2.5s, throw a little shared celebration.
+let lastLocalReact = 0, lastRemoteReact = 0, lastSyncCelebr = 0;
+export function noteRemoteReaction() { lastRemoteReact = Date.now(); checkSync(); }
+function checkSync() {
+  const now = Date.now();
+  if (lastLocalReact && lastRemoteReact && Math.abs(lastLocalReact - lastRemoteReact) < 2500 && now - lastSyncCelebr > 5000) {
+    lastSyncCelebr = now;
+    burst("heart");
+    addSys("💞 In sync! You both reacted at once");
+  }
 }
 export function beatFast() {
   const h = $("presence-heart");
