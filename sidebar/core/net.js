@@ -103,6 +103,9 @@ export async function handleData(d) {
     case "annot": // partner pointed/drew on the video → mirror it on our overlay
       parentPost({ kind: "annot-show", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color });
       break;
+    case "cinema":
+      parentPost({ kind: "cinema", on: !!d.on });
+      break;
     case "sync-req": {
       const s = await getPageState();
       netSend({ t: "sync-state", state: s });

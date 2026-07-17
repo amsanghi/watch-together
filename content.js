@@ -205,7 +205,7 @@
   }, 2500);
 
   // ---- Page effects -------------------------------------------------------
-  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲" };
+  const HEARTS = { heart: "❤️", kiss: "😘", fire: "🔥", laugh: "😂", wow: "😮", sad: "🥲", popcorn: "🍿" };
   function spawnHearts(kind, count = 14) {
     const cont = ensureOverlay();
     const emoji = HEARTS[kind] || "❤️";
@@ -355,6 +355,22 @@
     else if (d.akind === "draw") annotStroke(d.x, d.y, d.x2, d.y2, d.color || "#8ecbff");
   }
 
+  // ---- Cinema mode: dim everything but the video (a shared "lights out") --------
+  let cinemaEl = null, cinemaRaf = null;
+  function cinemaPlace() {
+    const v = video || pickVideo(); if (!v || !cinemaEl) return;
+    const r = v.getBoundingClientRect();
+    cinemaEl.style.left = r.left + "px"; cinemaEl.style.top = r.top + "px";
+    cinemaEl.style.width = r.width + "px"; cinemaEl.style.height = r.height + "px";
+  }
+  function cinemaLoop() { cinemaPlace(); cinemaRaf = cinemaEl ? requestAnimationFrame(cinemaLoop) : null; }
+  function setCinema(on) {
+    if (on) {
+      if (!cinemaEl) { cinemaEl = document.createElement("div"); cinemaEl.id = "wt-cinema"; document.documentElement.appendChild(cinemaEl); }
+      cinemaPlace(); if (!cinemaRaf) cinemaRaf = requestAnimationFrame(cinemaLoop);
+    } else if (cinemaEl) { cinemaEl.remove(); cinemaEl = null; }
+  }
+
   // ---- Follow: "Join what my partner is watching" banner ------------------
   // ---- Messages from the side panel --------------------------------------
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -370,6 +386,7 @@
       case "stall": setStall(msg.on, msg.maxWait); break;
       case "annotate": setAnnotate(msg.on, msg.color); break;
       case "annot-show": annotShow(msg); break;
+      case "cinema": setCinema(msg.on); break;
       case "request-state": sendResponse(currentState()); break;
     }
     // No async sendResponse used, so no need to return true.
