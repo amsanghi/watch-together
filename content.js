@@ -259,7 +259,7 @@
   // A fixed overlay tracked to the video's rect. Coords are normalized (0–1) to that
   // rect so a point maps to the same scene spot in the partner's differently-sized
   // window. (Like the other page effects, this is a windowed-video overlay.)
-  let annotOn = false, annotColor = "#ff7ec0";
+  let annotOn = false, annotColor = "#ff7ec0", annotStickerSel = null;
   let annotWrap = null, annotCanvas = null, annotCtx = null;
   let annotRaf = null, annotActiveUntil = 0;
   let annotDrawing = false, annotMoved = false, annotLast = null;
@@ -299,8 +299,9 @@
     else annotRaf = null;
   }
   function annotKick() { annotActiveUntil = Date.now() + 4000; if (!annotRaf) annotRaf = requestAnimationFrame(annotLoop); }
-  function setAnnotate(on, color) {
+  function setAnnotate(on, color, sticker) {
     if (color) annotColor = color;
+    annotStickerSel = sticker || null;
     annotOn = !!on;
     annotEnsure();
     annotWrap.style.pointerEvents = annotOn ? "auto" : "none";
@@ -331,8 +332,14 @@
     const r = annotPlace(); if (!r) return;
     const p = annotNorm(e, r);
     if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return;
-    annotPing(p.x, p.y, annotColor);
-    toPanel({ kind: "annot", akind: "ping", x: p.x, y: p.y, color: annotColor });
+    if (annotStickerSel) { annotStamp(p.x, p.y, annotStickerSel); toPanel({ kind: "annot", akind: "sticker", x: p.x, y: p.y, emoji: annotStickerSel }); }
+    else { annotPing(p.x, p.y, annotColor); toPanel({ kind: "annot", akind: "ping", x: p.x, y: p.y, color: annotColor }); }
+  }
+  function annotStamp(x, y, emoji) {
+    annotEnsure(); const r = annotPlace(); if (!r) return;
+    const s = document.createElement("div"); s.className = "wt-annot-sticker"; s.textContent = emoji;
+    s.style.left = x * r.width + "px"; s.style.top = y * r.height + "px";
+    annotWrap.appendChild(s); setTimeout(() => s.remove(), 4000); annotKick();
   }
   function annotStroke(x1, y1, x2, y2, color) {
     annotEnsure(); const r = annotPlace(); if (!r || !annotCtx) return;
@@ -353,6 +360,7 @@
   function annotShow(d) {
     if (d.akind === "ping") annotPing(d.x, d.y, d.color || "#8ecbff");
     else if (d.akind === "draw") annotStroke(d.x, d.y, d.x2, d.y2, d.color || "#8ecbff");
+    else if (d.akind === "sticker") annotStamp(d.x, d.y, d.emoji);
   }
 
   // ---- Cinema mode: dim everything but the video (a shared "lights out") --------
@@ -487,7 +495,7 @@
       case "duck": setDuck(msg.on, msg.level); break;
       case "drift": applyDrift(msg); break;
       case "stall": setStall(msg.on, msg.maxWait); break;
-      case "annotate": setAnnotate(msg.on, msg.color); break;
+      case "annotate": setAnnotate(msg.on, msg.color, msg.sticker); break;
       case "annot-show": annotShow(msg); break;
       case "cinema": setCinema(msg.on); break;
       case "grab-frame": toPanel({ kind: "frame", img: grabFrame(), meme: msg.meme }); break;

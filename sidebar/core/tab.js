@@ -69,7 +69,7 @@ export function registerTabListener() {
         netSend({ t: "stall", on: !!d.on });
         break;
       case "annot":
-        netSend({ t: "annot", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color });
+        netSend({ t: "annot", akind: d.akind, x: d.x, y: d.y, x2: d.x2, y2: d.y2, color: d.color, emoji: d.emoji });
         break;
       case "cursor":
         netSend({ t: "cursor", x: d.x, y: d.y });
