@@ -40,6 +40,7 @@ import { showKissCam, showBreathe } from "../features/intimacy.js";
 import { setBingoCard, applyCell } from "../features/bingo.js";
 import { receiveHr } from "../features/heartbeat.js";
 import { receiveParty } from "../features/party.js";
+import { receiveMeld, receivePrediction, receiveCharades } from "../features/wordgames.js";
 
 // Send over the active transport. Trystero/relay set S.sendData; manual mode
 // falls back to the raw data channel.
@@ -114,6 +115,15 @@ export async function handleData(d) {
       break;
     case "heartbeat-play":
       playHeartbeat(d.bpm);
+      break;
+    case "meld":
+      receiveMeld(d.word);
+      break;
+    case "predict":
+      receivePrediction(d.text);
+      break;
+    case "charades":
+      receiveCharades();
       break;
     case "video":
       parentPost({ kind: "apply-video", action: d.action, time: d.time, rate: d.rate, paused: d.paused, url: d.url, title: d.title, fromName: S.settings.partner });
