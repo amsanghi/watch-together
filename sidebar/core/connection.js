@@ -16,7 +16,7 @@ import { netSend, flushOutbox } from "./net.js";
 import { addSys } from "../features/chat.js";
 import { recordSession } from "../features/stats.js";
 import { connectTrystero } from "../transports/trystero.js";
-import { connectRelay, teardownRelay } from "../transports/relay.js";
+import { connectRelay, teardownRelay, relayRestartIce } from "../transports/relay.js";
 import { syncWeatherOnConnect } from "../features/weather.js";
 import { syncWatchlistOnConnect } from "../features/couple.js";
 
@@ -149,7 +149,7 @@ export function onNetworkWake() {
   if (!S.settings.pairCode && !S.settings.relayUrl) return;
   if (S.relayMode && !S.relayFellBack) {
     if (!S.relayWs || S.relayWs.readyState !== WebSocket.OPEN) connectRelay();
-    else netSend({ t: "ping" });
+    else { netSend({ t: "ping" }); relayRestartIce(); } // heal a stale media path on wake
   } else if (!S.connectedOnce) {
     connect();
   } else {
