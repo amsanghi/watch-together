@@ -7,6 +7,7 @@
 // Exports: connectRelay, teardownRelay, relayShareLocalTracks.
 
 import { S } from "../core/state.js";
+import { $ } from "../core/dom.js";
 import { netSend, handleData } from "../core/net.js";
 import { showError, setStatus } from "../core/ui.js";
 import { remoteStreamHandler } from "../core/media.js";
@@ -262,19 +263,36 @@ function startStatsMonitor() {
   clearInterval(statsTimer);
   statsTimer = setInterval(async () => {
     if (!relayPC) return;
-    let frac = 0, avail = 0;
+    let frac = 0, avail = 0, rtt = 0;
+    const cands = {}, pairs = [];
     try {
       const stats = await relayPC.getStats();
       stats.forEach((r) => {
         if (r.type === "remote-inbound-rtp" && r.kind === "video" && typeof r.fractionLost === "number") frac = Math.max(frac, r.fractionLost);
-        if (r.type === "candidate-pair" && r.nominated && typeof r.availableOutgoingBitrate === "number") avail = r.availableOutgoingBitrate;
+        if (r.type === "candidate-pair") { pairs.push(r); if (r.nominated && typeof r.availableOutgoingBitrate === "number") avail = r.availableOutgoingBitrate; }
+        if (r.type === "local-candidate" || r.type === "remote-candidate") cands[r.id] = r;
       });
     } catch (_) { return; }
     if (frac > (S.settings.videoLossDrop || 10) / 100) lossStreak++; else lossStreak = 0;
     if (lossStreak >= 3 && !videoDegraded) setVideoActive(false);
     else if (lossStreak === 0 && videoDegraded) setVideoActive(true);
     if (!videoDegraded && avail > 0) setVideoBitrate(avail); // adaptive: follow the browser's bandwidth estimate
+    const np = pairs.find((p) => p.nominated) || pairs.find((p) => p.state === "succeeded");
+    if (np && typeof np.currentRoundTripTime === "number") rtt = np.currentRoundTripTime * 1000;
+    const ctype = np && cands[np.localCandidateId] ? cands[np.localCandidateId].candidateType : "";
+    updateQualityBadge(frac, rtt, ctype === "relay" ? "relay" : ctype ? "direct" : "");
   }, 2000);
+}
+function updateQualityBadge(frac, rtt, transport) {
+  const el = $("call-quality"); if (!el) return;
+  if (!transport && !rtt) { el.style.display = "none"; return; }
+  let q = "good";
+  if (frac > 0.05 || rtt > 300) q = "ok";
+  if (frac > 0.12 || rtt > 600) q = "poor";
+  el.style.display = "";
+  el.className = "call-quality " + q;
+  el.textContent = (q === "poor" ? "⚠️" : "📶") + " " + q + (transport ? " · " + transport : "");
+  el.title = "RTT ~" + Math.round(rtt) + "ms · loss " + Math.round(frac * 100) + "% · " + (transport || "?");
 }
 function setVideoActive(active) {
   videoDegraded = !active;
