@@ -34,9 +34,9 @@ function todaysQuestion() {
 export function renderQotd() { $("qotd-q").textContent = todaysQuestion(); }
 export function renderQotdAnswer(who, text) {
   const el = document.createElement("div");
-  el.className = "ans";
-  el.innerHTML = "<b></b> <span></span>";
-  el.querySelector("b").textContent = who + ":";
+  el.className = "ans" + (who === S.settings.me ? " mine" : "");
+  el.innerHTML = "<b></b><span></span>";
+  el.querySelector("b").textContent = who;
   el.querySelector("span").textContent = text;
   $("qotd-answers").appendChild(el);
 }
@@ -84,7 +84,7 @@ const QUIZ_Q = [
   "What makes me laugh the hardest?",
 ];
 export function setQuizQuestion(q, broadcast) {
-  $("quiz-q").textContent = q ? "💘 " + q : "";
+  $("quiz-q").textContent = q || "";
   $("quiz-answers").innerHTML = "";
   $("quiz-input").value = "";
   if (broadcast) netSend({ t: "quiz-q", q });
@@ -92,9 +92,9 @@ export function setQuizQuestion(q, broadcast) {
 export function newQuiz() { setQuizQuestion(QUIZ_Q[Math.floor(Math.random() * QUIZ_Q.length)], true); }
 export function renderQuizAnswer(who, text) {
   const el = document.createElement("div");
-  el.className = "ans";
-  el.innerHTML = "<b></b> <span></span>";
-  el.querySelector("b").textContent = who + ":";
+  el.className = "ans" + (who === S.settings.me ? " mine" : "");
+  el.innerHTML = "<b></b><span></span>";
+  el.querySelector("b").textContent = who;
   el.querySelector("span").textContent = text;
   $("quiz-answers").appendChild(el);
 }
@@ -319,5 +319,5 @@ export function drawCard(kind) {
 export function showPartnerCard(kind, text) {
   $("card-out").classList.remove("hidden");
   $("card-out").textContent = cardLabel(kind) + text;
-  addSys(`${S.settings.partner} drew a card — check ✨`);
+  addSys(`${S.settings.partner} drew a card — it's under Ask.`);
 }

@@ -68,17 +68,22 @@ switching pages.
 
 **Then just watch:**
 1. Open a video on your side and press play.
-2. Your partner gets a **"💗 … is watching … — Join ▶"** banner; one click takes them to
+2. Your partner gets a **"… wants to watch … with you"** banner; one click takes them to
    the same video at your exact timestamp. (They don't even need to be on the page first —
    just have the panel open.)
 3. Either of you can play / pause / seek; it stays in sync. Send chat, hearts, GIFs.
 
-> Tips: grant the camera/mic prompt once for voice/video (you can stay muted/cam-off). Hit
-> **3·2·1 ▶** to start together on the same second. Minimize the panel with **–** and bring
-> it back with the toolbar icon or **Cmd/Ctrl+Shift+Y**.
+Two dots at the top left tell you who's here — the warm one is always you, the other one
+lights up in their colour when they arrive, and the hairline under the header runs all the
+way across only while you're actually connected.
 
-There's also an **Advanced** option under the pairing box for a fully broker-free,
-copy-paste connection if you ever want it.
+> Tips: grant the camera/mic prompt once for voice/video (you can stay muted/cam-off).
+> Everything beyond the chat — games, question cards, letters, the photobooth gallery —
+> lives behind the ✦ button, under **Us / Play / Ask / Keep**. Collapse the panel with the
+> chevron and bring it back with the toolbar icon or **Cmd/Ctrl+Shift+Y**.
+
+Under the pairing box there are two folded-away options: point both sides at **your own
+relay server**, or connect with **no server at all** by copy-pasting an invite.
 
 ## Rock-solid mode: your own relay (recommended if it keeps dropping)
 

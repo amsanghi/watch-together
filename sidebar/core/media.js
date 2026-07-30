@@ -142,8 +142,12 @@ export function applyRemoteVolume() {
   rv.muted = v === 0;
   rv.volume = v / 100;
   const icon = $("vol-icon");
-  if (icon) icon.textContent = v === 0 ? "🔇" : v < 50 ? "🔈" : "🔊";
-  if ($("vol-slider") && Number($("vol-slider").value) !== v) $("vol-slider").value = v;
+  if (icon) icon.dataset.level = v === 0 ? "mute" : v < 50 ? "low" : "high";
+  const slider = $("vol-slider");
+  if (slider) {
+    if (Number(slider.value) !== v) slider.value = v;
+    slider.style.setProperty("--vol", v + "%"); // paints the filled part of the track
+  }
 }
 
 export function setRemoteVolume(v) {

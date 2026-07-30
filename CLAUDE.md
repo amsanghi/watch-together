@@ -45,8 +45,8 @@ JS is split into small modules by responsibility. **To find the code for X, star
 | `main.js` | Entry point. Imports everything; `init()` wires all DOM listeners + starts timers + loads storage. No logic. |
 | `core/dom.js` | `$(id)` = `getElementById`. |
 | `core/state.js` | The shared mutable state object **`S`** + `DEFAULT_GIPHY_KEY`. Import leaf. |
-| `core/ui.js` | `showPanel`, `setStatus`, `showError`. |
-| `core/settings.js` | Load/save `wt_settings`, first-run name gate, theme (`applyTheme`/`shade`), applying the partner's name/theme. |
+| `core/ui.js` | `showPanel`, `setStatus` (writes `data-presence` on `#app` — the switch the whole stylesheet reads), `showError`, `initials`. |
+| `core/settings.js` | Load/save `wt_settings`, first-run name gate, theme (`applyTheme`/`markSwatch`/`shade`), `applyNames()` (every place a name shows), applying the partner's name/theme. |
 | `core/net.js` | `netSend(obj)` + the central **`handleData(d)` switch** — the one place the wire protocol is decoded. |
 | `core/connection.js` | `connect`/`leaveRoom`, connected/disconnected, heartbeat, reconnect, clean-reload, pairing/unpair. |
 | `core/tab.js` | `parentPost`, `getPageState`, and the content-script message listener (panel ↔ page). |
@@ -92,10 +92,30 @@ JS is split into small modules by responsibility. **To find the code for X, star
 4. Document it in the protocol table in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Adding a new Fun-panel feature
-1. Add the markup to `sidebar/sidebar.html` and styles to `sidebar/sidebar.css`.
+The Fun panel ("Just us") is **four tabs**, not one long scroll: `us` / `play` / `cards`
+(shown as "Ask") / `keep`. Each tab is a `<div class="fun-tab" data-tab="…">` holding
+`.card`s; `showFunTab()` in `main.js` swaps them and slides the underline. The title, the
+two camera tiles and the tab bar sit in a sticky `#fun-top`.
+
+1. Add a `.card` to the right `.fun-tab` in `sidebar/sidebar.html`, styles to `sidebar.css`.
+   A card opens with `<div class="card-head"><span class="micro">Label</span><i class="rule"></i></div>`.
 2. Create/extend a module in `sidebar/features/`; export its render + action functions.
 3. Wire its buttons in `main.js` `init()`; refresh it in `openFun()` if it shows state.
 4. Keep its state module-local unless the partner or another module needs it.
+
+### Design language (`sidebar.css`)
+Everything on screen belongs to one of you, and the colour says which: **`--me`** is a fixed
+lamp amber (you), **`--them`** is the shared themeable colour (`--accent`, written live by
+`applyTheme()`), and **`--us`** is the gradient between them. The gradient is deliberately
+rare — the presence thread, the send button, the hero number, a hand held from both sides.
+Set `.side-me` / `.side-them` on a container to get `--side` / `--side-2` locally.
+
+Three faces: `--display` (Superclarendon) for headings, big numbers and anything meant to be
+read as printed; `--ui` (Avenir Next) for prose and controls; `--data` (SF Mono) for labels,
+clocks, timecodes and counters. The `.micro` class is the utility voice — mono, uppercase,
+tracked — and is the only label style. Interface glyphs come from the `<svg id="sprite">`
+symbol set at the top of `sidebar.html` (`<svg class="ic"><use href="#i-mic"/></svg>`);
+**emoji is content, not chrome** — reactions, moods and marked moments only.
 
 ## Verifying a change
 

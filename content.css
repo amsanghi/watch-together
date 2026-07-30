@@ -1,5 +1,10 @@
-/* WatchTogether — page effects only. The panel lives in Chrome's side panel,
-   so there's no injected wrapper and no page-shift here. */
+/* WatchTogether — page effects only. These land on top of somebody's movie, so
+   they stay dark, warm and short-lived: nothing white, nothing full-bleed, and
+   no chrome that competes with the picture. The panel itself lives in Chrome's
+   side panel, so there's no injected wrapper and no page shift here.
+
+   Everything is !important because these rules have to survive whatever the
+   host page's stylesheet does. */
 
 #wt-overlay {
   position: fixed !important;
@@ -14,15 +19,17 @@
   bottom: 8%;
   font-size: 34px;
   will-change: transform, opacity;
-  animation: wt-float-up var(--wt-dur, 3.2s) ease-out forwards;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  animation: wt-float-up var(--wt-dur, 3.2s) cubic-bezier(0.3, 0.5, 0.4, 1) forwards;
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.55));
 }
 @keyframes wt-float-up {
   0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 0; }
   15% { opacity: 1; transform: translateY(-10vh) scale(1.1); }
-  100% { transform: translateY(-80vh) translateX(var(--wt-drift, 0px)) scale(0.9) rotate(var(--wt-rot, 0deg)); opacity: 0; }
+  100% { transform: translateY(-82vh) translateX(var(--wt-drift, 0px)) scale(0.88) rotate(var(--wt-rot, 0deg)); opacity: 0; }
 }
 
+/* The 3·2·1. Big, warm, and set in the same slab serif as the panel — a
+   projectionist's cue rather than a notification. */
 #wt-countdown {
   position: fixed;
   inset: 0;
@@ -33,71 +40,46 @@
   pointer-events: none;
 }
 #wt-countdown .wt-num {
-  font: 800 22vh/1 system-ui, -apple-system, sans-serif;
-  color: #fff;
-  text-shadow: 0 6px 40px rgba(255, 92, 138, 0.8), 0 2px 12px rgba(0, 0, 0, 0.6);
-  animation: wt-pop 1s ease-out forwards;
+  font: 400 24vh/1 Superclarendon, SuperClarendon, Rockwell, "Bookman Old Style", Georgia, serif;
+  color: #FBEBCF;
+  text-shadow: 0 0 60px rgba(240, 180, 87, 0.5), 0 8px 50px rgba(0, 0, 0, 0.7);
+  animation: wt-pop 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes wt-pop {
-  0% { transform: scale(0.2); opacity: 0; }
-  25% { transform: scale(1.15); opacity: 1; }
+  0% { transform: scale(0.55); opacity: 0; }
+  22% { transform: scale(1.04); opacity: 1; }
   70% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.4); opacity: 0; }
+  100% { transform: scale(1.18); opacity: 0; }
 }
 
 #wt-toast {
   position: fixed;
   left: 50%;
-  top: 12%;
+  top: 5%;
   transform: translateX(-50%);
   z-index: 2147483647;
   pointer-events: none;
-  background: linear-gradient(135deg, #ff9dc6, #ff7eb3);
-  color: #fff;
-  border: 2px solid #fff;
-  padding: 12px 22px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(17, 15, 23, 0.92);
+  backdrop-filter: blur(10px);
+  color: #EEEAF3;
+  border: 1px solid rgba(240, 180, 87, 0.34);
+  padding: 11px 20px;
   border-radius: 999px;
-  font: 700 16px/1.3 "ui-rounded", system-ui, -apple-system, sans-serif;
-  box-shadow: 0 10px 34px rgba(255, 126, 179, 0.5);
-  animation: wt-toast 2.6s ease-out forwards;
+  font: 500 14px/1.35 "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  animation: wt-toast 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 @keyframes wt-toast {
-  0% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  0% { opacity: 0; transform: translateX(-50%) translateY(-14px); }
   12% { opacity: 1; transform: translateX(-50%) translateY(0); }
   85% { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
-#wt-join {
-  position: fixed !important;
-  top: 18px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 2147483647 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  background: #2c1f38 !important;
-  color: #ffe9f4 !important;
-  border: 2px solid #ff7ec0 !important;
-  padding: 12px 14px 12px 18px !important;
-  border-radius: 18px !important;
-  font: 700 14px/1.3 "ui-rounded", system-ui, -apple-system, sans-serif !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255,126,192,0.4) !important;
-  max-width: 80vw !important;
-  animation: wt-toast 0.3s ease-out !important;
-}
-#wt-join .wt-join-text { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-#wt-join .wt-join-go {
-  background: linear-gradient(135deg, #ff9dc6, #ff7eb3) !important; color: #fff !important; border: none !important;
-  padding: 9px 16px !important; border-radius: 999px !important; cursor: pointer !important;
-  font: 700 13px "ui-rounded", system-ui, sans-serif !important; flex: 0 0 auto !important;
-}
-#wt-join .wt-join-x {
-  background: transparent !important; color: #c39bb0 !important; border: none !important;
-  cursor: pointer !important; font-size: 15px !important; flex: 0 0 auto !important; padding: 4px !important;
-}
-
+/* The buzz — a nudge you feel rather than read. */
 html.wt-shake {
   animation: wt-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
 }
@@ -106,4 +88,16 @@ html.wt-shake {
   20%, 80% { transform: translate3d(2px, 0, 0); }
   30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
   40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* Reduced motion: drop the travel, keep the message. Zeroing the durations
+   would land the toast and the countdown on their opacity-0 end frames, so
+   these get their own hold-still animations instead. */
+@media (prefers-reduced-motion: reduce) {
+  html.wt-shake { animation: none !important; }
+  .wt-heart { animation: wt-still-brief var(--wt-dur, 3.2s) linear forwards !important; transform: none !important; }
+  #wt-countdown .wt-num { animation: wt-still 1s linear forwards !important; }
+  #wt-toast { animation: wt-still 2.6s linear forwards !important; transform: translateX(-50%) !important; }
+  @keyframes wt-still { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes wt-still-brief { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 }

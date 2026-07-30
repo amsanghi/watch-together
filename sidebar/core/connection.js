@@ -64,7 +64,7 @@ export function onConnected() {
   startHeartbeat();
   setStatus("on");
   showPanel("live");
-  addSys(S.everConnected ? "Reconnected 💞" : `Connected 💞 Say hi to ${S.settings.partner}!`);
+  addSys(S.everConnected ? "Back together." : `Connected — say hi to ${S.settings.partner}.`);
   S.everConnected = true;
   netSend({ t: "name", name: S.settings.me });
   netSend({ t: "media-state", mic: S.micOn, cam: S.camOn });
@@ -192,7 +192,7 @@ export function startPairing() {
 }
 // Manual escape hatch: rejoin the room now.
 export function forceReconnect() {
-  if (!S.settings.pairCode && !S.settings.relayUrl) { addSys("Not paired yet."); return; }
+  if (!S.settings.pairCode && !S.settings.relayUrl) { addSys("Nothing to reconnect to yet — pair first."); return; }
   if (S.relayMode) { connectRelay(); return; } // relay: just re-open the socket
   hardReconnect();
 }

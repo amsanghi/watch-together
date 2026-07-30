@@ -41,8 +41,8 @@ export async function recordSession() {
 export function refreshStats() {
   chrome.storage.local.get(["wt_stats"], (r) => {
     const st = r.wt_stats || { count: 0, streak: 0, history: [] };
-    $("streak").textContent = `🔥 ${st.streak || 0} day streak`;
-    $("watch-count").textContent = `🎬 ${st.count || 0} together`;
+    $("streak").textContent = st.streak || 0;
+    $("watch-count").textContent = st.count || 0;
   });
 }
 export function renderHistory() {
@@ -50,7 +50,7 @@ export function renderHistory() {
     const st = r.wt_stats || { history: [] };
     const list = $("history-list");
     list.innerHTML = "";
-    if (!st.history.length) { list.innerHTML = '<div class="muted small">No watch nights yet — your first one is waiting 💕</div>'; return; }
+    if (!st.history.length) { list.innerHTML = '<div class="copy">Nothing here yet. Your first night in is still ahead of you.</div>'; return; }
     st.history.forEach((h) => {
       const el = document.createElement("div");
       el.className = "hist-item";
@@ -74,34 +74,40 @@ function nextOccurrence(mmdd) {
   if (cand < new Date(now.getFullYear(), now.getMonth(), now.getDate())) cand.setFullYear(y + 1);
   return cand;
 }
+function hhmm(d) {
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
 export function refreshDates() {
   const now = new Date();
+  // The hero number: bare, so the card's own label carries the meaning.
   if (S.settings.anniversary) {
     const n = daysBetween(S.settings.anniversary, now);
-    $("days-together").textContent = n >= 0 ? `💕 ${n.toLocaleString()} days together` : "💕 counting down…";
+    $("days-together").textContent = n >= 0 ? n.toLocaleString() : "soon";
   } else {
-    $("days-together").textContent = "💕 set your dates in ⚙ settings";
+    $("days-together").textContent = "—";
   }
   // next event among anniversary + birthdays
   const events = [];
-  if (S.settings.anniversary) events.push(["💞 Anniversary", nextOccurrence(S.settings.anniversary)]);
-  if (S.settings.bdayMe) events.push(["🎂 Your birthday", nextOccurrence(S.settings.bdayMe)]);
-  if (S.settings.bdayPartner) events.push([`🎂 ${S.settings.partner}'s birthday`, nextOccurrence(S.settings.bdayPartner)]);
+  if (S.settings.anniversary) events.push(["Anniversary", nextOccurrence(S.settings.anniversary)]);
+  if (S.settings.bdayMe) events.push(["Your birthday", nextOccurrence(S.settings.bdayMe)]);
+  if (S.settings.bdayPartner) events.push([`${S.settings.partner}'s birthday`, nextOccurrence(S.settings.bdayPartner)]);
   events.sort((a, b) => a[1] - b[1]);
   if (events.length) {
     const [label, when] = events[0];
     const days = Math.round((when - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-    $("next-event").textContent = days === 0 ? `${label} is TODAY! 🎉` : `${label} in ${days} day${days === 1 ? "" : "s"}`;
+    $("next-event").textContent = days === 0 ? `${label} is today 🎉` : `${label} in ${days} day${days === 1 ? "" : "s"}`;
     if (days === 0) celebrate();
-  } else { $("next-event").textContent = ""; }
-  // partner clock
+  } else {
+    $("next-event").textContent = S.settings.anniversary ? "" : "Add your dates in settings to start the count.";
+  }
+  // The two clocks, side by side — the long-distance fact of the app.
+  $("my-clock").textContent = hhmm(now);
   if (S.partnerTz != null) {
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const theirs = new Date(utc + S.partnerTz * 60000);
-    const hh = String(theirs.getHours()).padStart(2, "0"), mm = String(theirs.getMinutes()).padStart(2, "0");
-    const sky = theirs.getHours() >= 6 && theirs.getHours() < 19 ? "☀️" : "🌙";
-    $("partner-clock").textContent = `${sky} ${S.settings.partner}'s time: ${hh}:${mm}`;
-  } else { $("partner-clock").textContent = ""; }
+    $("partner-clock").textContent = hhmm(new Date(utc + S.partnerTz * 60000));
+  } else {
+    $("partner-clock").textContent = "—";
+  }
 }
 let celebratedToday = false;
 function celebrate() {

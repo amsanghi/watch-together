@@ -4,7 +4,7 @@
 // because it's re-sent on (re)connect.
 //
 // Exports: renderMyWeather, renderPartnerWeather, shareWeather, receiveWeather,
-//   syncWeatherOnConnect.
+//   syncWeatherOnConnect, markWeatherShared.
 
 import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
@@ -24,17 +24,23 @@ function wmoEmoji(code) {
   if ([95, 96, 99].includes(code)) return "⛈️";
   return "🌡️";
 }
+// Sits directly under each clock in the hero card, so no name prefix is needed.
 export function renderMyWeather() {
   if (!S.myWeather) { $("my-weather").textContent = ""; return; }
-  $("my-weather").textContent = `${S.myWeather.isDay ? "☀️" : "🌙"} You: ${wmoEmoji(S.myWeather.code)} ${S.myWeather.temp}°C`;
+  $("my-weather").textContent = `${wmoEmoji(S.myWeather.code)} ${S.myWeather.temp}°`;
 }
 export function renderPartnerWeather() {
   if (!partnerWeather) return;
-  $("partner-weather").textContent = `${partnerWeather.isDay ? "☀️" : "🌙"} ${S.settings.partner}: ${wmoEmoji(partnerWeather.code)} ${partnerWeather.temp}°C`;
+  $("partner-weather").textContent = `${wmoEmoji(partnerWeather.code)} ${partnerWeather.temp}°`;
 }
+function setShareLabel(text) {
+  const b = $("weather-btn"), s = b && b.querySelector("span");
+  if (s) s.textContent = text; else if (b) b.textContent = text;
+}
+export function markWeatherShared() { setShareLabel("Update my sky"); }
 export function shareWeather() {
   if (!navigator.geolocation) { addSys("Location isn't available on this device."); return; }
-  $("weather-btn").textContent = "Getting location…";
+  setShareLabel("Finding you…");
   navigator.geolocation.getCurrentPosition(async (pos) => {
     try {
       const { latitude, longitude } = pos.coords;
@@ -44,11 +50,11 @@ export function shareWeather() {
       const c = d.current || {};
       S.myWeather = { temp: Math.round(c.temperature_2m), code: c.weather_code, isDay: c.is_day ? 1 : 0 };
       chrome.storage.local.set({ wt_weather: S.myWeather });
-      $("weather-btn").textContent = "Update my weather 🔄";
+      setShareLabel("Update my sky");
       renderMyWeather();
       netSend({ t: "weather", ...S.myWeather });
-    } catch (e) { $("weather-btn").textContent = "Share my weather"; addSys("Couldn't fetch the weather right now."); }
-  }, () => { $("weather-btn").textContent = "Share my weather"; addSys("Location permission denied — can't share weather."); }, { timeout: 10000 });
+    } catch (e) { setShareLabel("Share my sky"); addSys("Couldn't reach the weather service. Try again in a moment."); }
+  }, () => { setShareLabel("Share my sky"); addSys("Location is blocked, so your sky can't be shared."); }, { timeout: 10000 });
 }
 
 // Partner sent their weather (net.js `weather` case).
