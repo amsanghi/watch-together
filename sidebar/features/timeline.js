@@ -22,11 +22,11 @@ function fmtClock(sec) {
 }
 export async function bookmarkMoment(emoji) {
   const st = await getPageState();
-  if (!st || st.time == null) { addSys("Play a video first to bookmark a moment 🎬"); return; }
+  if (!st || st.time == null) { addSys("Start something playing, then mark the moment."); return; }
   const item = { time: Math.floor(st.time), emoji, who: S.settings.me, title: st.title || "", url: st.url || "" };
   addTimelineItem(item);
   burst("heart");
-  addSys(`🔖 Bookmarked ${emoji} at ${fmtClock(item.time)}`);
+  addSys(`Marked ${emoji} at ${fmtClock(item.time)}.`);
   netSend({ t: "mark", time: item.time, emoji, who: S.settings.me, title: item.title, url: item.url });
 }
 export function addTimelineItem(item) {
@@ -39,12 +39,12 @@ export function addTimelineItem(item) {
 export function renderTimeline() {
   const list = $("timeline-list"); if (!list) return;
   list.innerHTML = "";
-  if (!timeline.length) { list.innerHTML = '<div class="muted small">No moments yet — tap an emoji above while watching 💕</div>'; return; }
+  if (!timeline.length) { list.innerHTML = '<div class="copy">No moments yet. Tap one of those while something is playing.</div>'; return; }
   timeline.forEach((m, i) => {
     const row = document.createElement("div"); row.className = "wl-item";
     const sp = document.createElement("span");
     sp.textContent = `${m.emoji} ${fmtClock(m.time)} · ${m.who}`;
-    sp.title = "Jump here together"; sp.style.cursor = "pointer";
+    sp.title = "Send you both back here"; sp.style.cursor = "pointer";
     sp.addEventListener("click", () => jumpToMoment(m));
     const x = document.createElement("button"); x.className = "x"; x.textContent = "✕";
     x.addEventListener("click", () => { timeline.splice(i, 1); chrome.storage.local.set({ wt_timeline: timeline }); renderTimeline(); });

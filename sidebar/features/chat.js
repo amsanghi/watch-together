@@ -53,7 +53,8 @@ let typingTimer = null;
 export function showTyping(on) {
   const el = $("typing-ind");
   el.classList.toggle("hidden", !on);
-  el.textContent = on ? `${S.settings.partner} is typing…` : "";
+  const label = el.querySelector("span");
+  if (label) label.textContent = on ? `${S.settings.partner} is typing` : "";
   clearTimeout(typingTimer);
   if (on) typingTimer = setTimeout(() => el.classList.add("hidden"), 4000);
 }
@@ -117,9 +118,9 @@ export async function searchGifs(q) {
       });
       grid.appendChild(img);
     });
-    if (!grid.children.length) grid.innerHTML = '<div class="muted small">No GIFs found.</div>';
+    if (!grid.children.length) grid.innerHTML = '<div class="copy">Nothing matched. Try another word.</div>';
   } catch (e) {
-    $("gif-results").innerHTML = '<div class="muted small">Couldn\'t reach Giphy. Check your API key.</div>';
+    $("gif-results").innerHTML = '<div class="copy">Couldn\'t reach Giphy. Check the key in settings.</div>';
   }
 }
 

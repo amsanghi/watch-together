@@ -35,13 +35,13 @@ export function setMyRating(v) {
   myRating = v;
   document.querySelectorAll("#rate-stars span").forEach((s) => s.classList.toggle("on", Number(s.dataset.v) <= v));
   netSend({ t: "rate", value: v });
-  $("rate-status").textContent = partnerRating ? "" : "Sent! Waiting for " + S.settings.partner + "…";
+  $("rate-status").textContent = partnerRating ? "" : `Locked in. Waiting on ${S.settings.partner}.`;
   maybeRevealRatings();
 }
 export function setPartnerRating(value) { partnerRating = value; maybeRevealRatings(); }
 function maybeRevealRatings() {
   if (myRating != null && partnerRating != null) {
-    $("rate-status").textContent = `You: ${"★".repeat(myRating)} · ${S.settings.partner}: ${"★".repeat(partnerRating)}`;
+    $("rate-status").textContent = `You ${"★".repeat(myRating)} · ${S.settings.partner} ${"★".repeat(partnerRating)}`;
   }
 }
 
@@ -85,7 +85,9 @@ function fmtDur(s) {
   return h ? `${h}h ${m}m` : m ? `${m}m ${sec}s` : `${sec}s`;
 }
 export function renderHands() {
-  $("hold-status").textContent = S.handSeconds ? `🤝 ${fmtDur(S.handSeconds)} held together` : "Hold together to feel each other 💞";
+  $("hold-status").textContent = S.handSeconds
+    ? `${fmtDur(S.handSeconds)} held, all told`
+    : "Hold at the same time and you'll both feel it.";
 }
 export function setLocalHold(on) {
   if (localHold === on) return;
@@ -101,11 +103,11 @@ function checkBothHold() {
   if (both && !holdTimer) {
     try { navigator.vibrate && navigator.vibrate([40, 30, 40]); } catch (_) {}
     spawnPanelHearts("heart", 6);
-    $("hold-status").textContent = "💞 holding hands…";
+    $("hold-status").textContent = "Holding on.";
     holdTimer = setInterval(() => {
       S.handSeconds++;
       if (S.handSeconds % 4 === 0) spawnPanelHearts("heart", 3);
-      $("hold-status").textContent = `💞 ${fmtDur(S.handSeconds)} holding hands…`;
+      $("hold-status").textContent = `Holding on — ${fmtDur(S.handSeconds)}`;
       if (S.handSeconds % 5 === 0) chrome.storage.local.set({ wt_hands: S.handSeconds });
     }, 1000);
   } else if (!both && holdTimer) {
@@ -141,7 +143,7 @@ export function sendLetter() {
   if (!t) { $("letter-input").focus(); return; }
   netSend({ t: "letter", text: t });
   $("letter-input").value = "";
-  addSys("💌 Love letter sent");
+  addSys("Letter sealed and sent.");
 }
 export function showLetter(from, text) {
   if (!text) return;
@@ -168,8 +170,8 @@ export function renderScheduled() {
   S.scheduled.slice().sort((a, b) => a.when - b.when).forEach((s) => {
     const row = document.createElement("div");
     const when = new Date(s.when);
-    const snip = s.text.length > 24 ? s.text.slice(0, 24) + "…" : s.text;
-    row.textContent = `⏰ "${snip}" — ${when.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+    const snip = s.text.length > 22 ? s.text.slice(0, 22) + "…" : s.text;
+    row.textContent = `${when.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} · ${snip}`;
     el.appendChild(row);
   });
 }
@@ -179,12 +181,12 @@ export function addScheduled() {
   if (!text) { $("sched-text").focus(); return; }
   if (!whenStr) { $("sched-when").focus(); return; }
   const when = new Date(whenStr).getTime();
-  if (!when || when <= Date.now()) { addSys("Pick a time in the future ⏰"); return; }
+  if (!when || when <= Date.now()) { addSys("Pick a time that hasn't happened yet."); return; }
   S.scheduled.push({ text, when });
   chrome.storage.local.set({ wt_scheduled: S.scheduled });
   $("sched-text").value = ""; $("sched-when").value = "";
   renderScheduled();
-  addSys(`⏰ Surprise note set for ${new Date(when).toLocaleString()} — delivered when you're both online`);
+  addSys(`Note set for ${new Date(when).toLocaleString()} — it arrives when you're both online.`);
 }
 export function checkScheduled() {
   if (!S.scheduled.length) return;
@@ -196,14 +198,14 @@ export function checkScheduled() {
   S.scheduled = S.scheduled.filter((s) => s.when > now);
   chrome.storage.local.set({ wt_scheduled: S.scheduled });
   renderScheduled();
-  addSys(`💌 Delivered ${due.length} surprise note${due.length > 1 ? "s" : ""}`);
+  addSys(`Delivered ${due.length} note${due.length > 1 ? "s" : ""} from earlier.`);
 }
 
 // ---- Cuddle / goodnight mode --------------------------------------------
 let cuddleEnd = 0, cuddleTick = null;
 export function setCuddle(on, broadcast) {
   $("cuddle-overlay").classList.toggle("hidden", !on);
-  $("cuddle-sub").textContent = on ? `Goodnight, ${S.settings.partner} 🌙` : "";
+  $("cuddle-sub").textContent = on ? `Goodnight, ${S.settings.partner}` : "";
   if (broadcast) netSend({ t: "cuddle", on });
   if (!on) clearCuddleTimer();
   else { try { navigator.vibrate && navigator.vibrate(50); } catch (_) {} }
@@ -230,20 +232,20 @@ function fadeToSleep() {
   if (S.camOn) toggleCam();
   if (S.micOn) toggleMic();
   parentPost({ kind: "apply-video", action: "pause" });
-  $("cuddle-countdown").textContent = "Sweet dreams 💤";
+  $("cuddle-countdown").textContent = "Sweet dreams.";
 }
 
 // ---- Memory scrapbook ---------------------------------------------------
 export function renderScrapbook() {
   const list = $("mem-list");
   list.innerHTML = "";
-  if (!S.scrapbook.length) { list.innerHTML = '<div class="muted small">No memories yet — add your first 💕</div>'; return; }
+  if (!S.scrapbook.length) { list.innerHTML = '<div class="copy">Nothing kept yet. Add the first thing worth remembering.</div>'; return; }
   S.scrapbook.forEach((m) => {
     const row = document.createElement("div");
     row.className = "wl-item";
     row.style.flexWrap = "wrap";
-    const sp = document.createElement("span"); sp.textContent = m.img ? "📸 Photobooth" : m.text;
-    const d = document.createElement("small"); d.className = "muted"; d.style.marginLeft = "auto"; d.textContent = m.date || "";
+    const sp = document.createElement("span"); sp.textContent = m.img ? "From the photobooth" : m.text;
+    const d = document.createElement("small"); d.textContent = m.date || "";
     row.append(sp, d);
     if (m.img) {
       const img = document.createElement("img");

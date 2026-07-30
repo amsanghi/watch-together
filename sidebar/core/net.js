@@ -103,7 +103,7 @@ export async function handleData(d) {
       receiveInvite(d.url, d.title);
       break;
     case "invite-ack":
-      addSys(`${S.settings.partner} is joining 💞`);
+      addSys(`${S.settings.partner} is on the way.`);
       break;
     case "profile":
       if (typeof d.tz === "number") { S.partnerTz = d.tz; refreshDates(); }
@@ -114,11 +114,11 @@ export async function handleData(d) {
     case "heartbeat":
       beatFast(); burst("heart");
       try { navigator.vibrate && navigator.vibrate([60, 40, 60]); } catch (_) {}
-      addSys(`💓 ${S.settings.partner}'s heartbeat`);
+      addSys(`${S.settings.partner}'s heartbeat.`);
       break;
     case "greet":
       parentPost({ kind: "toast", text: d.kind === "gm" ? `☀️ Good morning from ${S.settings.partner}!` : `🌙 Good night from ${S.settings.partner}!` });
-      addSys(d.kind === "gm" ? `☀️ ${S.settings.partner} says good morning` : `🌙 ${S.settings.partner} says good night`);
+      addSys(d.kind === "gm" ? `${S.settings.partner} says good morning.` : `${S.settings.partner} says good night.`);
       break;
     case "snap":
       addMsg({ mine: false, who: S.settings.partner, gif: d.img });
@@ -143,7 +143,7 @@ export async function handleData(d) {
     case "kiss-pause":
       parentPost({ kind: "apply-video", action: "pause" });
       burst("kiss");
-      addSys(`💋 ${S.settings.partner} paused for a kiss`);
+      addSys(`${S.settings.partner} paused for a kiss.`);
       break;
     case "qotd":
       renderQotdAnswer(S.settings.partner, d.text);

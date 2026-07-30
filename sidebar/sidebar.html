@@ -6,74 +6,140 @@
   <link rel="stylesheet" href="sidebar.css" />
 </head>
 <body>
-  <div id="app">
-    <!-- Emoji burst overlay (always visible, even when the page can't show it) -->
+  <!-- Icon sprite. Interface glyphs are drawn, not emoji; emoji is reserved for
+       places where the emoji IS the content (reactions, moods, moments). -->
+  <svg id="sprite" aria-hidden="true" focusable="false"><defs>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.7 4.9L18.6 9.6l-4.9 1.7L12 16.2l-1.7-4.9L5.4 9.6l4.9-1.7L12 3z"/><path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.2h-4.2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M3.6 7h9.4M17.4 7h3M3.6 12h3.4M11.4 12h9M3.6 17h11.4M19.4 17h1"/><circle cx="15.2" cy="7" r="2.2"/><circle cx="9.2" cy="12" r="2.2"/><circle cx="17.2" cy="17" r="2.2"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M6 15.5l6-6 6 6"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9.2" y="3" width="5.6" height="11" rx="2.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></symbol>
+    <symbol id="i-mic-off" viewBox="0 0 24 24"><path d="M9.2 6.2v-.4a2.8 2.8 0 0 1 5.6 0V11m-5.6 0v.2a2.8 2.8 0 0 0 4 2.5"/><path d="M5.5 11.5a6.5 6.5 0 0 0 10.2 5.3M12 18v3"/><path d="M4 3.5l16 17"/></symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24"><rect x="2.8" y="6.5" width="12.6" height="11" rx="3"/><path d="M15.4 11l5.3-3v8l-5.3-3z"/></symbol>
+    <symbol id="i-cam-off" viewBox="0 0 24 24"><path d="M15.4 9.6V9.5a3 3 0 0 0-3-3H5.8m-2.6 1.7a3 3 0 0 0-.4 1.3v5.9a3 3 0 0 0 3 3h6.6a3 3 0 0 0 2.6-1.5"/><path d="M15.4 11l5.3-3v8l-2.4-1.4"/><path d="M4 3.5l16 17"/></symbol>
+    <symbol id="i-vol-high" viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.4 9a4.2 4.2 0 0 1 0 6M18 6.4a7.8 7.8 0 0 1 0 11.2"/></symbol>
+    <symbol id="i-vol-low" viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.4 9a4.2 4.2 0 0 1 0 6"/></symbol>
+    <symbol id="i-vol-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M16 9.5l4.5 5M20.5 9.5l-4.5 5"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="2.8" y="5" width="18.4" height="14" rx="2.6"/><path d="M7.6 5v14M16.4 5v14M2.8 12h18.4"/></symbol>
+    <symbol id="i-exit" viewBox="0 0 24 24"><path d="M14.5 4.5H6.8a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h7.7"/><path d="M14.8 12h6.4M18.4 8.8l3.2 3.2-3.2 3.2"/></symbol>
+    <symbol id="i-shutter" viewBox="0 0 24 24"><path d="M4 8.4h3l1.6-2.4h6.8L17 8.4h3a1.6 1.6 0 0 1 1.6 1.6v7.2a1.6 1.6 0 0 1-1.6 1.6H4a1.6 1.6 0 0 1-1.6-1.6V10A1.6 1.6 0 0 1 4 8.4z"/><circle cx="12" cy="13.4" r="3.1"/></symbol>
+    <symbol id="i-strip" viewBox="0 0 24 24"><rect x="4" y="3.4" width="16" height="17.2" rx="2.2"/><path d="M4 9.1h16M4 14.9h16"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M8.6 11V5.9a1.5 1.5 0 1 1 3 0V11m0-.6V4.6a1.5 1.5 0 1 1 3 0V11m0-.6V6.4a1.5 1.5 0 1 1 3 0v6.2a7 7 0 0 1-7 7h-.6a6 6 0 0 1-4.4-2L4 15.4a1.6 1.6 0 0 1 2.4-2.1l2.2 2.2V8.6a1.5 1.5 0 1 1 3 0"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 24 24"><path d="M6.4 4h11.2a1 1 0 0 1 1 1v15l-6.6-4.2L5.4 20V5a1 1 0 0 1 1-1z"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.4A8.4 8.4 0 0 1 9.6 4a8.4 8.4 0 1 0 10.4 10.4z"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2.8" y="4.4" width="18.4" height="12.4" rx="2.2"/><path d="M8.6 20h6.8M12 16.8V20"/></symbol>
+    <symbol id="i-smile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M8.8 14.2a4 4 0 0 0 6.4 0"/><path d="M9.4 9.6h.01M14.6 9.6h.01"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M4.4 11.9L20 4.6l-7.3 15.6-1.9-6.4-6.4-1.9z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.6 15.6L20 20"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M14.6 5.4L8 12l6.6 6.6"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.2S3.4 15 3.4 9.3A4.6 4.6 0 0 1 12 6.9a4.6 4.6 0 0 1 8.6 2.4c0 5.7-8.6 10.9-8.6 10.9z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.6v12.8M5.6 12h12.8"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M3.6 8.6h13.2M13.8 5.4l3.2 3.2-3.2 3.2M20.4 15.4H7.2M10.4 12.2L7.2 15.4l3.2 3.2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.8 10.8L12 15l4.2-4.2M4.6 19.4h14.8"/></symbol>
+    <symbol id="i-brush" viewBox="0 0 24 24"><path d="M17.5 3.9l2.6 2.6-9 9-2.6-2.6z"/><path d="M8.5 12.9c-2 0-3.6 1.6-3.6 3.6 0 1-.8 1.9-1.9 2.3 1 1 2.3 1.3 3.6 1.3 2 0 3.6-1.6 3.6-3.6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.8 7.4h14.4M9.4 7.4V5.6a1 1 0 0 1 1-1h3.2a1 1 0 0 1 1 1v1.8M6.6 7.4l.9 11.4a1.4 1.4 0 0 0 1.4 1.3h6.2a1.4 1.4 0 0 0 1.4-1.3l.9-11.4"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10.4 13.6a3.4 3.4 0 0 0 4.8 0l3-3a3.4 3.4 0 0 0-4.8-4.8l-1 1"/><path d="M13.6 10.4a3.4 3.4 0 0 0-4.8 0l-3 3a3.4 3.4 0 0 0 4.8 4.8l1-1"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6"/></symbol>
+  </defs></svg>
+
+  <div id="app" data-presence="off">
+    <!-- Reaction bursts land here, so they're visible even on pages where the
+         content script can't run. -->
     <div id="fx-overlay"></div>
-    <!-- Header -->
+
     <header id="header">
       <div class="brand">
-        <span id="presence-heart" class="heart-idle" title="Connection status">💗</span>
-        <span class="title" id="header-status">Not connected</span>
+        <span class="presence" title="Who's here">
+          <i id="presence-heart" class="p-dot p-me" title="You"></i>
+          <i id="status-dot" class="p-dot p-them off" title="Disconnected"></i>
+        </span>
+        <span class="brand-lines">
+          <span class="brand-name" id="header-status">Not connected</span>
+          <span class="brand-sub" id="header-sub">WatchTogether</span>
+        </span>
       </div>
       <div class="header-actions">
-        <span id="status-dot" class="dot off" title="Disconnected"></span>
-        <button id="btn-fun" class="icon-btn" title="Cute stuff ✨">✨</button>
-        <button id="btn-reconnect" class="icon-btn" title="Reconnect now">🔄</button>
-        <button id="btn-settings" class="icon-btn" title="Settings">⚙</button>
-        <button id="btn-close" class="icon-btn" title="Minimize (reopen with the icon or Cmd/Ctrl+Shift+Y)">–</button>
+        <button id="btn-fun" class="icon-btn" title="Just us — games, cards, keepsakes"><svg class="ic"><use href="#i-sparkle"/></svg></button>
+        <button id="btn-reconnect" class="icon-btn" title="Reconnect now"><svg class="ic"><use href="#i-refresh"/></svg></button>
+        <button id="btn-settings" class="icon-btn" title="Settings"><svg class="ic"><use href="#i-gear"/></svg></button>
+        <button id="btn-close" class="icon-btn" title="Hide the panel (reopen with the icon or ⌘⇧Y)"><svg class="ic"><use href="#i-collapse"/></svg></button>
       </div>
     </header>
+    <!-- The presence thread: one hairline that is warm on your side, and only
+         reaches all the way across when they're actually here. -->
+    <div id="thread" aria-hidden="true"><span class="thread-fill"></span></div>
 
-    <!-- First-run name gate -->
+    <!-- First run -->
     <section id="name-panel" class="panel hidden">
       <div class="name-gate">
-        <div class="name-emoji">💗</div>
-        <h3>Welcome to WatchTogether</h3>
-        <p class="muted">What should we call you? Your partner will see this name.</p>
-        <input id="set-me-first" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
-        <button id="btn-name-continue" class="primary">Continue</button>
+        <div class="gate-mark"><svg class="ic"><use href="#i-heart"/></svg></div>
+        <h1 class="gate-title">Two screens,<br />one movie.</h1>
+        <p class="gate-copy">WatchTogether keeps your video in step with theirs, and puts the two of you in the margin beside it.</p>
+        <label class="field">
+          <span class="micro">What should they call you</span>
+          <input id="set-me-first" type="text" placeholder="Your name" maxlength="24" autocomplete="off" />
+        </label>
+        <button id="btn-name-continue" class="primary">Start</button>
       </div>
     </section>
 
-    <!-- Connection panel -->
+    <!-- Pairing -->
     <section id="connect-panel" class="panel">
-      <div class="hello">Hi <b id="me-name">you</b> 💕</div>
+      <div id="pair-setup" class="stack">
+        <div class="hello">Hi <b id="me-name">you</b></div>
 
-      <!-- Pairing setup (shown until paired) -->
-      <div id="pair-setup" class="mode-ui">
-        <p class="muted small">Pair with your partner <b>once</b>: you both type the <b>same secret word</b>. After that you auto-connect every time — no codes, no rejoining, even after refreshing or switching pages.</p>
-        <input id="pair-code" type="text" placeholder="Shared secret word (e.g. usforever)" autocomplete="off" />
-        <input id="relay-url" type="text" placeholder="Relay server link (optional, e.g. wss://you.ngrok-free.app)" autocomplete="off" spellcheck="false" />
-        <p class="muted small">Got your own relay running? Paste its link on <b>both</b> computers for a rock-solid connection — all sync, chat &amp; calls go through it instead of public relays. (See <code>relay-server/</code>.) Leave blank to use the default public relays.</p>
-        <details class="advanced" id="relay-adv">
-          <summary>Relay: force calls through it too (TURN)</summary>
-          <p class="muted small">Optional. Only if your video/voice call itself won't connect. Requires a TURN server (see relay-server/README).</p>
-          <input id="turn-url" type="text" placeholder="turn:your-host:3478" autocomplete="off" spellcheck="false" />
-          <input id="turn-user" type="text" placeholder="TURN username" autocomplete="off" spellcheck="false" />
-          <input id="turn-pass" type="text" placeholder="TURN password" autocomplete="off" spellcheck="false" />
+        <div class="card">
+          <div class="card-head"><span class="micro">Pair once</span><i class="rule"></i></div>
+          <p class="copy">You both type the <b>same secret word</b>. After that you connect automatically every time — no codes, no rejoining, even after a refresh or a change of page.</p>
+          <label class="field">
+            <span class="micro">Shared secret word</span>
+            <input id="pair-code" type="text" placeholder="e.g. usforever" autocomplete="off" spellcheck="false" />
+          </label>
+          <button id="btn-pair" class="primary">Pair &amp; connect</button>
+        </div>
+
+        <details class="disclose" id="relay-adv-wrap">
+          <summary><svg class="ic"><use href="#i-link"/></svg><span>Use your own relay server</span></summary>
+          <div class="disclose-body">
+            <p class="copy">Running the relay in <code>relay-server/</code>? Paste its link on <b>both</b> computers and everything — sync, chat and calls — goes through it instead of public relays. Leave it blank to use the public ones.</p>
+            <label class="field">
+              <span class="micro">Relay link</span>
+              <input id="relay-url" type="text" placeholder="wss://you.ngrok-free.app" autocomplete="off" spellcheck="false" />
+            </label>
+            <details class="disclose sub" id="relay-adv">
+              <summary><span>Force calls through it too (TURN)</span></summary>
+              <div class="disclose-body">
+                <p class="copy">Only needed if the video call itself won't connect. Requires a TURN server — see <code>relay-server/README</code>.</p>
+                <input id="turn-url" type="text" placeholder="turn:your-host:3478" autocomplete="off" spellcheck="false" />
+                <input id="turn-user" type="text" placeholder="TURN username" autocomplete="off" spellcheck="false" />
+                <input id="turn-pass" type="text" placeholder="TURN password" autocomplete="off" spellcheck="false" />
+              </div>
+            </details>
+          </div>
         </details>
-        <button id="btn-pair" class="primary">Pair &amp; connect 💞</button>
-        <details class="advanced">
-          <summary>Advanced: connect without the broker</summary>
-          <div id="manual-ui" class="mode-ui">
-            <p class="muted small">No broker at all. One of you is the host: create an invite, paste it to your partner (over text/Signal/etc.), and paste their reply back.</p>
+
+        <details class="disclose">
+          <summary><svg class="ic"><use href="#i-swap"/></svg><span>Connect with no server at all</span></summary>
+          <div class="disclose-body" id="manual-ui">
+            <p class="copy">One of you hosts: create an invite, send it over text, and paste their reply back. Nothing in the middle.</p>
             <div class="manual-roles">
-              <button id="btn-manual-host" class="ghost">I'm hosting → create invite</button>
-              <button id="btn-manual-guest" class="ghost">I'm joining → I have an invite</button>
+              <button id="btn-manual-host" class="ghost">I'm hosting</button>
+              <button id="btn-manual-guest" class="ghost">I have an invite</button>
             </div>
-            <div id="manual-host-ui" class="hidden">
-              <label class="muted small">1. Send this invite to your partner:</label>
+            <div id="manual-host-ui" class="hidden stack-sm">
+              <span class="micro">1 — Send them this invite</span>
               <textarea id="host-offer" readonly placeholder="Generating…"></textarea>
               <button id="btn-copy-offer" class="mini">Copy invite</button>
-              <label class="muted small">2. Paste their reply here:</label>
-              <textarea id="host-answer" placeholder="Paste partner's reply code"></textarea>
+              <span class="micro">2 — Paste their reply</span>
+              <textarea id="host-answer" placeholder="Their reply code"></textarea>
               <button id="btn-host-finish" class="primary">Connect</button>
             </div>
-            <div id="manual-guest-ui" class="hidden">
-              <label class="muted small">1. Paste the invite you received:</label>
-              <textarea id="guest-offer" placeholder="Paste invite code"></textarea>
+            <div id="manual-guest-ui" class="hidden stack-sm">
+              <span class="micro">1 — Paste the invite you got</span>
+              <textarea id="guest-offer" placeholder="Their invite code"></textarea>
               <button id="btn-guest-gen" class="primary">Generate my reply</button>
-              <label class="muted small">2. Send this reply back to them:</label>
+              <span class="micro">2 — Send this back to them</span>
               <textarea id="guest-answer" readonly placeholder="Your reply appears here"></textarea>
               <button id="btn-copy-answer" class="mini">Copy reply</button>
             </div>
@@ -81,12 +147,11 @@
         </details>
       </div>
 
-      <!-- Connecting status (shown when paired) -->
       <div id="pair-status" class="mode-ui hidden">
-        <div class="pair-spinner">💗</div>
-        <div>Connecting to <b id="partner-name2">your partner</b>…</div>
-        <p class="muted small">Auto-reconnects on refresh or page change. Keep this panel open.</p>
-        <button id="btn-unpair" class="ghost">Unpair</button>
+        <div class="dial"><span class="dial-ring"></span><span class="dial-ring d2"></span><svg class="ic dial-heart"><use href="#i-heart"/></svg></div>
+        <div class="dial-line">Reaching <b id="partner-name2">your partner</b></div>
+        <p class="copy center">This reconnects itself on refresh or when you change pages. Leave the panel open.</p>
+        <button id="btn-unpair" class="ghost quiet">Unpair</button>
       </div>
 
       <div id="connect-error" class="error hidden"></div>
@@ -94,391 +159,426 @@
 
     <!-- Live session -->
     <section id="live-panel" class="panel hidden">
-      <!-- Invite banner (shown when partner invites you; works on any page) -->
       <div id="invite-banner" class="hidden">
-        <div id="invite-text">💗</div>
+        <div id="invite-text"></div>
         <div class="invite-actions">
-          <button id="invite-join" class="primary">Join ▶</button>
-          <button id="invite-no" class="ghost">Later</button>
+          <button id="invite-join" class="primary">Join them</button>
+          <button id="invite-no" class="ghost">Not now</button>
         </div>
       </div>
 
-      <!-- Camera tiles -->
       <div id="cam-area">
-        <div class="cam-tile">
+        <div class="cam-tile side-me">
           <video id="local-video" autoplay muted playsinline></video>
+          <div class="cam-idle"><span class="cam-mono" id="local-mono">Y</span><span class="cam-off-badge" id="local-off">cam off</span></div>
           <span class="cam-label" id="local-label">You</span>
-          <div class="cam-off-badge" id="local-off">cam off</div>
         </div>
-        <div class="cam-tile">
+        <div class="cam-tile side-them">
           <video id="remote-video" autoplay playsinline></video>
+          <div class="cam-idle"><span class="cam-mono" id="remote-mono">P</span><span class="cam-off-badge" id="remote-off">waiting…</span></div>
           <span class="cam-label" id="remote-label">Partner</span>
-          <div class="cam-off-badge" id="remote-off">waiting…</div>
         </div>
       </div>
 
-      <!-- Media controls -->
       <div id="media-controls">
-        <button id="btn-mic" class="media-btn off" title="Toggle microphone">🎙️<span>Mic</span></button>
-        <button id="btn-cam" class="media-btn off" title="Toggle camera">📷<span>Cam</span></button>
-        <span id="video-warn" class="video-warn" title="No video detected on this page">🎬</span>
-        <div id="vol-wrap" title="Partner's volume">
-          <button id="vol-icon" class="vol-icon" title="Mute/unmute partner">🔊</button>
-          <input id="vol-slider" type="range" min="0" max="100" value="100" />
+        <button id="btn-mic" class="media-btn off" title="Microphone">
+          <svg class="ic on-ic"><use href="#i-mic"/></svg><svg class="ic off-ic"><use href="#i-mic-off"/></svg><span>Mic</span>
+        </button>
+        <button id="btn-cam" class="media-btn off" title="Camera">
+          <svg class="ic on-ic"><use href="#i-cam"/></svg><svg class="ic off-ic"><use href="#i-cam-off"/></svg><span>Cam</span>
+        </button>
+        <span id="video-warn" class="video-warn" title="No video found on this page"><svg class="ic"><use href="#i-film"/></svg></span>
+        <div id="vol-wrap" title="Their volume">
+          <button id="vol-icon" class="vol-icon" data-level="high" title="Mute them">
+            <svg class="ic v-high"><use href="#i-vol-high"/></svg><svg class="ic v-low"><use href="#i-vol-low"/></svg><svg class="ic v-mute"><use href="#i-vol-mute"/></svg>
+          </button>
+          <input id="vol-slider" type="range" min="0" max="100" value="100" title="Their volume" />
         </div>
-        <button id="btn-leave" class="leave-btn" title="Leave session">Leave</button>
+        <button id="btn-leave" class="leave-btn" title="Leave the session"><svg class="ic"><use href="#i-exit"/></svg></button>
       </div>
 
-      <!-- Couple bar -->
       <div id="couple-bar">
-        <button class="cute-btn" data-react="heart" title="Send hearts">❤️</button>
-        <button class="cute-btn" data-react="kiss" title="Blow a kiss">😘</button>
-        <button class="cute-btn" data-react="fire" title="🔥">🔥</button>
-        <button class="cute-btn" data-react="laugh" title="😂">😂</button>
-        <button id="btn-snap" class="cute-btn" title="Send a webcam selfie">📸</button>
-        <button id="btn-photobooth" class="cute-btn" title="Photobooth 🎞️">🎞️</button>
-        <button id="btn-poke" class="cute-btn" title="Nudge / I miss you">👉💗</button>
-        <button id="btn-bookmark" class="cute-btn" title="Bookmark this moment ❤️">🔖</button>
-        <button id="btn-cuddle" class="cute-btn" title="Cuddle / goodnight mode 🌙">🌙</button>
-        <button id="btn-invite" class="cute-btn" title="Invite your partner to watch this video together">📺</button>
+        <div class="react-rail">
+          <button class="cute-btn" data-react="heart" title="Send hearts">❤️</button>
+          <button class="cute-btn" data-react="kiss" title="Blow a kiss">😘</button>
+          <button class="cute-btn" data-react="fire" title="Send fire">🔥</button>
+          <button class="cute-btn" data-react="laugh" title="Send laughter">😂</button>
+        </div>
+        <div class="act-rail">
+          <button id="btn-invite" class="act-btn" title="Invite them to the video in this tab"><svg class="ic"><use href="#i-screen"/></svg><span>Invite</span></button>
+          <button id="btn-bookmark" class="act-btn" title="Bookmark this moment"><svg class="ic"><use href="#i-mark"/></svg><span>Mark</span></button>
+          <button id="btn-snap" class="act-btn" title="Send a webcam still"><svg class="ic"><use href="#i-shutter"/></svg><span>Snap</span></button>
+          <button id="btn-photobooth" class="act-btn" title="Open the photobooth"><svg class="ic"><use href="#i-strip"/></svg><span>Booth</span></button>
+          <button id="btn-poke" class="act-btn" title="Nudge them — I miss you"><svg class="ic"><use href="#i-wave"/></svg><span>Poke</span></button>
+          <button id="btn-cuddle" class="act-btn" title="Goodnight mode"><svg class="ic"><use href="#i-moon"/></svg><span>Night</span></button>
+        </div>
       </div>
 
-      <!-- Chat -->
       <div id="chat" aria-live="polite"></div>
-      <div id="typing-ind" class="typing hidden"></div>
+      <div id="typing-ind" class="typing hidden"><i class="tdot"></i><i class="tdot"></i><i class="tdot"></i><span></span></div>
 
-      <!-- GIF panel -->
       <div id="gif-panel" class="hidden">
         <div class="gif-search-row">
-          <input id="gif-q" type="text" placeholder="Search GIFs…" />
-          <button id="gif-close" class="icon-btn">✕</button>
+          <span class="search-wrap"><svg class="ic"><use href="#i-search"/></svg><input id="gif-q" type="text" placeholder="Search GIFs" /></span>
+          <button id="gif-close" class="icon-btn quiet"><svg class="ic"><use href="#i-x"/></svg></button>
         </div>
         <div id="gif-results"></div>
-        <div id="gif-needkey" class="muted small hidden">
-          Add a free Giphy API key in ⚙ settings to search GIFs.
-        </div>
+        <div id="gif-needkey" class="copy hidden">Add a free Giphy key in settings to search GIFs.</div>
       </div>
 
-      <!-- Emoji panel -->
       <div id="emoji-panel" class="hidden"></div>
 
-      <!-- Composer -->
       <div id="composer">
-        <button id="btn-emoji" class="icon-btn" title="Emoji">😊</button>
-        <button id="btn-gif" class="icon-btn" title="GIF">GIF</button>
-        <input id="msg-input" type="text" placeholder="Message…" autocomplete="off" />
-        <button id="btn-send" class="send-btn" title="Send">➤</button>
+        <button id="btn-emoji" class="icon-btn quiet" title="Emoji"><svg class="ic"><use href="#i-smile"/></svg></button>
+        <button id="btn-gif" class="icon-btn quiet gif-btn" title="GIF">GIF</button>
+        <input id="msg-input" type="text" placeholder="Say something…" autocomplete="off" />
+        <button id="btn-send" class="send-btn" title="Send"><svg class="ic"><use href="#i-send"/></svg></button>
       </div>
     </section>
 
-    <!-- Settings panel -->
+    <!-- Settings -->
     <section id="settings-panel" class="panel hidden">
-      <h3>Settings</h3>
-      <label>Your name<input id="set-me" type="text" placeholder="You" /></label>
-      <label>Giphy API key
-        <input id="set-giphy" type="text" placeholder="Paste your free Giphy key" />
-      </label>
-      <p class="muted small">A key is already built in, so GIFs work out of the box. Optional: paste your own from <span class="link" id="giphy-link">developers.giphy.com</span> to use your own quota.</p>
-      <label class="check"><input id="set-autocam" type="checkbox" /> Ask for mic/cam automatically when a session starts</label>
-      <h3 style="margin-top:18px">Make it yours 🎀</h3>
-      <label>Pet name for your partner<input id="set-petname" type="text" placeholder="e.g. Babe, Cutie 🥰" maxlength="24" /></label>
-      <label>Shared theme color
-        <input id="set-theme" type="color" value="#ff7ec0" class="theme-color" />
-      </label>
-      <p class="muted small">Your pet name shows instead of their real name, and the theme color tints both of your panels 💞</p>
-      <h3 style="margin-top:18px">Your dates 💕</h3>
-      <label>The day you became a couple<input id="set-anniversary" type="date" /></label>
-      <label>Your birthday<input id="set-bday-me" type="date" /></label>
-      <label>Partner's birthday<input id="set-bday-partner" type="date" /></label>
+      <div class="panel-head">
+        <h2 class="panel-title">Settings</h2>
+        <button id="btn-settings-back" class="icon-btn quiet" title="Back"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="micro">You</span><i class="rule"></i></div>
+        <label class="field"><span class="micro">Your name</span><input id="set-me" type="text" placeholder="You" /></label>
+        <label class="switch">
+          <input id="set-autocam" type="checkbox" /><i class="track"></i>
+          <span>Ask for mic and camera when a session starts</span>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="micro">The two of you</span><i class="rule"></i></div>
+        <label class="field"><span class="micro">What you call them</span><input id="set-petname" type="text" placeholder="Their pet name" maxlength="24" /></label>
+        <span class="micro">The colour you see them in</span>
+        <div class="swatches" id="theme-swatches">
+          <button class="swatch" data-color="#F0728F" style="--sw:#F0728F" title="Rose"></button>
+          <button class="swatch" data-color="#E0607A" style="--sw:#E0607A" title="Cherry"></button>
+          <button class="swatch" data-color="#D2789E" style="--sw:#D2789E" title="Orchid"></button>
+          <button class="swatch" data-color="#A981D8" style="--sw:#A981D8" title="Lilac"></button>
+          <button class="swatch" data-color="#7B9BE0" style="--sw:#7B9BE0" title="Cornflower"></button>
+          <button class="swatch" data-color="#5FBFA8" style="--sw:#5FBFA8" title="Jade"></button>
+          <button class="swatch" data-color="#E39B4E" style="--sw:#E39B4E" title="Marigold"></button>
+          <label class="swatch custom" title="Pick your own"><svg class="ic"><use href="#i-plus"/></svg><input id="set-theme" type="color" value="#F0728F" /></label>
+        </div>
+        <p class="copy">Their name, their camera, their side of every game — all in this colour, on both your panels. Yours stays amber.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="micro">Dates worth keeping</span><i class="rule"></i></div>
+        <label class="field"><span class="micro">The day you became a couple</span><input id="set-anniversary" type="date" /></label>
+        <div class="row">
+          <label class="field"><span class="micro">Your birthday</span><input id="set-bday-me" type="date" /></label>
+          <label class="field"><span class="micro">Theirs</span><input id="set-bday-partner" type="date" /></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="micro">GIFs</span><i class="rule"></i></div>
+        <label class="field"><span class="micro">Giphy key (optional)</span><input id="set-giphy" type="text" placeholder="Paste your own key" /></label>
+        <p class="copy">A key is built in, so GIFs already work. Paste your own from <span class="link" id="giphy-link">developers.giphy.com</span> to use your own quota.</p>
+      </div>
+
       <div class="settings-actions">
         <button id="btn-save-settings" class="primary">Save</button>
-        <button id="btn-clear-history" class="ghost danger">Clear watch history</button>
+        <button id="btn-clear-history" class="ghost danger"><svg class="ic"><use href="#i-trash"/></svg><span>Clear watch history</span></button>
       </div>
     </section>
 
-    <!-- History panel -->
+    <!-- Watch history -->
     <section id="history-panel" class="panel hidden">
-      <h3>Watch history 🍿</h3>
+      <div class="panel-head">
+        <button id="btn-history-back" class="icon-btn quiet" title="Back"><svg class="ic"><use href="#i-back"/></svg></button>
+        <h2 class="panel-title">Nights in</h2>
+      </div>
       <div id="history-list"></div>
-      <button id="btn-history-back" class="ghost">Back</button>
     </section>
 
-    <!-- Fun / cute extras panel -->
+    <!-- Just us -->
     <section id="fun-panel" class="panel hidden">
-      <div class="fun-head">
-        <h3>Just us ✨</h3>
-        <button id="btn-fun-back" class="icon-btn" title="Back">✕</button>
+      <!-- Pinned: their face and the tab bar both have to stay reachable while
+           you scroll a game or a letter. -->
+      <div id="fun-top">
+      <div class="panel-head">
+        <h2 class="panel-title">Just us</h2>
+        <button id="btn-fun-back" class="icon-btn quiet" title="Back to the chat"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
 
-      <!-- Camera strip (mirrors the live cams so you can still see each other) -->
       <div id="fun-cam" class="hidden">
-        <div class="cam-tile">
+        <div class="cam-tile side-me">
           <video id="fun-local-video" autoplay muted playsinline></video>
+          <div class="cam-idle"><span class="cam-mono" id="fun-local-mono">Y</span><span class="cam-off-badge" id="fun-local-off">cam off</span></div>
           <span class="cam-label" id="fun-local-label">You</span>
-          <div class="cam-off-badge" id="fun-local-off">cam off</div>
         </div>
-        <div class="cam-tile">
+        <div class="cam-tile side-them">
           <video id="fun-remote-video" autoplay playsinline muted></video>
+          <div class="cam-idle"><span class="cam-mono" id="fun-remote-mono">P</span><span class="cam-off-badge" id="fun-remote-off">waiting…</span></div>
           <span class="cam-label" id="fun-remote-label">Partner</span>
-          <div class="cam-off-badge" id="fun-remote-off">waiting…</div>
         </div>
       </div>
 
-      <!-- Us at a glance -->
-      <div class="fun-card" id="fun-dates">
-        <div id="days-together" class="big-num">💕 — days together</div>
-        <div id="next-event" class="muted small"></div>
-        <div id="partner-clock" class="muted small"></div>
-        <div id="us-stats">
-          <span id="streak" title="Date-night streak">🔥 0 day streak</span>
-          <span id="watch-count" title="Things watched together">🎬 0 together</span>
-          <button id="btn-history" class="link-btn">history</button>
+      <nav id="fun-tabs" role="tablist">
+        <button class="fun-tab-btn is-on" data-tab="us" role="tab">Us</button>
+        <button class="fun-tab-btn" data-tab="play" role="tab">Play</button>
+        <button class="fun-tab-btn" data-tab="cards" role="tab">Ask</button>
+        <button class="fun-tab-btn" data-tab="keep" role="tab">Keep</button>
+        <i class="tab-marker"></i>
+      </nav>
+      </div>
+
+      <!-- ── Us ─────────────────────────────────────────────────────── -->
+      <div class="fun-tab" data-tab="us">
+        <div class="card hero">
+          <span class="micro">Days together</span>
+          <div id="days-together" class="hero-num">—</div>
+          <div id="next-event" class="hero-next"></div>
+          <div class="hero-split">
+            <div class="clock side-me">
+              <span class="micro" id="clock-me-label">You</span>
+              <span class="clock-time" id="my-clock">—</span>
+              <span class="clock-sky" id="my-weather"></span>
+            </div>
+            <i class="split-rule"></i>
+            <div class="clock side-them">
+              <span class="micro" id="clock-them-label">Them</span>
+              <span class="clock-time" id="partner-clock">—</span>
+              <span class="clock-sky" id="partner-weather"></span>
+            </div>
+          </div>
+          <button id="weather-btn" class="mini wide"><svg class="ic"><use href="#i-sun"/></svg><span>Share my sky</span></button>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Hold hands</span><i class="rule"></i></div>
+          <button id="hold-btn" class="hold-btn"><span class="hold-label">Press and hold</span><span class="hold-rings"></span></button>
+          <div id="hold-status" class="copy center">Hold at the same time and you'll both feel it.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Kept count</span><i class="rule"></i></div>
+          <div class="count-row">
+            <button class="count-btn" data-count="kiss"><span class="count-emoji">😘</span><span id="kiss-count">0</span><span class="micro">kisses</span></button>
+            <button class="count-btn" data-count="hug"><span class="count-emoji">🤗</span><span id="hug-count">0</span><span class="micro">hugs</span></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">How you're feeling</span><i class="rule"></i></div>
+          <div class="mood-row">
+            <button class="mood-opt" data-mood="🥰">🥰</button>
+            <button class="mood-opt" data-mood="😴">😴</button>
+            <button class="mood-opt" data-mood="🥺">🥺</button>
+            <button class="mood-opt" data-mood="😎">😎</button>
+            <button class="mood-opt" data-mood="🤗">🤗</button>
+            <button class="mood-opt" data-mood="😤">😤</button>
+            <button class="mood-opt" data-mood="🤒">🤒</button>
+          </div>
+          <input id="mood-text" type="text" maxlength="20" placeholder="…or say it in words" />
+          <div id="partner-mood" class="partner-line"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Nights in</span><i class="rule"></i></div>
+          <div id="us-stats">
+            <span class="stat"><b id="watch-count">0</b><span class="micro">watched</span></span>
+            <i class="split-rule"></i>
+            <span class="stat"><b id="streak">0</b><span class="micro">night streak</span></span>
+            <button id="btn-history" class="link-btn">See them all</button>
+          </div>
+          <div class="rate-block">
+            <span class="micro">Rate tonight — reveals when you both have</span>
+            <div class="stars" id="rate-stars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div>
+            <div id="rate-status" class="copy"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Same sky / weather -->
-      <div class="fun-card">
-        <div class="fun-title">Same sky 🌗</div>
-        <div id="my-weather" class="muted small"></div>
-        <div id="partner-weather" class="muted small">Tap below so you can see each other's sky 💕</div>
-        <button id="weather-btn" class="mini" style="margin-top:8px;">Share my weather</button>
-      </div>
-
-      <!-- Reaction timeline -->
-      <div class="fun-card">
-        <div class="fun-title">Our moments 🔖</div>
-        <p class="muted small">Bookmark a bit of whatever you're watching — tap a moment to jump you both back to it.</p>
-        <div class="rps-row" style="margin-top:6px;">
-          <button class="mark-btn" data-mark="😂">😂</button>
-          <button class="mark-btn" data-mark="😮">😮</button>
-          <button class="mark-btn" data-mark="❤️">❤️</button>
-          <button class="mark-btn" data-mark="😭">😭</button>
-          <button class="mark-btn" data-mark="🔥">🔥</button>
+      <!-- ── Play ───────────────────────────────────────────────────── -->
+      <div class="fun-tab hidden" data-tab="play">
+        <div class="card">
+          <div class="card-head"><span class="micro">Rock paper scissors</span><i class="rule"></i></div>
+          <div class="rps-row">
+            <button class="rps-opt" data-rps="rock">🪨</button>
+            <button class="rps-opt" data-rps="paper">📄</button>
+            <button class="rps-opt" data-rps="scissors">✂️</button>
+          </div>
+          <div class="card-foot"><span id="rps-status" class="copy">Pick one — revealed when you both have.</span><button id="rps-reset" class="mini">Again</button></div>
         </div>
-        <div id="timeline-list" class="wl-list"></div>
-        <button id="timeline-clear" class="link-btn" style="margin-top:6px;">clear moments</button>
-      </div>
 
-      <!-- Hold hands -->
-      <div class="fun-card">
-        <div class="fun-title">Hold hands 🤲</div>
-        <button id="hold-btn" class="hold-btn">Press &amp; hold 🫶</button>
-        <div id="hold-status" class="muted small" style="text-align:center;margin-top:7px;">Hold together to feel each other 💞</div>
-      </div>
-
-      <!-- Kiss & hug counters -->
-      <div class="fun-card">
-        <div class="fun-title">Kisses &amp; hugs 💞</div>
-        <div class="count-row">
-          <button class="count-btn" data-count="kiss">😘<span id="kiss-count">0</span></button>
-          <button class="count-btn" data-count="hug">🤗<span id="hug-count">0</span></button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Guess the emoji</span><i class="rule"></i></div>
+          <div class="chip-grid">
+            <button class="chip emoji-deck-btn" data-deck="movie">🎬 Movies</button>
+            <button class="chip emoji-deck-btn" data-deck="spicy">🔥 Sexy acts</button>
+            <button class="chip emoji-deck-btn" data-deck="position">🛏️ Positions</button>
+            <button class="chip emoji-deck-btn" data-deck="phrase">🗯️ Dirty phrase</button>
+            <button class="chip emoji-deck-btn" data-deck="sext">💌 Decode my sext</button>
+            <button class="chip emoji-deck-btn" data-deck="random">🎲 Surprise</button>
+          </div>
+          <div id="emoji-puzzle" class="emoji-puzzle"></div>
+          <div class="row">
+            <input id="emoji-guess" type="text" placeholder="Your guess" />
+            <button id="emoji-send" class="mini">Guess</button>
+          </div>
+          <div class="card-foot"><button id="emoji-reveal" class="link-btn">Reveal the answer</button></div>
+          <div id="emoji-answer" class="reveal hidden"></div>
+          <div id="emoji-guesses" class="answers"></div>
         </div>
-      </div>
 
-      <!-- Love letter -->
-      <div class="fun-card">
-        <div class="fun-title">Love letter 💌</div>
-        <textarea id="letter-input" placeholder="Write something sweet…" style="min-height:60px;font-family:inherit;font-size:13px;"></textarea>
-        <button id="letter-send" class="mini" style="margin-top:7px;">Seal &amp; send 💌</button>
-      </div>
-
-      <!-- Surprise scheduled note -->
-      <div class="fun-card">
-        <div class="fun-title">Surprise note ⏰</div>
-        <input id="sched-text" type="text" placeholder="Note to deliver later…" />
-        <div class="row" style="margin-top:7px;">
-          <input id="sched-when" type="datetime-local" />
-          <button id="sched-add" class="mini">Schedule</button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Connect 4</span><i class="rule"></i></div>
+          <div id="c4-board" class="c4"></div>
+          <div class="card-foot"><span id="c4-status" class="copy"></span><button id="c4-reset" class="mini">New game</button></div>
         </div>
-        <div id="sched-list" class="muted small" style="margin-top:7px;"></div>
-      </div>
 
-      <!-- How well do you know me -->
-      <div class="fun-card">
-        <div class="fun-title">How well do you know me? 💘</div>
-        <div id="quiz-q" class="muted small"></div>
-        <div class="row" style="margin-top:7px;">
-          <input id="quiz-input" type="text" placeholder="Your answer…" />
-          <button id="quiz-send" class="mini">Send</button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Tic-tac-toe</span><i class="rule"></i></div>
+          <div id="ttt-board" class="ttt"></div>
+          <div class="card-foot"><span id="ttt-status" class="copy"></span><button id="ttt-reset" class="mini">New game</button></div>
         </div>
-        <button id="quiz-new" class="mini" style="margin-top:7px;">New question 🎲</button>
-        <div id="quiz-answers" class="qotd-answers"></div>
-      </div>
 
-      <!-- Memory scrapbook -->
-      <div class="fun-card">
-        <div class="fun-title">Memory scrapbook 📖</div>
-        <div class="row">
-          <input id="mem-input" type="text" placeholder="Add a memory…" />
-          <button id="mem-add" class="mini">Add</button>
-        </div>
-        <div id="mem-list" class="wl-list"></div>
-      </div>
-
-      <!-- Photobooth gallery -->
-      <div class="fun-card">
-        <div class="fun-title">Our gallery 📸</div>
-        <p class="muted small">Every photobooth shot you take or get lands here. Tap one to send it again.</p>
-        <div id="gallery-grid" class="gallery-grid"></div>
-        <button id="gallery-clear" class="link-btn" style="margin-top:6px;">clear gallery</button>
-      </div>
-
-      <!-- Mood -->
-      <div class="fun-card">
-        <div class="fun-title">Your mood</div>
-        <div class="mood-row">
-          <button class="mood-opt" data-mood="🥰">🥰</button>
-          <button class="mood-opt" data-mood="😴">😴</button>
-          <button class="mood-opt" data-mood="🥺">🥺</button>
-          <button class="mood-opt" data-mood="😎">😎</button>
-          <button class="mood-opt" data-mood="🤗">🤗</button>
-          <button class="mood-opt" data-mood="😤">😤</button>
-          <button class="mood-opt" data-mood="🤒">🤒</button>
-          <input id="mood-text" type="text" maxlength="20" placeholder="…or type" />
-        </div>
-        <div id="partner-mood" class="muted small"></div>
-      </div>
-
-      <!-- Question of the day -->
-      <div class="fun-card">
-        <div class="fun-title">Question of the day 💭</div>
-        <div id="qotd-q"></div>
-        <div class="row">
-          <input id="qotd-input" type="text" placeholder="Your answer…" />
-          <button id="qotd-send" class="mini">Send</button>
-        </div>
-        <div id="qotd-answers" class="qotd-answers"></div>
-      </div>
-
-      <!-- Compliment jar -->
-      <div class="fun-card">
-        <div class="fun-title">Love jar 🫙</div>
-        <button id="jar-btn" class="ghost">Pull a sweet note</button>
-        <div id="jar-note" class="jar-note hidden"></div>
-      </div>
-
-      <!-- Rate & reveal -->
-      <div class="fun-card">
-        <div class="fun-title">Rate what you watched ⭐</div>
-        <div class="stars" id="rate-stars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div>
-        <div id="rate-status" class="muted small">Pick your secret rating — reveals when you both have.</div>
-      </div>
-
-      <!-- Watchlist -->
-      <div class="fun-card">
-        <div class="fun-title">Watchlist / bucket list 📝</div>
-        <div class="row">
-          <input id="wl-input" type="text" placeholder="Add something to watch or do…" />
-          <button id="wl-add" class="mini">Add</button>
-        </div>
-        <div id="wl-list" class="wl-list"></div>
-      </div>
-
-      <!-- Spicy card games -->
-      <div class="fun-card">
-        <div class="fun-title">Spicy cards 🔥🔞</div>
-        <div class="card-grid">
-          <button class="ghost card-btn" data-card="wyr">🤔 Would you rather</button>
-          <button class="ghost card-btn" data-card="truth">💬 Truth</button>
-          <button class="ghost card-btn" data-card="dare">🔥 Dare</button>
-          <button class="ghost card-btn" data-card="nhie">🙊 Never have I ever</button>
-          <button class="ghost card-btn" data-card="confess">😈 Confess</button>
-          <button class="ghost card-btn" data-card="fantasy">🎬 Fantasy</button>
-          <button class="ghost card-btn" data-card="finish">✍️ Finish it</button>
-          <button class="ghost card-btn" data-card="random">🎲 Surprise me</button>
-        </div>
-        <p class="muted small" style="margin-top:6px;">Made for long distance — every card works over video, voice, photos or text. Just us. 🔞</p>
-        <div id="card-out" class="card-out hidden"></div>
-      </div>
-
-      <!-- Rock paper scissors -->
-      <div class="fun-card">
-        <div class="fun-title">Rock paper scissors ✊</div>
-        <div class="rps-row">
-          <button class="rps-opt" data-rps="rock">🪨</button>
-          <button class="rps-opt" data-rps="paper">📄</button>
-          <button class="rps-opt" data-rps="scissors">✂️</button>
-        </div>
-        <div class="row" style="margin-top:8px; align-items:center;">
-          <span id="rps-status" class="muted small">Pick one — revealed when you both have.</span>
-          <button id="rps-reset" class="mini" style="margin-left:auto;">Again</button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Doodle together</span><i class="rule"></i></div>
+          <canvas id="doodle" width="320" height="200"></canvas>
+          <div class="card-foot">
+            <label class="color-well" title="Pen colour"><svg class="ic"><use href="#i-brush"/></svg><input id="doodle-color" type="color" value="#F0B457" /></label>
+            <button id="doodle-clear" class="mini">Clear</button>
+          </div>
         </div>
       </div>
 
-      <!-- Connect 4 -->
-      <div class="fun-card">
-        <div class="fun-title">Connect 4 🔴🟡</div>
-        <div id="c4-board" class="c4"></div>
-        <div class="row" style="margin-top:8px; align-items:center;">
-          <span id="c4-status" class="muted small"></span>
-          <button id="c4-reset" class="mini" style="margin-left:auto;">New game</button>
+      <!-- ── Ask ────────────────────────────────────────────────────── -->
+      <div class="fun-tab hidden" data-tab="cards">
+        <div class="card">
+          <div class="card-head"><span class="micro">Question of the day</span><i class="rule"></i></div>
+          <div id="qotd-q" class="prompt"></div>
+          <div class="row">
+            <input id="qotd-input" type="text" placeholder="Your answer" />
+            <button id="qotd-send" class="mini">Send</button>
+          </div>
+          <div id="qotd-answers" class="answers"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">How well do you know me</span><i class="rule"></i></div>
+          <div id="quiz-q" class="prompt"></div>
+          <div class="row">
+            <input id="quiz-input" type="text" placeholder="Your answer" />
+            <button id="quiz-send" class="mini">Send</button>
+          </div>
+          <div class="card-foot"><button id="quiz-new" class="link-btn">Another question</button></div>
+          <div id="quiz-answers" class="answers"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Love jar</span><i class="rule"></i></div>
+          <button id="jar-btn" class="ghost wide">Pull a note out</button>
+          <div id="jar-note" class="jar-note hidden"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Spicy cards</span><i class="rule"></i></div>
+          <div class="chip-grid">
+            <button class="chip card-btn" data-card="wyr">🤔 Would you rather</button>
+            <button class="chip card-btn" data-card="truth">💬 Truth</button>
+            <button class="chip card-btn" data-card="dare">🔥 Dare</button>
+            <button class="chip card-btn" data-card="nhie">🙊 Never have I ever</button>
+            <button class="chip card-btn" data-card="confess">😈 Confess</button>
+            <button class="chip card-btn" data-card="fantasy">🎬 Fantasy</button>
+            <button class="chip card-btn" data-card="finish">✍️ Finish it</button>
+            <button class="chip card-btn" data-card="random">🎲 Surprise me</button>
+          </div>
+          <p class="copy">Built for distance — every card works over video, voice, photos or text.</p>
+          <div id="card-out" class="reveal hidden"></div>
         </div>
       </div>
 
-      <!-- Guess the emoji (movies + spicy decks) -->
-      <div class="fun-card">
-        <div class="fun-title">Guess the emoji 🎬🔥</div>
-        <div class="card-grid">
-          <button class="ghost card-btn emoji-deck-btn" data-deck="movie">🎬 Movies</button>
-          <button class="ghost card-btn emoji-deck-btn" data-deck="spicy">🔥 Sexy acts</button>
-          <button class="ghost card-btn emoji-deck-btn" data-deck="position">🛏️ Positions</button>
-          <button class="ghost card-btn emoji-deck-btn" data-deck="phrase">🗯️ Dirty phrase</button>
-          <button class="ghost card-btn emoji-deck-btn" data-deck="sext">💌 Decode my sext</button>
-          <button class="ghost card-btn emoji-deck-btn" data-deck="random">🎲 Surprise</button>
+      <!-- ── Keep ───────────────────────────────────────────────────── -->
+      <div class="fun-tab hidden" data-tab="keep">
+        <div class="card">
+          <div class="card-head"><span class="micro">Love letter</span><i class="rule"></i></div>
+          <textarea id="letter-input" class="prose" placeholder="Write something only they get to read…"></textarea>
+          <button id="letter-send" class="mini">Seal and send</button>
         </div>
-        <div id="emoji-puzzle" class="emoji-puzzle"></div>
-        <div class="row">
-          <input id="emoji-guess" type="text" placeholder="Your guess…" />
-          <button id="emoji-send" class="mini">Guess</button>
-        </div>
-        <div class="row" style="margin-top:7px;">
-          <button id="emoji-reveal" class="mini">Reveal</button>
-        </div>
-        <div id="emoji-answer" class="card-out hidden"></div>
-        <div id="emoji-guesses" class="qotd-answers"></div>
-      </div>
 
-      <!-- Tic-tac-toe -->
-      <div class="fun-card">
-        <div class="fun-title">Tic-tac-toe ⭕❌</div>
-        <div id="ttt-board" class="ttt"></div>
-        <div class="row">
-          <span id="ttt-status" class="muted small"></span>
-          <button id="ttt-reset" class="mini">New game</button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Note for later</span><i class="rule"></i></div>
+          <input id="sched-text" type="text" placeholder="Something to arrive later…" />
+          <div class="row">
+            <input id="sched-when" type="datetime-local" />
+            <button id="sched-add" class="mini">Set</button>
+          </div>
+          <div id="sched-list" class="pending"></div>
         </div>
-      </div>
 
-      <!-- Doodle together -->
-      <div class="fun-card">
-        <div class="fun-title">Doodle together 🎨</div>
-        <canvas id="doodle" width="320" height="200"></canvas>
-        <div class="doodle-row">
-          <input id="doodle-color" type="color" value="#ff5c8a" />
-          <button id="doodle-clear" class="mini">Clear</button>
+        <div class="card">
+          <div class="card-head"><span class="micro">Our moments</span><i class="rule"></i></div>
+          <p class="copy">Mark a bit of whatever you're watching. Tap a moment to send you both back to it.</p>
+          <div class="rps-row">
+            <button class="mark-btn" data-mark="😂">😂</button>
+            <button class="mark-btn" data-mark="😮">😮</button>
+            <button class="mark-btn" data-mark="❤️">❤️</button>
+            <button class="mark-btn" data-mark="😭">😭</button>
+            <button class="mark-btn" data-mark="🔥">🔥</button>
+          </div>
+          <div id="timeline-list" class="wl-list"></div>
+          <div class="card-foot"><button id="timeline-clear" class="link-btn">Clear moments</button></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Watchlist</span><i class="rule"></i></div>
+          <div class="row">
+            <input id="wl-input" type="text" placeholder="Something to watch or do" />
+            <button id="wl-add" class="mini">Add</button>
+          </div>
+          <div id="wl-list" class="wl-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Scrapbook</span><i class="rule"></i></div>
+          <div class="row">
+            <input id="mem-input" type="text" placeholder="A memory worth keeping" />
+            <button id="mem-add" class="mini">Add</button>
+          </div>
+          <div id="mem-list" class="wl-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><span class="micro">Gallery</span><i class="rule"></i></div>
+          <p class="copy">Every photobooth shot you take or receive lands here. Tap one to send it again.</p>
+          <div id="gallery-grid" class="gallery-grid"></div>
+          <div class="card-foot"><button id="gallery-clear" class="link-btn">Clear gallery</button></div>
         </div>
       </div>
     </section>
 
-    <!-- Cuddle / goodnight overlay (shared) -->
+    <!-- Goodnight -->
     <div id="cuddle-overlay" class="hidden">
       <div class="cuddle-stars"></div>
-      <div class="cuddle-moon">🌙</div>
-      <div class="cuddle-text">Under the same moon 💕</div>
+      <div class="cuddle-horizon"></div>
+      <div class="cuddle-moon"></div>
+      <div class="cuddle-text">Under the same moon</div>
       <div id="cuddle-sub" class="cuddle-sub"></div>
       <div class="cuddle-timer-row">
+        <span class="micro">Sleep timer</span>
         <button class="cuddle-tmr" data-min="15">15m</button>
         <button class="cuddle-tmr" data-min="30">30m</button>
         <button class="cuddle-tmr" data-min="60">60m</button>
       </div>
       <div id="cuddle-countdown" class="cuddle-countdown"></div>
-      <button id="cuddle-exit" class="ghost">Wake up ☀️</button>
+      <button id="cuddle-exit" class="ghost">Wake up</button>
     </div>
 
-    <!-- Photobooth overlay -->
+    <!-- Photobooth -->
     <div id="pb-overlay" class="hidden">
       <div class="pb-head">
-        <span>📸 Photobooth</span>
-        <button id="pb-close" class="icon-btn">✕</button>
+        <span class="panel-title">Photobooth</span>
+        <button id="pb-close" class="icon-btn quiet"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
 
       <div id="pb-live">
@@ -491,50 +591,58 @@
           <div id="pb-flash" class="pb-flash"></div>
         </div>
 
-        <div class="pb-row pb-filters" id="pb-filters">
-          <button class="pb-chip sel" data-filter="none">Original</button>
-          <button class="pb-chip" data-filter="bw">B&amp;W</button>
-          <button class="pb-chip" data-filter="sepia">Sepia</button>
-          <button class="pb-chip" data-filter="vintage">Vintage</button>
-          <button class="pb-chip" data-filter="dreamy">Dreamy</button>
-          <button class="pb-chip" data-filter="blush">Blush</button>
-          <button class="pb-chip" data-filter="neon">Neon</button>
-          <button class="pb-chip" data-filter="invert">Invert</button>
-        </div>
-
-        <div class="pb-row">
-          <div class="pb-seg" id="pb-mode">
-            <button class="sel" data-mode="single">📷 Single</button>
-            <button data-mode="strip">🎞️ Strip</button>
-            <button data-mode="boom">🔄 Clip</button>
-          </div>
-          <div class="pb-seg" id="pb-layout">
-            <button class="sel" data-layout="me">Just me</button>
-            <button data-layout="us">Us 💕</button>
+        <div class="pb-group">
+          <span class="micro">Look</span>
+          <div class="pb-row pb-filters" id="pb-filters">
+            <button class="pb-chip sel" data-filter="none">Original</button>
+            <button class="pb-chip" data-filter="bw">B&amp;W</button>
+            <button class="pb-chip" data-filter="sepia">Sepia</button>
+            <button class="pb-chip" data-filter="vintage">Vintage</button>
+            <button class="pb-chip" data-filter="dreamy">Dreamy</button>
+            <button class="pb-chip" data-filter="blush">Blush</button>
+            <button class="pb-chip" data-filter="neon">Neon</button>
+            <button class="pb-chip" data-filter="invert">Invert</button>
           </div>
         </div>
 
-        <div class="pb-row">
-          <div class="pb-seg" id="pb-timer">
-            <button class="sel" data-timer="3">⏱️ 3s</button>
-            <button data-timer="5">⏱️ 5s</button>
-            <button data-timer="10">⏱️ 10s</button>
+        <div class="pb-group">
+          <span class="micro">Shot</span>
+          <div class="pb-row">
+            <div class="pb-seg" id="pb-mode">
+              <button class="sel" data-mode="single">Single</button>
+              <button data-mode="strip">Strip</button>
+              <button data-mode="boom">Clip</button>
+            </div>
+          </div>
+          <div class="pb-row">
+            <div class="pb-seg" id="pb-layout">
+              <button class="sel" data-layout="me">Just me</button>
+              <button data-layout="us">Us</button>
+            </div>
+            <div class="pb-seg" id="pb-timer">
+              <button class="sel" data-timer="3">3s</button>
+              <button data-timer="5">5s</button>
+              <button data-timer="10">10s</button>
+            </div>
           </div>
         </div>
-        <div id="pb-sync" class="muted small" style="text-align:center;"></div>
 
-        <div class="pb-row pb-stickers" id="pb-stickers">
-          <button class="pb-chip sel" data-sticker="💕">💕</button>
-          <button class="pb-chip" data-sticker="✨">✨</button>
-          <button class="pb-chip" data-sticker="🔥">🔥</button>
-          <button class="pb-chip" data-sticker="💋">💋</button>
-          <button class="pb-chip" data-sticker="🌙">🌙</button>
-          <button class="pb-chip" data-sticker="😎">😎</button>
-          <button class="pb-chip" data-sticker="">none</button>
+        <div class="pb-group">
+          <span class="micro">Sticker</span>
+          <div class="pb-row pb-stickers" id="pb-stickers">
+            <button class="pb-chip sel" data-sticker="💕">💕</button>
+            <button class="pb-chip" data-sticker="✨">✨</button>
+            <button class="pb-chip" data-sticker="🔥">🔥</button>
+            <button class="pb-chip" data-sticker="💋">💋</button>
+            <button class="pb-chip" data-sticker="🌙">🌙</button>
+            <button class="pb-chip" data-sticker="😎">😎</button>
+            <button class="pb-chip" data-sticker="">None</button>
+          </div>
         </div>
 
-        <input id="pb-caption" type="text" maxlength="40" placeholder="Caption (optional)…" />
-        <button id="pb-capture" class="primary">Start timer 📸</button>
+        <input id="pb-caption" type="text" maxlength="40" placeholder="Caption (optional)" />
+        <div id="pb-sync" class="copy center"></div>
+        <button id="pb-capture" class="primary">Start the timer</button>
       </div>
 
       <div id="pb-result" class="hidden">
@@ -543,30 +651,32 @@
           <canvas id="pb-draw"></canvas>
         </div>
         <video id="pb-clip" class="hidden" autoplay loop muted playsinline></video>
-        <div id="pb-draw-row" class="pb-row" style="align-items:center; justify-content:center;">
-          <span class="muted small">Doodle on it ✏️</span>
-          <input id="pb-draw-color" type="color" value="#ff7ec0" class="theme-color" />
+        <div id="pb-draw-row" class="pb-row">
+          <span class="micro">Draw on it</span>
+          <label class="color-well" title="Pen colour"><svg class="ic"><use href="#i-brush"/></svg><input id="pb-draw-color" type="color" value="#F0B457" /></label>
           <button id="pb-draw-clear" class="mini">Clear</button>
         </div>
         <div class="pb-actions">
-          <button id="pb-send" class="primary">Send 💌</button>
-          <button id="pb-save" class="ghost">Save 📖</button>
-          <button id="pb-download" class="ghost">Download ⬇️</button>
-          <button id="pb-retake" class="ghost">Retake 🔁</button>
+          <button id="pb-send" class="primary">Send it</button>
+          <button id="pb-save" class="ghost">Keep</button>
+          <button id="pb-download" class="ghost"><svg class="ic"><use href="#i-download"/></svg><span>Download</span></button>
+          <button id="pb-retake" class="ghost">Retake</button>
         </div>
       </div>
     </div>
 
-    <!-- Love-letter envelope overlay (shown when one arrives) -->
+    <!-- Letter -->
     <div id="letter-overlay" class="hidden">
       <div class="letter-stage">
-        <div id="letter-envelope" class="envelope">💌</div>
+        <div id="letter-envelope" class="envelope" role="button" tabindex="0">
+          <span class="env-flap"></span><span class="env-seal"><svg class="ic"><use href="#i-heart"/></svg></span>
+        </div>
         <div id="letter-paper" class="letter-paper hidden">
           <div class="letter-from" id="letter-from"></div>
           <div class="letter-body" id="letter-body"></div>
-          <button id="letter-close" class="primary">With love 💕</button>
+          <button id="letter-close" class="primary">With love</button>
         </div>
-        <div id="letter-hint" class="muted small">tap to open</div>
+        <div id="letter-hint" class="micro">Tap to open</div>
       </div>
     </div>
   </div>

@@ -12,7 +12,7 @@ import { $ } from "./core/dom.js";
 import { S } from "./core/state.js";
 import { showPanel } from "./core/ui.js";
 import { netSend } from "./core/net.js";
-import { loadSettings, saveName, saveSettings, applyTheme } from "./core/settings.js";
+import { loadSettings, saveName, saveSettings, applyTheme, markSwatch } from "./core/settings.js";
 import { startPairing, unpair, forceReconnect, leaveRoom } from "./core/connection.js";
 import { registerTabListener } from "./core/tab.js";
 import { toggleMic, toggleCam, setRemoteVolume, syncFunCams } from "./core/media.js";
@@ -25,7 +25,7 @@ import {
   pbOnControl, pbDrawInit, pbClearDraw, clearGallery, renderGallery, loadGallery,
 } from "./features/photobooth.js";
 import { renderHistory, refreshStats, refreshDates } from "./features/stats.js";
-import { shareWeather, renderMyWeather, renderPartnerWeather } from "./features/weather.js";
+import { shareWeather, renderMyWeather, renderPartnerWeather, markWeatherShared } from "./features/weather.js";
 import { bookmarkMoment, clearTimeline, renderTimeline, loadTimeline } from "./features/timeline.js";
 import {
   setMood, setMyRating, addWatchItem, renderWatchlist, renderCounts, renderHands,
@@ -38,6 +38,16 @@ import {
   tttBuild, tttReset, doodleInit, doodleClear, rpsPick, rpsReset, c4Build, c4Reset,
   emojiNew, emojiReveal, emojiSendGuess,
 } from "./features/games.js";
+
+// The Fun panel is four tabs, not one endless scroll — Us / Play / Ask / Keep.
+const FUN_TABS = ["us", "play", "cards", "keep"];
+function showFunTab(name) {
+  const i = Math.max(0, FUN_TABS.indexOf(name));
+  $("fun-tabs").dataset.i = i;
+  document.querySelectorAll(".fun-tab-btn").forEach((b) => b.classList.toggle("is-on", b.dataset.tab === FUN_TABS[i]));
+  document.querySelectorAll(".fun-tab").forEach((p) => p.classList.toggle("hidden", p.dataset.tab !== FUN_TABS[i]));
+  $("fun-panel").scrollTop = 0;
+}
 
 // Opens the Fun panel and refreshes everything it shows.
 function openFun() {
@@ -144,9 +154,14 @@ function init() {
   // Header buttons
   $("btn-close").addEventListener("click", () => { try { window.close(); } catch (_) {} });
   $("btn-settings").addEventListener("click", () => showPanel("settings"));
+  $("btn-settings-back").addEventListener("click", () => showPanel(S.connectedOnce ? "live" : "connect"));
   $("btn-reconnect").addEventListener("click", forceReconnect);
   $("btn-save-settings").addEventListener("click", saveSettings);
+  // Live preview while picking: the whole panel retints as you choose.
   $("set-theme").addEventListener("input", () => applyTheme($("set-theme").value));
+  document.querySelectorAll("#theme-swatches .swatch[data-color]").forEach((b) =>
+    b.addEventListener("click", () => { $("set-theme").value = b.dataset.color; applyTheme(b.dataset.color); markSwatch(b.dataset.color); })
+  );
   $("btn-clear-history").addEventListener("click", () => {
     chrome.storage.local.set({ wt_stats: { count: 0, streak: 0, lastDate: null, history: [] } }, () => { refreshStats(); renderHistory(); });
   });
@@ -163,6 +178,7 @@ function init() {
   // ---- Fun panel ----
   $("btn-fun").addEventListener("click", openFun);
   $("btn-fun-back").addEventListener("click", () => showPanel(S.connectedOnce ? "live" : "connect"));
+  document.querySelectorAll(".fun-tab-btn").forEach((b) => b.addEventListener("click", () => showFunTab(b.dataset.tab)));
   document.querySelectorAll(".mood-opt").forEach((b) => b.addEventListener("click", () => setMood(b.dataset.mood)));
   $("mood-text").addEventListener("keydown", (e) => { if (e.key === "Enter") { setMood($("mood-text").value.trim()); } });
   $("qotd-send").addEventListener("click", sendQotd);
@@ -211,6 +227,7 @@ function init() {
   // Love letter
   $("letter-send").addEventListener("click", sendLetter);
   $("letter-envelope").addEventListener("click", openLetter);
+  $("letter-envelope").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLetter(); } });
   $("letter-close").addEventListener("click", closeLetter);
   // Surprise scheduled note
   $("sched-add").addEventListener("click", addScheduled);
@@ -242,7 +259,7 @@ function init() {
     if (Array.isArray(r.wt_scrapbook)) S.scrapbook = r.wt_scrapbook;
     if (Array.isArray(r.wt_scheduled)) S.scheduled = r.wt_scheduled;
     if (typeof r.wt_hands === "number") S.handSeconds = r.wt_hands;
-    if (r.wt_weather) { S.myWeather = r.wt_weather; $("weather-btn").textContent = "Update my weather 🔄"; }
+    if (r.wt_weather) { S.myWeather = r.wt_weather; markWeatherShared(); }
     if (Array.isArray(r.wt_timeline)) loadTimeline(r.wt_timeline);
     if (Array.isArray(r.wt_gallery)) loadGallery(r.wt_gallery);
     renderCounts(); renderHands(); renderScheduled(); renderScrapbook(); renderMyWeather(); renderTimeline(); renderGallery();

@@ -50,8 +50,8 @@ export async function openPhotobooth(remote) {
 export function closePhotobooth() { $("pb-overlay").classList.add("hidden"); }
 function pbSyncStatus() {
   $("pb-sync").textContent = S.connectedOnce
-    ? `💞 Synced with ${S.settings.partner} — you'll snap together`
-    : "Solo mode — connect to snap together";
+    ? `In step with ${S.settings.partner} — the timer runs on both sides.`
+    : "On your own for now. Connect to snap together.";
 }
 // Apply settings pushed by the partner (no rebroadcast).
 export function applyPbSettings(d) {
@@ -173,12 +173,13 @@ async function pbStitch(myShots, partnerShots, p) {
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const ctx = c.getContext("2d");
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-  const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#3a2247"); bg.addColorStop(1, "#241531");
+  // A paper mount, like a real booth strip — this is the thing people keep.
+  const bg = ctx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#FAF6ED"); bg.addColorStop(1, "#EDE4D3");
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   for (let s = 0; s < shots; s++) {
     const y = pad + s * (cellH + gap);
     ctx.save(); roundRect(ctx, pad, y, cellW, cellH, 22); ctx.clip();
-    ctx.fillStyle = "#1d1424"; ctx.fillRect(pad, y, cellW, cellH);
+    ctx.fillStyle = "#141019"; ctx.fillRect(pad, y, cellW, cellH);
     if (useUs) {
       drawImgCover(ctx, await loadImg(myShots[s]), pad, y, halfW, cellH, true);          // me — mirrored, left
       drawImgCover(ctx, await loadImg(partnerShots[s]), pad + halfW, y, cellW - halfW, cellH, false); // partner — right
@@ -193,14 +194,25 @@ async function pbStitch(myShots, partnerShots, p) {
       ctx.textBaseline = "alphabetic";
     }
   }
-  const bw = Math.max(5, Math.round(W * 0.01));
-  ctx.lineWidth = bw; ctx.strokeStyle = "#ff7ec0";
-  roundRect(ctx, bw, bw, W - 2 * bw, H - 2 * bw, 30); ctx.stroke();
   ctx.textAlign = "center";
-  ctx.fillStyle = "#ffe9f4"; ctx.font = "700 " + Math.round(footer * 0.42) + "px system-ui, sans-serif";
-  ctx.fillText(p.caption, W / 2, H - footer * 0.55);
-  ctx.fillStyle = "#c19ccf"; ctx.font = "600 " + Math.round(footer * 0.26) + "px system-ui, sans-serif";
-  ctx.fillText(new Date().toLocaleDateString(), W / 2, H - footer * 0.2);
+  const capY = H - footer * 0.5;
+  ctx.fillStyle = "#33271E";
+  ctx.font = Math.round(footer * 0.4) + 'px Superclarendon, Rockwell, Georgia, serif';
+  ctx.fillText(p.caption, W / 2, capY);
+  const dateStr = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }).toUpperCase();
+  ctx.fillStyle = "#9A8A76";
+  ctx.font = "600 " + Math.round(footer * 0.18) + 'px "SF Mono", ui-monospace, Menlo, monospace';
+  const track = Math.round(footer * 0.05);
+  ctx.save();
+  ctx.translate(W / 2, H - footer * 0.16);
+  // Canvas has no letter-spacing, so track the date by hand — it's the one bit
+  // of type here that has to read as a caption rather than a sentence.
+  const chars = [...dateStr];
+  const widths = chars.map((ch) => ctx.measureText(ch).width + track);
+  let x = -(widths.reduce((a, b) => a + b, 0) - track) / 2;
+  ctx.textAlign = "left";
+  chars.forEach((ch, i) => { ctx.fillText(ch, x, 0); x += widths[i]; });
+  ctx.restore();
   return c.toDataURL("image/jpeg", 0.92);
 }
 function pbFinish(dataUrl) {
@@ -244,7 +256,7 @@ async function pbRunPhoto() {
   pbSession = { shots, sticker: pbSticker, caption, myShots, partnerShots: pbIncomingShots, done: false };
   pbIncomingShots = null;
   netSend({ t: "pb-photo", shots: myShots, total: shots, sticker: pbSticker, caption });
-  $("pb-sync").textContent = `✨ Stitching your HD photo with ${S.settings.partner}…`;
+  $("pb-sync").textContent = `Putting the two halves together with ${S.settings.partner}…`;
   pbMaybeStitch();
   clearTimeout(pbStitchTimer);
   pbStitchTimer = setTimeout(async () => {
@@ -277,7 +289,7 @@ function showImageResult(dataUrl) {
 
 // Boomerang / short looping clip via MediaRecorder on a filtered canvas.
 async function pbRunClip() {
-  if (!window.MediaRecorder) { addSys("Looping clips aren't supported on this browser — try a strip 🎞️"); return; }
+  if (!window.MediaRecorder) { addSys("This browser can't record clips. Try a strip instead."); return; }
   pbBusy = true; $("pb-capture").disabled = true;
   const lv = $("local-video"), rv = $("remote-video");
   const useUs = pbLayout === "us" && rv.srcObject;
@@ -343,13 +355,13 @@ export function pbSend() {
     addMsg({ mine: true, gif: out });
     netSend({ t: "snap", img: out });
   }
-  addSys("📸 Sent a photobooth pic");
+  addSys("Photo sent.");
   closePhotobooth();
 }
 export function pbSave() {
-  if (pbResultType === "clip") { addSys("📸 It's in your gallery below 👇"); return; }
+  if (pbResultType === "clip") { addSys("Already in your gallery, under Keep."); return; }
   addPhotoToScrapbook(pbComposite());
-  addSys("📖 Saved to your scrapbook");
+  addSys("Kept in your scrapbook.");
 }
 export function pbDownload() {
   const a = document.createElement("a");
@@ -398,7 +410,7 @@ export function addToGallery(type, data) {
 export function renderGallery() {
   const grid = $("gallery-grid"); if (!grid) return;
   grid.innerHTML = "";
-  if (!gallery.length) { grid.innerHTML = '<div class="muted small gallery-empty">No photos yet — open the photobooth 🎞️</div>'; return; }
+  if (!gallery.length) { grid.innerHTML = '<div class="copy gallery-empty">Empty for now. Open the photobooth to start it off.</div>'; return; }
   gallery.forEach((g) => {
     let el;
     if (g.type === "clip") { el = document.createElement("video"); el.src = g.data; el.muted = true; el.loop = true; el.autoplay = true; el.playsInline = true; }
@@ -411,7 +423,7 @@ export function renderGallery() {
 function resendGalleryItem(g) {
   if (g.type === "clip") { addMsg({ mine: true, clip: g.data }); netSend({ t: "clip", clip: g.data }); }
   else { addMsg({ mine: true, gif: g.data }); netSend({ t: "snap", img: g.data }); }
-  addSys("📸 Sent from your gallery");
+  addSys("Sent again from your gallery.");
   burst("heart");
 }
 export function clearGallery() { gallery = []; chrome.storage.local.set({ wt_gallery: gallery }); renderGallery(); }
@@ -419,7 +431,7 @@ export function loadGallery(arr) { gallery = Array.isArray(arr) ? arr : []; rend
 
 // ---- Remote-driven entry points (net.js pb-* handlers) ------------------
 export function receivePbOpen() {
-  if ($("pb-overlay").classList.contains("hidden")) { addSys(`📸 ${S.settings.partner} opened the photobooth`); openPhotobooth(true); }
+  if ($("pb-overlay").classList.contains("hidden")) { addSys(`${S.settings.partner} opened the photobooth.`); openPhotobooth(true); }
 }
 export function receivePbGo(d) {
   (async () => {

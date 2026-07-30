@@ -63,7 +63,7 @@ export function runCountdown(initiator) {
 }
 
 // ---- Greetings / heartbeat / kiss / snap --------------------------------
-export function sendGreet(kind) { netSend({ t: "greet", kind }); addSys(kind === "gm" ? "☀️ Sent good morning" : "🌙 Sent good night"); }
+export function sendGreet(kind) { netSend({ t: "greet", kind }); addSys(kind === "gm" ? "Good morning, sent." : "Good night, sent."); }
 export function sendHeartbeat() { netSend({ t: "heartbeat" }); beatFast(); }
 export function sendKissPause() {
   netSend({ t: "kiss-pause" });
@@ -72,7 +72,7 @@ export function sendKissPause() {
 }
 export function sendSnap() {
   const v = $("local-video");
-  if (!v || !v.srcObject) { addSys("Turn your camera on first 📷"); return; }
+  if (!v || !v.srcObject) { addSys("Turn your camera on first."); return; }
   try {
     const c = document.createElement("canvas");
     c.width = 320; c.height = Math.round(320 * (v.videoHeight || 240) / (v.videoWidth || 320));
@@ -82,5 +82,5 @@ export function sendSnap() {
     const img = c.toDataURL("image/jpeg", 0.6);
     addMsg({ mine: true, gif: img });
     netSend({ t: "snap", img });
-  } catch (_) { addSys("Couldn't take a snap."); }
+  } catch (_) { addSys("That snap didn't take. Try again."); }
 }

@@ -17,14 +17,19 @@ let pendingInvite = null;
 export async function sendInvite() {
   if (!S.connectedOnce) { addSys("Not connected yet — pair first."); return; }
   const s = await getPageState();
-  if (!s || !s.url || /^chrome|^about:|^edge|^devtools/.test(s.url)) { addSys("Open a video page first, then invite."); return; }
+  if (!s || !s.url || /^chrome|^about:|^edge|^devtools/.test(s.url)) { addSys("Open the video first, then invite them."); return; }
   netSend({ t: "invite", url: s.url, title: s.title });
-  addSys(`Invite sent to ${S.settings.partner} 💌`);
+  addSys(`Invite sent to ${S.settings.partner}.`);
 }
 
 export function showInviteBanner(title) {
-  const t = title ? `"${title.length > 70 ? title.slice(0, 67) + "…" : title}"` : "a video";
-  $("invite-text").textContent = `💗 ${S.settings.partner} wants to watch ${t} together`;
+  const t = title ? (title.length > 70 ? title.slice(0, 67) + "…" : title) : "something";
+  const el = $("invite-text");
+  el.innerHTML = "";
+  const who = document.createElement("b"); who.textContent = S.settings.partner;
+  el.append(who, document.createTextNode(" wants to watch "));
+  const what = document.createElement("i"); what.textContent = t;
+  el.append(what, document.createTextNode(" with you."));
   $("invite-banner").classList.remove("hidden");
 }
 export function hideInviteBanner() { $("invite-banner").classList.add("hidden"); }

@@ -20,6 +20,10 @@
 // developers.giphy.com if it ever gets abused.)
 export const DEFAULT_GIPHY_KEY = "4AV58X7gVu01rrXsHmbiuxsJ9kIBeZIw";
 
+// The colour you see your partner in (shared, so both panels match). Yours is
+// always the fixed amber in sidebar.css — only theirs is chosen.
+export const DEFAULT_THEME = "#F0728F";
+
 export const S = {
   // ---- Settings (persisted to chrome.storage.local as wt_settings) --------
   settings: {

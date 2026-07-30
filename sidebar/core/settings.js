@@ -2,12 +2,12 @@
 // first-run name gate, the shared theme color, and applying the partner's
 // name/theme when they arrive over the wire.
 //
-// Exports: loadSettings, saveName, saveSettings, applyTheme, shade,
-//   applyPartnerName, applyPartnerTheme.
+// Exports: loadSettings, saveName, saveSettings, applyTheme, applyNames,
+//   markSwatch, shade, applyPartnerName, applyPartnerTheme.
 
 import { $ } from "./dom.js";
-import { S, DEFAULT_GIPHY_KEY } from "./state.js";
-import { showPanel, setStatus } from "./ui.js";
+import { S, DEFAULT_GIPHY_KEY, DEFAULT_THEME } from "./state.js";
+import { showPanel, setStatus, initials } from "./ui.js";
 import { netSend } from "./net.js";
 import { applyRemoteVolume, resumeMedia } from "./media.js";
 import { refreshStats, refreshDates } from "../features/stats.js";
@@ -22,19 +22,17 @@ export function loadSettings() {
     // before they reconnect and re-send it.
     if (S.settings.partnerName) S.partnerReal = S.settings.partnerName;
     S.settings.partner = S.settings.petName || S.partnerReal || "Partner";
-    $("me-name").textContent = S.settings.me;
     $("set-me").value = S.settings.me;
     $("set-giphy").value = S.settings.giphyKey;
     $("set-autocam").checked = S.settings.autocam;
     $("set-petname").value = S.settings.petName || "";
-    $("set-theme").value = S.settings.themeColor || "#ff7ec0";
+    $("set-theme").value = S.settings.themeColor || DEFAULT_THEME;
     $("set-anniversary").value = S.settings.anniversary || "";
     $("set-bday-me").value = S.settings.bdayMe || "";
     $("set-bday-partner").value = S.settings.bdayPartner || "";
-    $("local-label").textContent = S.settings.me;
-    $("remote-label").textContent = S.settings.partner;
+    applyNames();
     applyRemoteVolume();
-    if (S.settings.themeColor) applyTheme(S.settings.themeColor);
+    applyTheme(S.settings.themeColor || DEFAULT_THEME);
     refreshStats();
     refreshDates();
     if ($("pair-code")) $("pair-code").value = S.settings.pairCode || "";
@@ -81,10 +79,28 @@ export function saveName() {
   S.settings.me = n;
   S.settings.named = true;
   chrome.storage.local.set({ wt_settings: S.settings });
-  $("me-name").textContent = n;
   $("set-me").value = n;
-  $("local-label").textContent = n;
+  applyNames();
   showPanel("connect");
+}
+
+// Every place a name is shown: the greeting, both camera tiles (label + the
+// monogram that stands in for a dark tile), the Fun-panel clocks, the header.
+export function applyNames() {
+  const me = S.settings.me, them = S.settings.partner;
+  const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+  set("me-name", me);
+  set("local-label", me);
+  set("remote-label", them);
+  set("local-mono", initials(me));
+  set("remote-mono", initials(them));
+  set("fun-local-mono", initials(me));
+  set("fun-remote-mono", initials(them));
+  set("clock-me-label", me);
+  set("clock-them-label", them);
+  set("fun-local-label", me);
+  set("fun-remote-label", them);
+  if (S.connectedOnce) set("header-status", them);
 }
 
 export function saveSettings() {
@@ -104,17 +120,14 @@ export function saveSettings() {
   chrome.storage.local.set({ wt_settings: S.settings });
   applyTheme(S.settings.themeColor);
   if (colorChanged) netSend({ t: "theme", color: S.settings.themeColor });
-  $("me-name").textContent = S.settings.me;
-  $("local-label").textContent = S.settings.me;
-  $("remote-label").textContent = S.settings.partner;
-  if (S.connectedOnce && $("header-status")) $("header-status").textContent = S.settings.partner;
+  applyNames();
   refreshDates();
   showPanel(S.connectedOnce ? "live" : "connect");
 }
 
 // ---- Theme color (shared accent) ----------------------------------------
 export function shade(hex, pct) {
-  hex = (hex || "#ff7ec0").replace("#", "");
+  hex = (hex || DEFAULT_THEME).replace("#", "");
   if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
   const num = parseInt(hex, 16);
   let r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
@@ -122,16 +135,28 @@ export function shade(hex, pct) {
   r = Math.round((t - r) * p) + r; g = Math.round((t - g) * p) + g; b = Math.round((t - b) * p) + b;
   return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
+// Only "their" side is themed. `--them` in the stylesheet aliases `--accent`,
+// so setting these three cascades to every partner-coloured element and to the
+// two-tone `--us` gradient.
 export function applyTheme(color) {
   if (!color) return;
-  const light = shade(color, 0.32), deep = shade(color, -0.18);
   const r = document.documentElement.style;
   r.setProperty("--accent", color);
-  r.setProperty("--accent-d", deep);
-  r.setProperty("--accent2", light);
-  r.setProperty("--grad", `linear-gradient(135deg, ${light} 0%, ${color} 100%)`);
-  r.setProperty("--grad-purple", `linear-gradient(135deg, ${shade(color, 0.1)} 0%, ${color} 100%)`);
-  r.setProperty("--glow", `0 0 16px ${color}80`);
+  r.setProperty("--accent2", shade(color, 0.34));
+  r.setProperty("--accent-d", shade(color, -0.22));
+  markSwatch(color);
+}
+
+// Light the preset that matches the current colour (custom picks light none).
+export function markSwatch(color) {
+  const wrap = $("theme-swatches");
+  if (!wrap) return;
+  const want = (color || "").toLowerCase();
+  wrap.querySelectorAll(".swatch[data-color]").forEach((b) => {
+    b.classList.toggle("is-on", b.dataset.color.toLowerCase() === want);
+  });
+  const custom = wrap.querySelector(".swatch.custom");
+  if (custom) custom.style.setProperty("--sw", color);
 }
 
 // ---- Applied when the partner sends theirs over the wire ----------------
@@ -140,8 +165,7 @@ export function applyPartnerName(name) {
   S.settings.partnerName = S.partnerReal;                 // remember across restarts
   S.settings.partner = S.settings.petName || S.partnerReal;
   chrome.storage.local.set({ wt_settings: S.settings });
-  $("remote-label").textContent = S.settings.partner;
-  if (S.connectedOnce && $("header-status")) $("header-status").textContent = S.settings.partner;
+  applyNames();
 }
 
 export function applyPartnerTheme(color) {

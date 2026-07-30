@@ -26,7 +26,7 @@ export function tttBuild() {
 function tttStatus() {
   tttMyMark = myMark();
   const w = tttWinner();
-  if (w) { $("ttt-status").textContent = w === "draw" ? "It's a draw 🤝" : `${w === tttMyMark ? "You" : S.settings.partner} win${w === tttMyMark ? "" : "s"}! 🎉`; return; }
+  if (w) { $("ttt-status").textContent = w === "draw" ? "A draw." : `${w === tttMyMark ? "You" : S.settings.partner} win${w === tttMyMark ? "" : "s"}.`; return; }
   $("ttt-status").textContent = tttTurn === tttMyMark ? `Your turn (${tttMyMark})` : `${S.settings.partner}'s turn`;
 }
 export function tttReset(broadcast) {
@@ -50,7 +50,9 @@ export function tttApply(i, mark) {
   if (tttBoard[i]) return;
   tttBoard[i] = mark;
   const cell = document.querySelector(`#ttt-board .cell[data-i="${i}"]`);
-  if (cell) { cell.textContent = mark === "X" ? "✕" : "◯"; cell.classList.add(mark.toLowerCase()); }
+  // Colour by whose mark it is on THIS panel, not by X/O — the amber/their-colour
+  // split has to mean the same thing everywhere.
+  if (cell) { cell.textContent = mark === "X" ? "✕" : "◯"; cell.classList.add(mark === myMark() ? "mine" : "theirs"); }
   tttTurn = mark === "X" ? "O" : "X";
   tttStatus();
 }
@@ -133,7 +135,7 @@ function c4Status() {
   const mine = c4Color();
   const w = c4Winner();
   if (w) { $("c4-status").textContent = w === "draw" ? "Draw 🤝" : `${w === mine ? "You" : S.settings.partner} win${w === mine ? "" : "s"}! 🎉`; return; }
-  $("c4-status").textContent = c4Turn === mine ? `Your turn (${mine === "r" ? "🔴" : "🟡"})` : `${S.settings.partner}'s turn`;
+  $("c4-status").textContent = c4Turn === mine ? "Your turn" : `${S.settings.partner}'s turn`;
 }
 export function c4Reset(broadcast) {
   c4Board = Array(42).fill(""); c4Turn = "r";
@@ -156,7 +158,7 @@ export function c4Apply(col, color) {
   const row = c4DropRow(col); if (row < 0) return;
   const idx = row * 7 + col; c4Board[idx] = color;
   const cell = document.querySelector(`#c4-board .c4-cell[data-i="${idx}"]`);
-  if (cell) cell.classList.add(color === "r" ? "red" : "yellow");
+  if (cell) cell.classList.add(color === c4Color() ? "mine" : "theirs");
   c4Turn = color === "r" ? "y" : "r";
   c4Status();
 }
@@ -238,8 +240,9 @@ export function emojiNew(deck) {
 }
 export function renderEmojiGuess(who, text) {
   const el = document.createElement("div");
-  el.className = "ans"; el.innerHTML = "<b></b> <span></span>";
-  el.querySelector("b").textContent = who + ":"; el.querySelector("span").textContent = text;
+  el.className = "ans" + (who === S.settings.me ? " mine" : "");
+  el.innerHTML = "<b></b><span></span>";
+  el.querySelector("b").textContent = who; el.querySelector("span").textContent = text;
   $("emoji-guesses").appendChild(el);
 }
 export function emojiSendGuess() {
